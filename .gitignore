@@ -1,0 +1,37 @@
+# Python & Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Operating System Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Recordings & Large Video Captures
+recordings/
+*.mp4
+*.avi
+*.mkv
+
+# Large 3D CAD models (>100MB)
+webots/worlds/logitech_c270/*.obj
+*.stl
+*.step
+
+# Keep weights and models
+!runs/detect/balon_detector_v3/weights/best.pt
+!turret_fcs/rl_sim/models/turret_ppo_final.zip
