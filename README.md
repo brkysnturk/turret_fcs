@@ -1,5 +1,5 @@
 # Otonom Asimetrik Hava Tehdidi Tespit ve Atış Kontrol Sistemi (Turret FCS)
-### YTU Bitirme Tezi // TUSAŞ LIFT UP Sanayi Odaklı Lisans Bitirme Projesi
+### YTU Bitirme Çalışması & Tasarım Projesi
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![STM32 Nucleo](https://img.shields.io/badge/Hardware-STM32F401RE-002B49.svg)](https://www.st.com/)
@@ -131,5 +131,5 @@ turret_fcs/
 ---
 
 ## 📜 Lisans & Akademik Referans
-Bu proje Yıldız Teknik Üniversitesi Bitirme Projesi kapsamında ve TUSAŞ LIFT UP Sanayi Odaklı Lisans Bitirme Projeleri Programı çerçevesinde geliştirilmiştir.
+Bu proje Yıldız Teknik Üniversitesi Bitirme Çalışması & Tasarım Projesi kapsamında geliştirilmiştir.
 Tüm hakları proje ekibine aittir.
