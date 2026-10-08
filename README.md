@@ -122,7 +122,7 @@ python analysis/system_identification.py
 
 ```
 turret_fcs/
-├── requirements.txt           # Python kütüphane bağımlılıkları (NumPy <2.0 kilitlemeli)
+├── requirements.txt           # Python kütüphane bağımlılıkları
 ├── setup_env.bat              # Otomatik sanal ortam (venv) ve kütüphane kurulum aracı
 ├── README.md                  # Proje mimarisi ve teknik dokümantasyon
 ├── analysis/                  # Akademik kontrol ve sistem tanıma araçları
