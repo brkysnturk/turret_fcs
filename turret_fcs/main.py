@@ -167,7 +167,7 @@ def main():
             cv2.imshow(WINDOW_NAME, frame)
             key = cv2.waitKey(1) & 0xFF
 
-            if key == 27:
+            if key == 27 or key == ord("q") or key == ord("Q"):
                 break
             elif key == ord("m") or key == ord("M"):
                 mode_cycle = {"HYBRID": "PID", "PID": "RL", "RL": "HYBRID"}
