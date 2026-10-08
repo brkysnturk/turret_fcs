@@ -15,10 +15,10 @@ class FCSManager:
 
     def __init__(
         self,
-        kp=0.42,
-        ki=0.18,
-        kd=0.038,
-        alpha=0.85,
+        kp=0.18,
+        ki=0.0,
+        kd=0.025,
+        alpha=0.80,
         min_conf=0.30,
         lock_threshold_frames=15,
         max_lost_frames=12,
