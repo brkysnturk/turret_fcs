@@ -18,7 +18,7 @@ DURUM VE EYLEM UZAYI:
 GECIKME TELAFISI (LATENCY COMPENSATION):
 PPO modeli simulasyonda 80 ms transport delay buffer'i ile egitildiginden, hedefin
 anlik konumuna degil, 80 ms sonra olacagi konuma dogru taret komutu uretir (Lead Pursuit).
-Bu sayede yuksek hizli hedeflerde klasik PID'nin arkada kalma (lag) problemini cozer.
+Bu sayede yuksek hizli hedeflerde klasik P kontrolcunun arkada kalma (lag) problemini cozer.
 ================================================================================
 """
 

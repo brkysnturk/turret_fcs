@@ -13,9 +13,9 @@ TEMEL GOREVLER VE AKIS:
 1. Donanim Baslatma: Logitech C270 kamera (DirectShow) ve STM32 (USB VID 0483) otomatik algilama.
 2. Derin Ogrenme Cikarimi: Egitilmis YOLOv8 modeli ile balon tespiti (best.pt).
 3. Kontrol Modlari (Klavyeden 'M' ile gecis):
-   - "PID": Hiz-uyarlamali yumusak olu bolgeli oransal kontrol (Donanimda en kararli).
-   - "HYBRID": Hizli hedeflerde gecikmeyi telafi eden AI takviyeli PID + PPO RL harmanlama.
-   - "RL": Saf Reinforcement Learning (PPO) ile otonom yonlendirme.
+   - "P": Hiz-uyarlamali yumusak olu bolgeli oransal kontrol (P CONTROLLER - Donanimda en kararli).
+   - "HYBRID": Hizli hedeflerde gecikmeyi telafi eden AI takviyeli P + PPO RL harmanlama (HYBRID CONTROLLER).
+   - "RL": Saf Reinforcement Learning (PPO) ile otonom yonlendirme (RL CONTROLLER).
 4. Akilli Devriye (Klavyeden 'P' ile gecis):
    - Hedef yokken iki asamali arama (Grace Period -> Yerel Dar Arama -> Genel Sektor).
 5. E-STOP (Bosluk Tusu): Acil durumda aninda motor durdurma ve devriye kilitleme.
@@ -47,7 +47,7 @@ def main():
     # Otomatik port ve kamera tespiti
     stm = FCSCommunicator()
     hud = TurretHUD()
-    fcs = FCSManager(control_mode="PID")
+    fcs = FCSManager(control_mode="P")
     telemetry = TelemetryLogger() if ENABLE_TELEMETRY else None
 
     # Logitech C270 Gorus Acilari
@@ -192,20 +192,23 @@ def main():
             # Kontrol Modu ve Devriye Durum Banneri (HUD)
             if fcs.control_mode == "HYBRID":
                 rl_pct = int(getattr(fcs, "current_rl_weight", 0.0) * 100)
-                mode_label = f"HYBRID (AI:{rl_pct}%)"
+                mode_label = f"HYBRID CONTROLLER (AI:{rl_pct}%)" if rl_pct > 0 else "HYBRID CONTROLLER"
                 mode_color = (0, 255, 128)
-            elif fcs.control_mode == "PID":
-                mode_label = "ADAPTIVE PID"
-                mode_color = (0, 255, 255)
-            else:
-                mode_label = "PURE RL PPO"
+            elif fcs.control_mode == "RL":
+                mode_label = "RL CONTROLLER"
                 mode_color = (255, 200, 0)
+            else:
+                mode_label = "P CONTROLLER"
+                mode_color = (0, 255, 255)
 
             patrol_tag = "PATROL: AUTO" if fcs.patrol_enabled else "PATROL: OFF"
+            banner_text = f"[{mode_label}] | [{patrol_tag}] ('M' Mode / 'P' Patrol)"
+            (b_w, _), _ = cv2.getTextSize(banner_text, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
+            banner_x = max(10, center_x - (b_w // 2))
             cv2.putText(
                 frame,
-                f"[{mode_label}] | [{patrol_tag}] ('M' Mode / 'P' Patrol)",
-                (center_x - 270, 30),
+                banner_text,
+                (banner_x, 30),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.55,
                 mode_color,
@@ -219,9 +222,14 @@ def main():
             if key == 27 or key == ord("q") or key == ord("Q"):
                 break
             elif key == ord("m") or key == ord("M"):
-                mode_cycle = {"PID": "HYBRID", "HYBRID": "RL", "RL": "PID"}
-                fcs.control_mode = mode_cycle.get(fcs.control_mode, "PID")
-                print(f"\n[MOD DEGISTI] Gercek Donanim Kontrol Modu: >>> {fcs.control_mode} <<<")
+                mode_cycle = {"P": "HYBRID", "HYBRID": "RL", "RL": "P"}
+                fcs.control_mode = mode_cycle.get(fcs.control_mode, "P")
+                mode_names = {
+                    "P": "P CONTROLLER",
+                    "HYBRID": "HYBRID CONTROLLER",
+                    "RL": "RL CONTROLLER",
+                }
+                print(f"\n[MOD DEGISTI] Gercek Donanim Kontrol Modu: >>> {mode_names.get(fcs.control_mode, fcs.control_mode)} <<<")
             elif key == ord("p") or key == ord("P"):
                 fcs.patrol_enabled = not fcs.patrol_enabled
                 p_text = "ACIK (Otomatik 2 Asamali Arama)" if fcs.patrol_enabled else "KAPALI (Sessiz Standby)"

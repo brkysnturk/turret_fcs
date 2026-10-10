@@ -3,7 +3,7 @@
 YILDIZ TEKNIK UNIVERSITESI - KONTROL VE OTOMASYON MUHENDISLIGI BOLUMU
 BITIRME PROJESI: OTONOM PAN-TILT TARET VE ATIS KONTROL SISTEMI (FCS)
 --------------------------------------------------------------------------------
-MODUL: HIZ-UYARLAMALI YUMUSAK OLU BOLGELI P KONTROLCU (PID CONTROLLER)
+MODUL: HIZ-UYARLAMALI YUMUSAK OLU BOLGELI P KONTROLCU (P CONTROLLER)
 ================================================================================
 Bu modul, piksellerden acisal hata donusumunu ve taret motorlarinin gercek zamanli
 servomekanizma kontrol komutlarini uretir.
@@ -28,7 +28,7 @@ KONTROL TEORISI VE MATEMATIKSEL MIMARI:
 import numpy as np
 
 
-class PIDController:
+class PController:
     """
     Kamera goruntusunden hedefin acisal sapmasini, balistik yercekimi dususunu (super-elevation),
     ve hedefin hareket hizina gore dinamik uyarlanan yumusak olu bolgeli oransal 
@@ -112,9 +112,9 @@ class PIDController:
         lead_tilt = np.degrees(np.arctan(-d_lead_y / max(fy, 1e-6)))
         return float(lead_pan), float(lead_tilt)
 
-    def compute_pid(self, active_pan, active_tilt, dt, target_speed=0.0):
+    def compute_p(self, active_pan, active_tilt, dt, target_speed=0.0):
         """
-        Hedefin hareket hizina gore dinamik olu bolge ve ayrik eksenli oransal kontrol komutunu hesaplar.
+        Hedefin hareket hizina gore dinamik olu bolge ve ayrik eksenli oransal (P) kontrol komutunu hesaplar.
         
         Parametreler:
             active_pan: Yatay eksendeki toplam acisal hata (derece)
