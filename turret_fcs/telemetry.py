@@ -1,3 +1,25 @@
+"""
+================================================================================
+YILDIZ TEKNIK UNIVERSITESI - KONTROL VE OTOMASYON MUHENDISLIGI BOLUMU
+BITIRME PROJESI: OTONOM PAN-TILT TARET VE ATIS KONTROL SISTEMI (FCS)
+--------------------------------------------------------------------------------
+MODUL: GERCEK ZAMANLI TELEMETRI KAYIT MOTORU (TELEMETRY LOGGER / BLACKBOX)
+================================================================================
+Bu modul, otonom taretin calismasi sirasinda her 33 ms'lik karede olculen tum durum,
+hata, eyleyici ve sensor parametrelerini zaman damgali olarak CSV formatinda kaydeder.
+
+KAYDEDILEN 21 KRITIK PARAMETRE:
+- Zaman ve Basarim: time_sec, dt, fps
+- Hedef Geometrisi ve Durumu: target_detected, box_cx, box_cy
+- Kontrol Hatalari: angular_err_pan, angular_err_tilt, angular_err_total
+- Eyleyici Komutlari: cmd_pan, cmd_tilt (derece/kare)
+- Kalman Kestirimleri: target_vel_x, target_vel_y, target_speed (px/s)
+- TF-Luna LiDAR: dist_cm, signal_strength
+- Durum Makinasi: fcs_state, control_mode (PID/HYBRID/RL), rl_weight
+- Atis ve Kilit Kriterleri: lock_counter, is_locked, hit_prob (%)
+================================================================================
+"""
+
 import csv
 import math
 import os

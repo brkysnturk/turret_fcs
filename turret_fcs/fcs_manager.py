@@ -1,3 +1,27 @@
+"""
+================================================================================
+YILDIZ TEKNIK UNIVERSITESI - KONTROL VE OTOMASYON MUHENDISLIGI BOLUMU
+BITIRME PROJESI: OTONOM PAN-TILT TARET VE ATIS KONTROL SISTEMI (FCS)
+--------------------------------------------------------------------------------
+MODUL: ATIS KONTROL SISTEMI UST YONETICISI (FCS MANAGER)
+================================================================================
+Bu modul, otonom taretin en ust karar verici ve durum yoneticisidir (State Machine).
+Tum alt kontrolculeri, filtreleri ve guvenlik mekanizmalarini koordine eder.
+
+GOREVLER VE ALGORITMALAR:
+1. Hedef Onceliklendirme: Coklu hedef arasindan merkeze en yakin/tehditkar olani secme.
+2. Durum Kestirimi (Kalman Filter): Olcum gurultusunu filtreleyerek hedef hiz vektoru
+   (vx, vy) ve gelecekteki konumunu kestirme.
+3. Balistik Onleme ve Yercekimi Telafisi: Ucus suresi (Time-of-Flight) boyunca hedefin
+   alacagi yolu hesaplayip atis onleme acisi (Lead Angle) ve irtifa dususunu kompanse etme.
+4. Dinamik Kilit Yonetimi (Lock Manager): Histerezisli kilit penceresi ve analitik
+   Gauss isabet olasiligi hesabi ile atis izni kontrolu.
+5. Hibrit Kontrol Harmanlama: Hedef hizina ve kilit kalitesine gore PID ile PPO RL
+   arasinda dinamik agirliklandirma (%0 - %55 AI takviyesi).
+6. Iki Asamali Akilli Devriye: Hedef kayboldugunda Grace Period, yerel ve genel arama.
+================================================================================
+"""
+
 import numpy as np
 
 from target_selector import TargetSelector
@@ -5,6 +29,7 @@ from kalman_filter import KalmanFilter
 from lock_manager import LockManager
 from pid_controller import PIDController
 from rl_controller import RLController
+from patrol_generator import PatrolGenerator
 
 
 class FCSManager:
@@ -13,15 +38,18 @@ class FCSManager:
     atesleme koordinasyonunu yoneten ust seviye yonetici sinifi.
     """
 
-    def __init__(self, control_mode="PID", max_lost_frames=3):
+    def __init__(self, control_mode="PID", max_lost_frames=3, patrol_enabled=False):
         self.selector = TargetSelector()
         self.tracker = KalmanFilter()
         self.lock_mgr = LockManager()
         self.pid_controller = PIDController()
         self.rl_controller = RLController()
+        self.patrol = PatrolGenerator()
 
         self.control_mode = control_mode  # "PID" (Donanim icin onerilen), "HYBRID", "RL"
         self.current_rl_weight = 0.0
+        self.patrol_enabled = bool(patrol_enabled)
+        self.patrol_status = "STANDBY"
 
         self.max_lost_frames = max_lost_frames
         self.frames_since_lost = 0
@@ -71,6 +99,10 @@ class FCSManager:
             bx = (x1 + x2) // 2
             by = (y1 + y2) // 2 
 
+            # Devriye modulune hedefin son bilinen koordinatlarini bildir
+            self.patrol.on_target_detected(self.actual_pan, self.actual_tilt)
+            self.patrol_status = "TRACKING"
+
             # 1. Kamera merkezinden hedef acilari
             pan_deg, tilt_deg = self.pid_controller.compute_angles(bx, by, center_x, center_y, fx, fy)
 
@@ -114,14 +146,16 @@ class FCSManager:
                     d_m, float(pan_deg), float(tilt_deg), dt
                 )
                 
+                # Dinamik RL Agirligi (Hizli manevralarda gecikme telafisi icin %55'e kadar AI takviyesi)
                 lock_qual = float(self.lock_mgr.hit_probability)
-                speed_ratio = float(np.clip(speed_mag / 200.0, 0.0, 1.0))
-                weight_spd = 0.60 * speed_ratio
-                weight_err = float(np.clip(angular_err / 2.5, 0.0, 0.25))
+                speed_ratio = float(np.clip(speed_mag / 180.0, 0.0, 1.0))
+                weight_spd = 0.65 * speed_ratio
+                weight_err = float(np.clip(angular_err / 3.0, 0.0, 0.35))
                 raw_boost = weight_spd + weight_err
                 
-                lock_factor = 1.0 - float(np.clip((lock_qual - 40.0) / 55.0, 0.0, 0.88))
-                self.current_rl_weight = float(np.clip(raw_boost * lock_factor, 0.0, 0.25))
+                # Kilit saglamlastikca RL agirligini azalt, olu bolgede sifir titresim sagla
+                lock_factor = 1.0 - float(np.clip((lock_qual - 35.0) / 60.0, 0.0, 0.85))
+                self.current_rl_weight = float(np.clip(raw_boost * lock_factor, 0.0, 0.55))
 
                 u_pan = float(np.clip(u_pid_pan + (d_pan_deg * self.current_rl_weight), -self.pid_controller.max_output, self.pid_controller.max_output))
                 u_tilt = float(np.clip(u_pid_tilt + (d_tilt_deg * self.current_rl_weight), -self.pid_controller.max_output, self.pid_controller.max_output))
@@ -147,8 +181,20 @@ class FCSManager:
         else:
             self.frames_since_lost += 1
             if self.frames_since_lost >= 2:
-                self.reset()
-            return 0.0, 0.0
+                self.tracker.reset()
+                self.lock_mgr.reset()
+                self.target_velocity = np.array([0.0, 0.0], dtype=float)
+                self.firing_lead_offset = np.array([0.0, 0.0], dtype=float)
+
+            # Hedef yokken: Devriye modu aciksa iki asamali akilli arama
+            if self.patrol_enabled:
+                d_p, d_t, self.patrol_status = self.patrol.update(dt, self.actual_pan, self.actual_tilt)
+                self.pid_controller.actual_pan += d_p
+                self.pid_controller.actual_tilt += d_t
+                return d_p, d_t
+            else:
+                self.patrol_status = "STANDBY"
+                return 0.0, 0.0
 
     def reset(self):
         self.frames_since_lost = 0
@@ -159,3 +205,4 @@ class FCSManager:
         self.tracker.reset()
         self.lock_mgr.reset()
         self.pid_controller.reset()
+        self.patrol.reset()
