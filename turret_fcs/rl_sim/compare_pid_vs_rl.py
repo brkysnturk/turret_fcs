@@ -1,8 +1,5 @@
 """
 ================================================================================
-YILDIZ TEKNIK UNIVERSITESI - KONTROL VE OTOMASYON MUHENDISLIGI BOLUMU
-BITIRME PROJESI: OTONOM PAN-TILT TARET VE ATIS KONTROL SISTEMI (FCS)
---------------------------------------------------------------------------------
 MODUL: P KONTROLCU vs. REINFORCEMENT LEARNING (PPO) KARSILASTIRMA BENZETIMI
 ================================================================================
 Bu betik, 80 ms tasiyici gecikmesi (Transport Delay) altinda calisan otonom taretin
@@ -151,7 +148,7 @@ def run_comparison():
     print(f"RL Performans Iyilestirmesi       : %{improvement:+.1f}")
     print("------------------------------------------------------------------")
     print(f"[OK] 300 DPI Tez Grafigi Kaydedildi: {p_plot_path.name}")
-    print(f"[OK] Cift Uyumluluk Grafigi         : {pid_plot_path.name}")
+    print(f"[OK] Karsilastirma Grafigi Kaydedildi: {pid_plot_path.name}")
     print("==================================================================")
 
 
