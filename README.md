@@ -48,6 +48,10 @@ Aşağıdaki şemalar sistemin PC yazılım boru hattını, STM32 gömülü mima
 ### 4. Donanım ve Güç Dağıtım Şeması
 Projenin elektriksel güç dağıtımı, sensör entegrasyonu ve aktüatör bağlantıları [turret_fcs_hardware.svg](turret_fcs_hardware.svg) dosyasında detaylandırılmıştır.
 
+### 5. 3D Mekanik Montaj ve Donanım Tasarımı
+Taretin 3D yazıcıdan üretilecek açık beşikli, minimal optik paralakslı ve gizli servo hornlu elektromekanik montaj tasarımı:
+![Turret FCS 3D Mekanik Montaj](turret_cad_render_annotated.jpg)
+
 ```
 +-----------------------------------------------------------------------------------+
 |                            GÖRSEL VE SENSÖR GİRDİSİ                               |
