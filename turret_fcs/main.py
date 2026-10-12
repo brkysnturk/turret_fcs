@@ -14,7 +14,7 @@ TEMEL GOREVLER VE AKIS:
    - "HYBRID": Hizli hedeflerde gecikmeyi telafi eden AI takviyeli P + PPO RL harmanlama (HYBRID CONTROLLER).
    - "RL": Saf Reinforcement Learning (PPO) ile otonom yonlendirme (RL CONTROLLER).
 4. Akilli Devriye (Klavyeden 'P' ile gecis):
-   - Hedef yokken iki asamali arama (Grace Period -> Yerel Dar Arama -> Genel Sektor).
+   - Hedef kayboldugunda 1.5 sn bekleme, merkeze donus ve 2 eksenli dairesel/eliptik tarama.
 5. E-STOP (Bosluk Tusu): Acil durumda aninda motor durdurma ve devriye kilitleme.
 ================================================================================
 """
@@ -47,8 +47,8 @@ def main():
     fcs = FCSManager(control_mode="P")
     telemetry = TelemetryLogger() if ENABLE_TELEMETRY else None
 
-    # Logitech C270 Gorus Acilari
-    H_FOV, V_FOV = 69.0, 42.0
+    # Logitech C270 Resmi Datasheet Gorus Acilari (dFOV 60° -> 16:9 Projeksiyon)
+    H_FOV, V_FOV = 53.0, 31.5
     fx = (1280 / 2.0) / np.tan(np.radians(H_FOV / 2.0))
     fy = (720 / 2.0) / np.tan(np.radians(V_FOV / 2.0))
 
@@ -242,8 +242,8 @@ def main():
                 print(f"\n[MOD DEGISTI] Gercek Donanim Kontrol Modu: >>> {mode_names.get(fcs.control_mode, fcs.control_mode)} <<<")
             elif key == ord("p") or key == ord("P"):
                 fcs.patrol_enabled = not fcs.patrol_enabled
-                p_text = "ACIK (Otomatik 2 Asamali Arama)" if fcs.patrol_enabled else "KAPALI (Sessiz Standby)"
-                print(f"\n[DEVIYE MODU] Akilli Tarama / Devriye: >>> {p_text} <<<")
+                p_text = "ACIK (Merkeze Donus ve Genis Tarama)" if fcs.patrol_enabled else "KAPALI (Sessiz Standby)"
+                print(f"\n[DEVRIYE MODU] Dairesel Tarama / Devriye: >>> {p_text} <<<")
             elif key == 32:  # E-STOP (Bosluk tusu)
                 fcs.reset()
                 fcs.patrol_enabled = False
