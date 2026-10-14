@@ -85,7 +85,7 @@
 ## 4. Temel Kod Dosyaları ve İşlev Haritası
 
 - [main.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/main.py): Ana atış kontrol döngüsü, OpenCV video işleme, klavye kontrolleri.
-- [fcs_manager.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/fcs_manager.py): Durum makinesi (Arama, Tespit, Takip, Kilit, Ateşleme), balistik motoru, hibrit harmanlama (`(1-w)*P + w*RL`), menzil kapılama.
+- [fcs_manager.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/fcs_manager.py): Durum makinesi (Arama, Tespit, Takip, Kilit, Ateşleme), balistik motoru, hibrit harmanlama (`(1-w)*P + w*RL`), menzil kapılama, 1. derece aktüatör gözlemcili ego-hareket telafisi (`tau = 45 ms`).
 - [p_controller.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/p_controller.py): 2-DOF Referans Hızı İleri Beslemeli Tip-1 P motor kontrolcüsü (`Kp_pan=0.10, Kp_tilt=0.07, Kd_pan=0.025, Kd_tilt=0.020`).
 - [kalman_filter.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/kalman_filter.py): Ego-hareket telafili 2B durum gözlemcisi, hedef konum ve açısal hız kestirimi.
 - [rl_controller.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/rl_controller.py): 11 boyutlu PPO çıkarım motoru; `update_applied_action` ile hibrit komut hafızası.
