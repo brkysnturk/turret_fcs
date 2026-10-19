@@ -30,9 +30,10 @@ class LockManager:
     hedef kilit kalitesi puanini gercek zamanli turret FCS icin yonetir.
     """
 
-    def __init__(self, lock_threshold_frames=10, lock_exit_deg=3.5):
-        self.lock_threshold_frames = lock_threshold_frames
-        self.lock_exit_deg = lock_exit_deg
+    # --- KILIT ESIGI VE TOLERANS KALIBRASYONU ---
+    def __init__(self, lock_threshold_frames=10, lock_exit_deg=2.8):
+        self.lock_threshold_frames = lock_threshold_frames  # Kararlilik karesi (10 kare = 0.33 sn)
+        self.lock_exit_deg = lock_exit_deg  # Ev: 2.8 | Okul Orijinal: 3.5 (Kilit kopma toleransi)
 
         self.stability_counter = 0
         self.is_locked = False
@@ -42,10 +43,10 @@ class LockManager:
     def compute_dynamic_threshold(self, target_velocity):
         speed_mag = float(np.hypot(target_velocity[0], target_velocity[1]))
         if speed_mag < 15.0:
-            return 2.0
+            return 1.60  # Ev: 1.60 (Hassas gercek kilit) | Okul Orijinal: 2.00
         if speed_mag < 45.0:
-            return 2.5
-        return 3.0
+            return 2.20  # Ev: 2.20 | Okul Orijinal: 2.50
+        return 3.00
 
     def compute_hit_probability(self, angular_error_deg, target_velocity, dist_m=2.0, target_radius_m=0.15):
         """
