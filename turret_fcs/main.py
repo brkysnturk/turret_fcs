@@ -46,8 +46,8 @@ def main():
     fcs = FCSManager(control_mode="P")
     telemetry = TelemetryLogger() if ENABLE_TELEMETRY else None
 
-    # Logitech C270 Resmi Datasheet Gorus Acilari (dFOV 60° -> 16:9 Projeksiyon)
-    H_FOV, V_FOV = 53.0, 31.5
+    # Logitech C270 Resmi Donanim Optigi (dFOV 55° -> 16:9 Projeksiyon)
+    H_FOV, V_FOV = 48.8, 28.6
     fx = (1280 / 2.0) / np.tan(np.radians(H_FOV / 2.0))
     fy = (720 / 2.0) / np.tan(np.radians(V_FOV / 2.0))
 
