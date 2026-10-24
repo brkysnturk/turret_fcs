@@ -540,8 +540,8 @@ Benzetim, 80 ms taşıma gecikmesi ve dinamik eyleyici lag'i altında dört tohu
 | `fig4_tuned_dynamic_tracking.png` | Sinüzoidal hedefte pan/tilt takip ve hata |
 | `fig5_tuned_lissajous_coverage.png` | Figure-8 devriye yörüngesi ve 3B tarama hacmi |
 | `fig6_tuned_ballistic_characteristics.png` | Mesafeye göre uçuş süresi ve süper-elevasyon |
-| `fig7_real_hardware_still_lock.png` | Sabit hedefte kapalı çevrim kilit ve motor sessizliği |
-| `fig8_real_hardware_moving_tracking.png` | Manevralı hedefte takip ve kilit kararlılığı |
+| `fig7_sim_still_lock.png` | Sabit hedefte kapalı çevrim kilit ve motor sessizliği (benzetim) |
+| `fig8_sim_moving_tracking.png` | Manevralı hedefte takip ve kilit kararlılığı (benzetim) |
 | `fig9_system_identification.png` | Sentetik FOPDT/SOPDT sistem tanımlama ve kök-yer eğrisi |
 | `kalman_tracking_performance.png` | Kalman konum/hız doğruluğu, inovasyon dağılımı ve KPI tablosu |
 
@@ -557,9 +557,9 @@ Benzetim, 80 ms taşıma gecikmesi ve dinamik eyleyici lag'i altında dört tohu
 
 ![Balistik Karakteristik](analysis/figures/fig6_tuned_ballistic_characteristics.png)
 
-![Sabit Hedef Kilit Kararlılığı](analysis/figures/fig7_real_hardware_still_lock.png)
+![Sabit Hedef Kilit Kararlılığı](analysis/figures/fig7_sim_still_lock.png)
 
-![Manevralı Hedef Takibi](analysis/figures/fig8_real_hardware_moving_tracking.png)
+![Manevralı Hedef Takibi](analysis/figures/fig8_sim_moving_tracking.png)
 
 ![Sistem Tanımlama](analysis/figures/fig9_system_identification.png)
 

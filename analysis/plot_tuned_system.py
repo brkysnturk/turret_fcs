@@ -605,7 +605,7 @@ ax_s2.legend(loc="upper right", framealpha=0.92, fontsize=8.8)
 ax_s2.set_ylim(-1.5, 1.8)
 
 plt.tight_layout()
-safe_savefig(fig7, FIG_DIR / "fig7_real_hardware_still_lock.png")
+safe_savefig(fig7, FIG_DIR / "fig7_sim_still_lock.png")
 plt.close(fig7)
 
 
@@ -686,7 +686,7 @@ ax_m2.legend(loc="upper right", framealpha=0.92, fontsize=8.8)
 ax_m2.set_ylim(-3.5, 3.5)
 
 plt.tight_layout()
-safe_savefig(fig8, FIG_DIR / "fig8_real_hardware_moving_tracking.png")
+safe_savefig(fig8, FIG_DIR / "fig8_sim_moving_tracking.png")
 plt.close(fig8)
 
 
