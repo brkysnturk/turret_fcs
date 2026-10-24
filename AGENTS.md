@@ -197,7 +197,7 @@
   5. 2000 ms servo park korumasi: PC kalici olarak yoksa servolar merkeze indirilir; onceden iki MG996R son konumda surekli stall akimi cekiyordu.
   6. Launcher_TriggerFire() volan hazir degilse atisi reddedip false donuyor; LAUNCHER_STATE_SPINUP ve FLYWHEEL_SPINUP_MS kaldirildi. Onceden sessizce 500 ms bekliyor, PC ise FIRING fazini 80 ms tuttugu icin dart gec ve yanlis yonde firlatilabiliyordu.
 - **Dogrulama:** Firmware arm-none-eabi-gcc 14.3 ile sifir uyarida derlendi ve linklendi (Debug text ~18 KB / 18048 B, Release text ~10 KB / 9960 B, data 20 B, bss 1948 B); protokol PC tarafiyla degismedi, test paketi konsolide ve tam kapsamlı.
-- **Sürüm:** Tüm v1.3 sonrasi degisiklikler v1.4'te toplandi; test paketi 24 test.
+- **Sürüm:** Tüm v1.3 sonrasi degisiklikler v2.0'de toplandi (v1.4 ara etiket olarak korundu, ağırlık varlıkları için kullanılır); test paketi 36 test.
 
 ### FAZ 14: Algoritmik Kararlılık, 150 px Robust Tekil-Sıçrama Kapısı ve Dinamik İvme İyileştirmesi
 - **Kapsam:** P Kontrolcü, Kalman Filtresi, RL Kontrolcü ve Sistem Entegrasyonu.
@@ -263,7 +263,7 @@
 ## 5. Yeni Bir Sohbet Açıldığında Hatırlanacaklar
 
 Yeni bir sohbet açıldığında asistan bu dosyayı okur okumaz:
-1. Sistemin **v1.4 Production Release** etiketli olduğunu; çalışma ağacında P, saf RL ve repo denetimi değişikliklerinin bulunduğunu,
+1. Sistemin **v2.0 Production Release** etiketli olduğunu; v2.0'in v1.3 sonrası tüm değişiklikleri (v1.4 içeriği, protokol SSOT, firmware B1 mandallı E-stop ve modül başlıkları, figür etiket düzeltmesi) topladığını; `v1.4` etiketinin RL/YOLO ağırlık varlıkları için korunduğunu (`LEGACY_RELEASE_TAG`),
 2. RL politikasının `turret_ppo_v14.zip` / `turret_ppo_v14_policy.npz` olduğunu; eski `turret_ppo_final` modelinin silindiğini, üretim çıkarımının SB3/torch bağımsız yapıldığını,
 3. Varsayılan ve tek kontrolcünün **P** (tek EMA, saf oransal, Kp_pan=0.22/Kp_tilt=0.11, kazanç planlaması kaldırılmış) olduğunu; eski kontrolcü ve seçicilerin silindiğini, v1.3 davranışı için `v1.3` etiketinin kullanıldığını,
 4. Asla LaTeX / dolar işareti (`$`) kullanmaması gerektiğini,

@@ -1,6 +1,6 @@
 """
 ================================================================================
-MODUL: WEBOTS CIFTLI VOLAN VE SOLENOID FIRLATICI (FLYWHEEL LAUNCHER - v1.4)
+MODUL: WEBOTS CIFTLI VOLAN VE SOLENOID FIRLATICI (FLYWHEEL LAUNCHER - v2.0)
 ================================================================================
 Bu modul, cift fircasiz DC volan motorlarini (23.500 RPM), 80 ms darbe genislikli
 JF-0530B solenoid iticiyi ve Webots fizigiyle 10 m/s sunger dart firlatmasini

@@ -1,13 +1,13 @@
 """
 ================================================================================
-MODUL: WEBOTS SANAL BALISTIK VE 3D ISABET HAKEMI (VIRTUAL BALLISTICS - v1.4)
+MODUL: WEBOTS SANAL BALISTIK VE 3D ISABET HAKEMI (VIRTUAL BALLISTICS - v2.0)
 ================================================================================
 Bu modul; Webots icerisinde atis gerceklestiginde namlu rotasyon matrisinden
 (KAFA_BLOGU orientation) dogrudan 3B namlu dogrultu vektorunu alarak yercekimi
 dususu ve mermi ucus suresiyle hedef balon uzerindeki 3B carpisma noktasini (X, Y, Z)
 analitik ve fiziksel olarak hesaplayan hakem sinifidir.
 
-v1.4 UYUMLULUKLARI:
+v2.0 UYUMLULUKLARI:
 - Koordinat Dogrulugu: KAFA_BLOGU 3B oryantasyon vektoru [fx, fy, fz] uzerinden
   hesaplanan dunya carpisma koordinati; eksen isareti veya tanjant sapmasi icermez.
 - Zaman Tabani: Saf simulasyon zamani (sim_t), sifir wall-clock kaymasi.

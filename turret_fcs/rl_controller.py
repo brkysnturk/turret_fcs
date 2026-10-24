@@ -2,7 +2,7 @@
 ================================================================================
 MODUL: RL KONTROLCU (SAF PPO CIKARIM MOTORU)
 ================================================================================
-Sinif adi RLController'dir. v1.4 politikasi `turret_ppo_v14.zip` /
+Sinif adi RLController'dir. v2.0 politikasi `turret_ppo_v14.zip` /
 `turret_ppo_v14_policy.npz` olarak egitilir; cikarim SB3/torch surumune
 bagimli degildir.
 
@@ -17,7 +17,7 @@ sokuyordu:
 3. Yazilim olu bolgesi (0.85 / 0.95 derece) egitimde yoktu.
 4. Hedef kaybinda eylem gecmisi temizlenmiyordu.
 
-TASARIM (v1.4, SAF RL):
+TASARIM (v2.0, SAF RL):
 - Gozlem vektoru egitimle ayni: 11 boyut, ayni Bryson olcekleri.
 - Gozlem, P kontrolcunun EMA'li hatasindan degil, olculen bbox'tan uretilir.
 - Hiz gozlemi (obs[4:6]): Calisma zamaninda (fcs_manager) kapali cevrim ego-hareket

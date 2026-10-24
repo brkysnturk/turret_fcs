@@ -122,7 +122,7 @@ CARDS = [
         "Tip-1 P Kontrolcü Modu [P CONTROLLER]",
         "(Yumuşak Ölü Bölgeli & Slew İvme Sınırlamalı Oransal Takip)",
         [
-            "v1.4 Taban Kazançlar: Kp_pan = 0.22, Kp_tilt = 0.11 (Faz Marjı: 45.1°, Kazanç Marjı: 7.2 dB)",
+            "v2.0 Taban Kazançlar: Kp_pan = 0.22, Kp_tilt = 0.11 (Faz Marjı: 45.1°, Kazanç Marjı: 7.2 dB)",
             "Slew İvme Sınırları: 120°/s² Pan, 80°/s² Tilt ile mekanik rezonans ve dişli aşınması önlenir",
             "Yumuşak Ölü Bölge Taper: Pan 0.85° - 1.00°, Tilt 0.95° - 2.50° ile merkezde sıfır titreme (0.030°)",
             "Tek EMA Filtresi (alpha = 0.85) ile ölçüm gürültüsü yumuşatma"
@@ -339,7 +339,7 @@ def xml_escape(text):
 
 # Build draw.io model
 root_elem = ET.Element('mxfile', host='app.diagrams.net', scale='1', border='0')
-diag_elem = ET.SubElement(root_elem, 'diagram', id='fcs_arch_diag', name='Turret FCS v1.4 Sistem Mimarisi')
+diag_elem = ET.SubElement(root_elem, 'diagram', id='fcs_arch_diag', name='Turret FCS v2.0 Sistem Mimarisi')
 model_elem = ET.SubElement(diag_elem, 'mxGraphModel', dx='1600', dy='1000', grid='1', gridSize='10',
                            guides='1', tooltips='1', connect='1', arrows='1', fold='1', page='1',
                            pageScale='1', pageWidth='1500', pageHeight='1100', math='0', shadow='0')

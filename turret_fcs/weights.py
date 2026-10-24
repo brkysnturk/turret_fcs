@@ -17,7 +17,8 @@ from typing import Optional
 
 REPO_OWNER = "brkysnturk"
 REPO_NAME = "turret_fcs"
-DEFAULT_RELEASE_TAG = "v1.4"
+DEFAULT_RELEASE_TAG = "v2.0"
+LEGACY_RELEASE_TAG = "v1.4"
 RELEASE_URL_TEMPLATE = "https://github.com/{owner}/{repo}/releases/download/{tag}/{filename}"
 DEFAULT_TIMEOUT_SEC = 30.0
 
@@ -52,7 +53,30 @@ def download_weight_file(
     timeout: float = DEFAULT_TIMEOUT_SEC,
     verify_checksum: bool = True,
 ) -> bool:
-    """GitHub Releases asset URL'sinden agirlik dosyasini guvenle indirir ve dogrular."""
+    """GitHub Releases asset URL'sinden agirlik dosyasini guvenle indirir ve dogrular.
+
+    Yeni surum etiketine hicbir varlik yuklenmediginde (ornegin henuz publish
+    edilmemis bir surum) son bilinen surum etiketine (LEGACY_RELEASE_TAG) duser;
+    boylece surum numarasi artirilirken agirlik indirme bozulmaz.
+    """
+    if download_weight_file_from_tag(filename, dest_path, tag, timeout, verify_checksum):
+        return True
+    if tag != LEGACY_RELEASE_TAG:
+        print(f"[WEIGHTS BILGI] {tag} etiketinde varlik yok; {LEGACY_RELEASE_TAG} etiketi denenecek.")
+        return download_weight_file_from_tag(
+            filename, dest_path, LEGACY_RELEASE_TAG, timeout, verify_checksum
+        )
+    return False
+
+
+def download_weight_file_from_tag(
+    filename: str,
+    dest_path: Path,
+    tag: str,
+    timeout: float,
+    verify_checksum: bool,
+) -> bool:
+    """Tek bir etiketten indirme denemesi yapar (fallback yok)."""
     dest_path.parent.mkdir(parents=True, exist_ok=True)
     url = RELEASE_URL_TEMPLATE.format(
         owner=REPO_OWNER,
@@ -66,7 +90,7 @@ def download_weight_file(
     try:
         req = urllib.request.Request(
             url,
-            headers={"User-Agent": "TurretFCS-WeightsDownloader/1.4"},
+            headers={"User-Agent": "TurretFCS-WeightsDownloader/2.0"},
         )
         with urllib.request.urlopen(req, timeout=timeout) as response:
             total_size = int(response.headers.get("content-length", 0))

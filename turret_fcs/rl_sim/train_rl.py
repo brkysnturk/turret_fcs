@@ -1,8 +1,8 @@
 """
 ================================================================================
-MODUL: PPO EGITIM MOTORU (PROGRESS REWARD / v1.4)
+MODUL: PPO EGITIM MOTORU (PROGRESS REWARD / v2.0)
 ================================================================================
-TurretEnv uzerinde saf PPO politikasi egitir. v1.4'te odul, LQR cezasindan
+TurretEnv uzerinde saf PPO politikasi egitir. v2.0'da odul, LQR cezasindan
 progress formuna cevrildi:
 
     r = k_p * (e_prev^2 - e^2) - k_e * e^2
@@ -54,7 +54,7 @@ def train(timesteps=250_000):
 
     torch.set_num_threads(2)
     print("==================================================")
-    print(" TURRET FCS // SAF PPO + PROGRESS REWARD (v1.4)  ")
+    print(" TURRET FCS // SAF PPO + PROGRESS REWARD (v2.0)  ")
     print("==================================================")
     print("[Plant] backlash=1.20 deg, max_step=1.50 deg, deadband=0.10 deg")
     print("[Reward] progress=2.0, error=0.05, lambda_u=0.02, mu_du=0.08")

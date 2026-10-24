@@ -1,11 +1,11 @@
 """
 ================================================================================
-MODUL: WEBOTS DONANIM VE SIMULASYON ARAYUZU (WEBOTS HARDWARE INTERFACE - v1.4)
+MODUL: WEBOTS DONANIM VE SIMULASYON ARAYUZU (WEBOTS HARDWARE INTERFACE - v2.0)
 ================================================================================
 Bu modul; Webots robot supervisor, motorlar, enkoderler, C270 kamera ve TF-Luna
 sensorlerini yoneten yuksek sadakatli (High-Fidelity) donanim soyutlama katmanidir (HAL).
 
-v1.4 YUKSEK SADAKATLI (SIM-TO-REAL) FIZIKSEL MODELLER:
+v2.0 YUKSEK SADAKATLI (SIM-TO-REAL) FIZIKSEL MODELLER:
 - 80 ms Tasiyici Gecikmesi: 2-3 karelik kuyruk (deque) ile C270 sensor pozu + USB + YOLO gecikmesi.
 - 45 ms Servo Dinamigi: MG996R motor zaman sabiti (tau = 0.045 s) 1. derece gecikme modeli.
 - 1.20 Derece Disli Boslugu (Backlash): Yon degisimlerinde mekanik histerezis olu bolgesi.
@@ -30,7 +30,7 @@ from turret_fcs.config import CONFIG
 class WebotsHardwareInterface:
     """
     Webots robot donanimlarini (motorlar, sensorler, kamera, LiDAR) yoneten
-    ve uretim v1.4 yuksek sadakatli fiziksel parametreleriyle calisan donanim arayuzu.
+    ve uretim v2.0 yuksek sadakatli fiziksel parametreleriyle calisan donanim arayuzu.
     """
 
     def __init__(self):

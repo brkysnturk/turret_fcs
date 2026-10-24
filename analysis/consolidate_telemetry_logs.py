@@ -170,7 +170,7 @@ def plot_field_tests_comparison(runs):
         elif "145910" in fn:
             name = "14:59\n(RL Olcek)"
         elif "150820" in fn:
-            name = "15:08\n(v1.4 Nihai/Son Log)"
+            name = "15:08\n(v2.0 Nihai/Son Log)"
         elif "145309" in fn:
             name = "Test 14:53\n(PID/RL/HYB)"
         elif "175926" in fn:
@@ -273,7 +273,7 @@ def plot_field_tests_comparison(runs):
         h = bar.get_height()
         ax.text(bar.get_x() + bar.get_width() / 2.0, h + 4.0, f"{int(h)}s\n({n_samp} k)", ha="center", va="bottom", fontsize=7.8, fontweight="bold")
 
-    plt.suptitle("TURRET FCS // SAHA TESTLERI KARSILASTIRMALI ANALIZ RAPORU (v1.4 Uretim Dogrulamasi)", fontsize=13.5, fontweight="bold", y=0.98)
+    plt.suptitle("TURRET FCS // SAHA TESTLERI KARSILASTIRMALI ANALIZ RAPORU (v2.0 Uretim Dogrulamasi)", fontsize=13.5, fontweight="bold", y=0.98)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     # Hem kullanıcının istediği 'oct12_field_tests_analysis.png' hem de 'field_tests_analysis.png' olarak kaydet
