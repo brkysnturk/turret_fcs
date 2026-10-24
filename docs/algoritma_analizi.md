@@ -439,7 +439,7 @@ bu bilinçli ve doğru bir tercih (potansiyometre sıçraması sahte hız üreti
 ### 6.1 Analiz penceresinde gözlenen durum değişimi
 
 > [!NOTE]
-> **Tarihsel Not (18:17 Ara Durumu):** Aşağıdaki kronolojide bahsi geçen "150 px tekil-sıçrama kapısının kaldırılması" denemesi, saha telemetrisindeki sahte YOLO sıçramalarını sönümleme ihtiyacı nedeniyle FAZ 14 nihai mutabakatıyla geri alınmıştır. Aktif kod tabanında 150 px tekil-sıçrama kapısı (`outlier_residual_px = 150.0`, R * 100 sönümleme) ve 400°/s² - 267°/s² ivme sınırları korunmaktadır.
+> **Tarihsel Not (18:17 Ara Durumu):** Aşağıdaki kronolojide bahsi geçen "150 px tekil-sıçrama kapısının kaldırılması" denemesi, saha telemetrisindeki sahte YOLO sıçramalarını sönümleme ihtiyacı nedeniyle FAZ 14 nihai mutabakatıyla geri alınmıştır. Aktif kod tabanında 150 px tekil-sıçrama kapısı (`outlier_jump_px = 150.0`, R * 100 sönümleme) ve 400°/s² - 267°/s² ivme sınırları korunmaktadır.
 
 Ağaç analiz sırasında aktif olarak düzenlendi; kronoloji:
 
@@ -451,13 +451,13 @@ Ağaç analiz sırasında aktif olarak düzenlendi; kronoloji:
 - `pytest tests` -> **35 geçti (%100 yeşil)**.
   `import turret_fcs` çalışıyor.
 
-Değişikliklerin niteliği (commit edilmemiş):
+Değişikliklerin niteliği (18:17 ara denemesi - FAZ 14 ile geri alındı):
 
 | Dosya | Değişiklik | Analitik etki |
 |---|---|---|
-| `kalman_filter.py` | 150 px tekil-sıçrama kapısı ve `reacquire_frames` kaldırıldı | Tek sahte kutu artık hız durumunu doğrudan çekebilir; docstring hâlâ kapıyı anlatıyor |
+| `kalman_filter.py` | (Ara deneme) 150 px tekil-sıçrama kapısı kaldırılmıştı; FAZ 14 ile geri alındı | Tek sahte kutunun hızı saptırmasını önlemek için 150 px + R*100 sönümleme aktif kodda mevcuttur |
 | `rl_controller.py` | `uses_velocity_obs = True`, `prefers_smooth_velocity = True` | Politikaya gürültülü Kalman hızı giriyor (v1.4'te bu yüzden kapatılmıştı) |
-| `p_controller.py`, `rl_controller.py` | İvme sınırı `a*dt` -> `a*dt^2` | Boyut olarak doğru, ama 120 derece/s^2 ile 0.37 s rampa; kapalı çevrim artık rampa tarafından yönetiliyor |
+| `p_controller.py`, `rl_controller.py` | İvme sınırı `a*dt` -> `a*dt^2` | Boyut olarak doğru; nihai mutabakatta fiziksel sınırlar 400.0/267.0 deg/s^2 olarak belirlendi |
 | `p_controller.py`, `fcs_manager.py` | Tilt adım sınırı ayrıldı (0.75 derece) | Doğru düzeltme; RL tilt çıkışı da artık 0.75 ile sınırlı |
 
 Testlerin güncellenmesi davranış değişimini **gizlemez**: `test_p_controller.py`

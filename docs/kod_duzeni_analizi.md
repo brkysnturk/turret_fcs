@@ -57,23 +57,29 @@ Güncel durum:
    dosya haritaları düzeltildi; EVAL metni nötr "ENGAGEMENT COMPLETED" oldu.
 5. `compute_velocity_ff()` ve sınıflardaki `**kwargs` yutucuları kaldırıldı.
 
-**19:27 itibarıyla kalanlar**
+**19:42 itibarıyla durum (b838c38 sonrası)**
 
-- Telemetride `rl_weight`, `sensor_temp_c`, `sigma_a`, `lock_thr` sütunları hâlâ
-  sabit/ikincil değer taşıyor. Kaldırılmalı ya da gerçek kaynağa bağlanmalı.
-- `docs/algoritma_analizi.md` 18:17 anlık görüntüsü olarak duruyor; 39-44 ve
-  456. satırlar artık güncel kodu anlatmıyor. Başına tarihsel not eklenmeli.
-- E-stop davranışı iki noktada eskisinden ayrılıyor: (a) `fcs.reset()` artık
-  çağrılmıyor, dolayısıyla serbest bırakıldığında önceki kilit durumu korunuyor;
-  (b) `patrol_enabled = False` yalnızca Webots sarmalayıcısında var, `keymap`
-  içinde yok; üretimde E-stop sonrası devriye kendiliğinden devam edebilir.
-  İkisi de bilinçli tercih değilse `keymap` E-stop dalında düzeltilmeli.
+- E-stop kapandı: `keymap` mandallanınca devriyeyi kapatıyor, girişte ve çıkışta
+  `fcs.reset()` çağrılıyor; Webots'taki mükerrer satır kaldırıldı. Eski kilit
+  üzerinden kazara ateş riski yok.
+- Giriş noktası sözleşmesi artık AST tabanlı testle denetleniyor; iki dosyadaki
+  `process_key_event` çağrısının sekiz anahtar sözcüğü statik olarak doğrulanıyor.
+- Telemetri sütunları Schema v2 uyumluluğu için korunuyor. Bu doğru karar; ancak
+  belgelerde `sensor_temp_c` gerçek sıcaklık taşıyormuş gibi anlatılmamalı:
+  firmware TF-Luna çerçevesinin sıcaklık baytlarını ayrıştırmıyor ve 10 baytlık
+  telemetri paketinde sıcaklık alanı yok; `FCSCommunicator.temp` hiç atanmıyor,
+  yani değer donanım bağlıyken de 0 kalıyor. `sigma_a` sabit 300, `lock_thr`
+  gerçekte 10 (CONFIG), `rl_weight` ise `control_mode` ile aynı bilgiyi taşıyan
+  ikili bayrak. Sütunlar kalacaksa "sabit/erişilemez" olarak belgelenmeli;
+  gerçek sıcaklık isteniyorsa protokol v2.1'de genişletilmeli.
+- `docs/algoritma_analizi.md` başına tarihsel not eklendi, fakat notta alan adı
+  `outlier_residual_px` yazıyor; güncel ad `outlier_jump_px`. 456. satırdaki
+  tablo hâlâ "kapı kaldırıldı" diyor; not bunu açıklıyor ama satır da
+  güncellenmeli.
 - Firmware'de dört `.c` dosyasında modül başlığı yok; bu ortamda ARM derleyici
   bulunmadığı için "sıfır uyarı" iddiası burada doğrulanamadı.
-- `test_entrypoint_contracts` yalnız çağrıyı taklit ediyor; `main.py` ve
-  `webots_main.py` içindeki gerçek çağrı yerlerini denetlemiyor. Giriş noktası
-  yine bozulursa test yeşil kalır; AST tabanlı bir çağrı-yeri testi daha güçlü
-  olur.
+- AST testi anahtar sözcükleri denetliyor; konum argümanı ve yinelenen parametre
+  gibi çağrı hatalarını yakalamıyor. Yeterli, ama sınırı bilinmeli.
 
 Bu revizyonun ayrıntılı doğrulaması için bir sonraki inceleme turuna bakın;
 aşağıdaki bölümler tarihsel anlık görüntü olarak korunmuştur.
