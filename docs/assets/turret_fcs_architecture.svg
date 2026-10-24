@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="820" viewBox="0 0 1240 820" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#334155"/>
+    </marker>
+    <style>
+      .box{fill:#ffffff;stroke:#334155;stroke-width:1.6;rx:8}
+      .layer{fill:#f1f5f9;stroke:#94a3b8;stroke-width:1.2;rx:10}
+      .title{font-size:18px;font-weight:700;fill:#0f172a}
+      .head{font-size:15px;font-weight:700;fill:#0f172a}
+      .txt{font-size:13px;fill:#1e293b}
+      .small{font-size:11.5px;fill:#475569}
+      .arrow{stroke:#334155;stroke-width:1.6;fill:none;marker-end:url(#arrow)}
+      .accent{fill:#e0f2fe;stroke:#0284c7;stroke-width:1.6;rx:8}
+      .warn{fill:#fef3c7;stroke:#d97706;stroke-width:1.5;rx:8}
+      .ok{fill:#dcfce7;stroke:#16a34a;stroke-width:1.5;rx:8}
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1240" height="820" fill="#f8fafc"/>
+  <text x="30" y="40" class="title">Turret FCS — Final System Architecture</text>
+  <text x="30" y="62" class="small">C270 + YOLOv8n/ByteTrack + TF-Luna + STM32F401RE; P MAX and pure RL MAX share one FCS state machine.</text>
+
+  <!-- Perception -->
+  <rect x="30" y="90" width="300" height="190" class="layer"/>
+  <text x="46" y="116" class="head">1. Perception</text>
+  <rect x="48" y="132" width="264" height="48" class="box"/>
+  <text x="60" y="152" class="txt">Logitech C270 — 1280x720 @ 30 FPS</text>
+  <text x="60" y="170" class="small">zero-latency thread, stale-frame guard</text>
+  <rect x="48" y="194" width="264" height="56" class="box"/>
+  <text x="60" y="214" class="txt">YOLOv8n + ByteTrack</text>
+  <text x="60" y="232" class="small">confidence search 0.28 / track 0.16</text>
+  <rect x="48" y="262" width="264" height="8" class="ok"/>
+  <text x="60" y="286" class="small">target_selector: ID + spatial gate + hysteresis</text>
+
+  <!-- Sensors -->
+  <rect x="30" y="300" width="300" height="150" class="layer"/>
+  <text x="46" y="326" class="head">2. Sensors / Feedback</text>
+  <rect x="48" y="342" width="264" height="42" class="box"/>
+  <text x="60" y="362" class="txt">TF-Luna LiDAR (100 Hz, UART)</text>
+  <text x="60" y="378" class="small">range gate: jump, geometry, stability</text>
+  <rect x="48" y="394" width="264" height="42" class="box"/>
+  <text x="60" y="414" class="txt">Servo telemetry / STM32 feedback</text>
+  <text x="60" y="430" class="small">0.1 deg quantized; pose sync + dead reckoning</text>
+
+  <!-- FCS core -->
+  <rect x="360" y="90" width="390" height="360" class="layer"/>
+  <text x="378" y="116" class="head">3. FCSManager — state machine</text>
+  <rect x="380" y="132" width="350" height="46" class="accent"/>
+  <text x="394" y="152" class="txt">Target tracking: CV Kalman [x,y,vx,vy]</text>
+  <text x="394" y="170" class="small">Joseph form, 150 px outlier gate, 30-60 px/s deadband</text>
+  <rect x="380" y="188" width="350" height="46" class="accent"/>
+  <text x="394" y="208" class="txt">Lead + gravity: bbox + v * lead_time</text>
+  <text x="394" y="226" class="small">world-referenced velocity; no double lag</text>
+  <rect x="380" y="244" width="350" height="46" class="accent"/>
+  <text x="394" y="264" class="txt">LockManager: ncx2 hit probability</text>
+  <text x="394" y="282" class="small">dynamic threshold + 10-frame hysteresis + post-fire grace</text>
+  <rect x="380" y="300" width="350" height="56" class="box"/>
+  <text x="394" y="320" class="txt">Mode selector — P or RL</text>
+  <text x="394" y="338" class="small">P MAX: Kp 0.22/0.11, one EMA, accel limits</text>
+  <text x="394" y="354" class="small">RL MAX: pure PPO, NumPy 11-64-64-2, zero velocity at runtime</text>
+  <rect x="380" y="366" width="350" height="66" class="warn"/>
+  <text x="394" y="386" class="txt">Patrol: 1.5 s hold → return → Figure-8</text>
+  <text x="394" y="404" class="small">±45 deg pan / ±16 deg tilt, 8 s, step accumulator</text>
+  <text x="394" y="420" class="small">only when no target and patrol enabled</text>
+
+  <!-- Control / actuation -->
+  <rect x="790" y="90" width="420" height="250" class="layer"/>
+  <text x="808" y="116" class="head">4. Control and Actuation</text>
+  <rect x="810" y="132" width="380" height="48" class="box"/>
+  <text x="824" y="152" class="txt">P MAX / RL MAX command shaper</text>
+  <text x="824" y="170" class="small">delta command, mode-specific limits, 1.5 deg firmware clamp</text>
+  <rect x="810" y="194" width="380" height="48" class="box"/>
+  <text x="824" y="214" class="txt">Binary UART 115200, 7-byte TX / 10-byte RX</text>
+  <text x="824" y="232" class="small">checksum, auto port, residue accumulator, watchdog</text>
+  <rect x="810" y="256" width="380" height="68" class="box"/>
+  <text x="824" y="276" class="txt">STM32F401RE</text>
+  <text x="824" y="294" class="small">incremental theta += delta; 300 ms heartbeat; E-stop</text>
+  <text x="824" y="310" class="small">servo PWM 50 Hz; flywheel / solenoid safety GPIO</text>
+
+  <!-- Fire sequence -->
+  <rect x="790" y="370" width="420" height="205" class="layer"/>
+  <text x="808" y="396" class="head">5. Engagement sequence</text>
+  <rect x="810" y="412" width="380" height="145" class="box"/>
+  <text x="824" y="434" class="txt">Y (only if locked + range valid/stable)</text>
+  <text x="824" y="456" class="small">SPINUP/SLEW (idle 0.25 s or cold 1.0 s)</text>
+  <text x="824" y="476" class="small">SETTLE 0.15 s → FIRING 80 ms</text>
+  <text x="824" y="496" class="small">RECOVER 0.35 s → EVAL 1.5 s</text>
+  <text x="824" y="516" class="small">post-fire lock grace 0.75 s; launcher fail-safe</text>
+  <text x="824" y="540" class="small">E-STOP latches, centers servos, cuts launcher</text>
+
+  <!-- Telemetry / HUD -->
+  <rect x="360" y="490" width="850" height="150" class="layer"/>
+  <text x="378" y="516" class="head">6. Telemetry, HUD and validation</text>
+  <rect x="380" y="532" width="390" height="86" class="box"/>
+  <text x="394" y="554" class="txt">Telemetry v2: 44 columns</text>
+  <text x="394" y="574" class="small">true angular error, Kalman, lock, servo feedback, LOS</text>
+  <text x="394" y="592" class="small">latency, controller mode, tuning label; JSON sidecar</text>
+  <rect x="800" y="532" width="390" height="86" class="box"/>
+  <text x="814" y="554" class="txt">MIL-STD HUD + Webots digital twin</text>
+  <text x="814" y="574" class="small">reticle, lock bar, hit probability, event log</text>
+  <text x="814" y="592" class="small">Webots: 80 ms delayed observation, 1.2 deg backlash</text>
+
+  <!-- Arrows -->
+  <path class="arrow" d="M300 220 H360"/>
+  <path class="arrow" d="M330 380 H360 V330"/>
+  <path class="arrow" d="M750 330 H790"/>
+  <path class="arrow" d="M1000 322 V370"/>
+  <path class="arrow" d="M750 300 C770 300 780 440 790 440"/>
+  <path class="arrow" d="M1000 300 V370"/>
+  <path class="arrow" d="M750 560 H800"/>
+  <path class="arrow" d="M360 560 H330 V450"/>
+
+  <text x="30" y="700" class="head">Runtime guarantees</text>
+  <text x="30" y="724" class="small">1) No Ki / Kd: STM32 is a discrete integrator; P deadband absorbs static error. 2) No velocity FF: Kalman velocity drives lead and HUD only. 3) Single source of truth: config.py. 4) Legacy P and legacy RL remain selectable for rollback (TURRET_P_CONTROLLER / TURRET_RL_CONTROLLER=legacy).</text>
+  <text x="30" y="748" class="small">5) RL inference uses turret_ppo_final_policy.npz, so it is independent of the installed SB3/torch version. 6) All servo/tilt/pan limits and firing timings are mirrored in firmware and Webots.</text>
+  <text x="30" y="784" class="small">Validation: 37 pytest tests; Webots A/B profile 2; real logs for Kalman/LOS. This diagram is the current working tree, not a frozen release tag.</text>
+</svg>

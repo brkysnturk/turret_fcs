@@ -74,8 +74,119 @@
   2. **Hedef Kayıp Toleransı Koruması:** `main.py` içinde hedefin 1 karelik geçici tespit kaçışında erken `fcs.reset()` çağrısı engellendi, `max_lost_frames=4` toleransı korundu.
   3. **Ego-Hareket Aktüatör Gözlemcisi İlklendirmesi:** `fcs_manager.py` içinde hedef yeni yakalandığında (`was_lost`) aktüatör gözlemcisinin sıfırdan başlaması sağlanarak önceki artık hareket komutlarından kaynaklanan sahte optik akış sıçraması engellendi.
   6. **Patrol Birikimli Adımlayıcı (Step Accumulator):** 80-100 FPS döngüde merkeze dönerken 0.20° gibi minik adımların MG996R ölü bölgesinde takılı kalmasını önlemek için `patrol_generator.py` içine birikimli adım mekanizması eklendi; komutlar birikip `0.95°` eşiğini aştığında taret 90-90 mekanik merkezine net torklu adımlarla döner hale getirildi.
-  7. **Dinamik Kalman Hız Ölü Bölgesi (Dynamic Velocity Deadband):** Taret dönüş hızı (`ego_speed`) ve hedef mesafesine (`dist_m < 1.2m`) bağlı olarak Kalman hız ölü bölgesi 45 px/s'den 120 px/s'ye dinamik genişletildi. Yakın mesafedeki sahte hız dalgalanmaları 358.3 px/s'den 70.2 px/s'ye (5 kat sakin) düşürüldü.
+  7. **Dinamik Kalman Hız Ölü Bölgesi (Dynamic Velocity Deadband):** Taret dönüş hızı (`ego_speed`) ve hedef mesafesine (`dist_m < 1.2m`) bağlı olarak Kalman hız ölü bölgesi 45 px/s'den 120 px/s'ye dinamik genişletildi. Yakın mesafedeki sahte hız dalgalanmaları 358.3 px/s'den 70.2 px/s'ye (5 kat sakin) düşürüldü. (FAZ 9'da kaldırıldı; yerine sabit 30-60 px/s yumuşak ölü bölge geldi.)
   8. **Takip Histerezisi & CONF HUD:** `target_selector.py` arama modunda `conf = 0.28`, kilitli takip modunda ise `conf = 0.16` dinamik toleransına geçirildi. Taret hızla dönerken ve hareket bulanıklığı oluştuğunda hedefin kopması engellendi; anlık güven skoru (% CONF) hem HUD retikülüne hem de CSV telemetrisine bağlandı.
+
+### FAZ 9: Kalman Filtresinin Sıfırdan Yeniden Tasarımı (CV + Robust Tekil-Sıçrama Kapısı)
+- **Sorun:** Adaptif Q tabanı `4 px/s^2` idi; sabit hızlı hedefte bile hız öğrenimi aşırı yavaştı. Dönüş anında ölçülen 3-kare eğim doğrudan duruma yazılıyor (state overwrite), ivme sınırı ve çıkış EMA'sı gecikmeyi büyütüyordu. Gerçek logda Kalman hızı dünya LOS hızıyla yalnızca 0.44 korelasyon ve %66 işaret uyumu veriyordu.
+- **Yeni tasarım (tek katman):**
+  1. Durum `[x, y, vx, vy]`, sabit hızlı (CV) model, tek süreç gürültüsü `sigma_a = 300 px/s^2`, tek ölçüm gürültüsü `r_var = 64 px^2`, Joseph formu.
+  2. Adaptif Q, sigma artış hızı sınırı, dönüş dedektörü/P şişirme, ivme sınırı, 3-kare ölçüm eğimi, hız EMA'sı, yeniden yakalama beklemesi ve mesafe bazlı ölü bölge tamamen kaldırıldı.
+  3. Tek karelik 150 px üstü bbox sıçramasında R 100 kat büyütülür (kazanç bastırılır). Aynı sapma 3 kare sürerse takip yeniden başlatılır: konum ölçümden, hız sıfırdan.
+  4. Ego kaynağı: son motor komutunun 30 ms birinci derece servo yanıtı. STM potansiyometre farkı ego için kullanılmaz; 0.1° kuantalama ve 1.9°'ye varan sıçramalar kare farkında büyük sahte hız üretir.
+  5. Lead: `bbox + hız * lead_time`. Filtrenin konum gecikmesi lead'e ikinci kez eklenmez.
+  6. Çıkışta yalnızca 30-60 px/s yumuşak ölü bölge vardır.
+- **Doğrulama:**
+  - Gerçek log `telemetry_test_20261024_035501.csv`: dünya LOS referansına karşı korelasyon 0.44 -> 0.83, işaret uyumu %66 -> %77, 120 px/s üstü hızlarda %69 -> %92. İkinci logda korelasyon 0.57 -> 0.81.
+  - Webots zemin gerçeği: işaret uyumu %87-92, hız büyüklüğü kazancı eski filtreye göre belirgin şekilde arttı; 300 px/s^2 Q değeri 400/500/800'e göre daha iyi RMSE ve işaret verdi.
+  - Test paketi 41 -> 46 test; tümü geçiyor.
+- **Sınır:** P FF hâlâ kapalı (`velocity_ff_enabled=False`). Kalman hızı P motorunu sürmüyor; yalnızca lead/HUD, RL gözlemi ve telemetri için kullanılıyor.
+
+### FAZ 10: P Kontrolcünün Yeniden Tasarımı (P) ve Webots Doğrulaması
+- **Sorun:** Eski P aynı açıyı iki kez EMA ile filtreliyor (`compute_angles` + `compute_p`), ardından pan çıkışına sabit `0.20 derece/kare` slew koyuyordu. 30 FPS'de bu 6 derece/s yapay hız tavanıdır; hedef 10-12 derece/s hareket ettiğinde P matematiksel olarak yetişemez. Sabit Kp de büyük hatada yavaş, merkezde gereğinden sertti.
+- **Yeni varsayılan:** `turret_fcs/p_controller.py` içindeki `PController`.
+  1. Tek EMA (`alpha = 0.85`); çift filtreleme kaldırıldı.
+  2. Pan `Kp = 0.22`, tilt `Kp = 0.11` (30 FPS bazında). Hata 5 dereceyi aştıkça Kp yumuşak geçişle 1.6 kata kadar artar. (Webots taraması 0.30'u en iyi gösterdi ama **gerçek tarete 0.30 rezonansa girdi**; saha geri bildirimiyle 0.22/0.11'e çekildi.)
+  3. Sabit pan slew yerine komut ivme sınırı: pan 120, tilt 80 derece/s^2. Steady-state hız tavanı yok; kalkış/dönüş yumuşak.
+  4. Ki, Kd ve hız FF yok; yumuşak ölü bölge (0.85/0.95 derece) korunur.
+  5. Tek kontrolcü yolu vardır: `turret_fcs/p_controller.py` içindeki `PController`. Seçici, ortam değişkeni ve eski kontrolcü v1.4'te kaldırıldı.
+- **Webots kazanç taraması (6 profil x 8 kazanç, `analysis/p_profile_sweep.py`):**
+
+  | Profil | 0.20 | 0.24 | 0.28 | 0.30 | 0.32 | 0.34 | 0.36 | 0.38 |
+  |---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+  | Standart sinüs (2) | ✅ | – | ✅ | ✅ | ✅ | – | – | – |
+  | Figure-8 (7) | ✅ | ✅ | ✅ | ✅ | ✅ | – | – | – |
+  | Hızlı sinüs (3) | ✅ | ✅ | ✅ | ✅ | ✅ | – | – | – |
+  | Zigzag (5) | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+  | Step/hold (4) | ⚠️ | – | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+  - Kararlılık ölçütü: komut yön değiştirme oranı ve doyum (komut adımının 1.35 dereceyi aşma yüzdesi). Limit cycle'da yön değiştirme %8'e, doyum %50'ye çıkıyor; kararlı koşularda %0.8-1.9.
+  - Standart sinüste sınır 0.35-0.39 arasında. Zigzag'de 0.27 hâlâ %89.6 kilit, 0.30 sınır, 0.34 çöküş. Step/hold'da 0.20 bile %25 doyumda, 0.30'da kilit %0.
+  - **Tek bir evrensel Kp yok.** Taban 0.22/0.11; `webots_tuning.py` profil bazlı tavan uygular (standart/figure-8 0.32, zigzag 0.27, hızlı sinüs 0.25, step/hold 0.15).
+  - Tilt: 0.13, 0.10'a göre tilt hatasını 1.83 -> 1.76 dereceye düşürüp kilidi artırdı.
+- **TurretEnv kapalı çevrim karşılaştırması (20 tohum, randomization açık):** ortalama hata 109 -> 66 px, RMS 121 -> 82 px, kilit oranı %0.9 -> %14.2; komut jerk'i 0.022 -> 0.053.
+- **Test paketi:** 46 -> 67 -> 33 test (konsolide edildi).
+- **Saha dersi (kritik):** Webots'un 1.2 derece backlash modeli, gerçek dişli boşluğu + potansiyometre gürültüsünü tam temsil etmiyor. Simülasyonda kararlı olan kazanç, saha için üst sınır değildir. 0.30 pan kazancı gerçek tarete rezonansa girdi; 0.22/0.11'e inildi. Simülasyondan seçilen değeri sahada muhafazakâr başlangıç kabul et ve gerçek testle doğrula.
+- **Tuning güvenliği:** tarama limitleri sessizce kırpmayacak şekilde gevşetildi ve kırpma olursa `[TUNE UYARI]` basılıyor; profil bazlı `PROFILE_LIMITS` tablosu var. Bu, 0.28-0.42 değerlerinin yanlışlıkla 0.20'ye kırpılması hatasını önler.
+
+### FAZ 11: RL Sarmalayıcı ve P-Harman Denemesi (v1.3, tarihsel)
+- **Sorun:** Son RL kontrolcü gerçek/Webots kapalı çevrimde çok mikro düzeltme ve çoklu eksende titreme üretiyordu. Ölçüm: saf politika Webots profil 2'de pan RMS 3.26 derece, komut yön değiştirme %6.0, tilt hatası 2.05 derece, kilit %29.
+- **Kök nedenler (ölçüldü, tahmin değil):**
+  1. Eski `RLController` gözlemi P'nin EMA'li hatasından üretiyordu; politika eğitimdeki ölçülen bbox dağılımını görmüyordu.
+  2. Eylem geçmişine filtrelenmiş motor komutunu yazıyordu; politika eğitimde kendi ham aksiyonunu görüyordu.
+  3. Çıkışta EMA + 0.10 derece/kare slew + 0.85 derece yazılım ölü bölgesi vardı; politika bunlarla eğitilmediği için faz gecikmesi ve limit cycle oluşuyordu.
+  4. Hedef kaybında eylem geçmişi temizlenmiyordu; yeniden yakalamada hayalet aksiyonlar politikaya giriyordu.
+  - TurretEnv teşhisi (aynı 12 tohum): ham politika 40.5 px RMS, eski sarmalayıcı 67.1 px, filtresiz temiz sarmalayıcı 40.2 px. Yani sorun politika değil, sarmalayıcıydı.
+- **Yeni sarmalayıcı:** `turret_fcs/rl_controller.py` içindeki `RLController`.
+  1. 11 boyutlu gözlem eğitimle aynı; gözlem ölçülen bbox'tan ve yumuşatılmış Kalman hızından üretilir.
+  2. Politika ağırlıkları `turret_ppo_v14_policy.npz` olarak dışa aktarılır; çıkarım SB3/torch sürümünden bağımsız 11-64-64-2 NumPy MLP ile yapılır.
+  3. Eylem geçmişi uygulanan normalize komutu saklar; reset ve hedef kaybında temizlenir.
+  4. EMA/slew yok. 5 px yumuşak ölü bölge (politikanın sıfır-hata bias'ı için) ve yön değiştiren aksiyonda 0.5 sönümleme var.
+  5. v1.3'te son komut P ile harmanlandı: `u = 0.3 * u_RL + 0.7 * u_P`. Bu harman v1.4'te kaldırıldı; RL artık saf PPO aksiyonu kullanır.
+  6. Tek RL yolu vardır: `turret_fcs/rl_controller.py` içindeki `RLController`. Seçici ve eski sarmalayıcı v1.4'te kaldırıldı.
+- **Webots doğrulaması (profil 2, ilk 600 kare):**
+
+  | Kontrolcü | Pan RMS | Piksel | Kilit | Kilitli kalma | Yön değiştirme | Tilt hatası |
+  |---|---:|---:|---:|---:|---:|---:|
+  | Saf RL (filtresiz) | 3.26° | 65.4 px | %29.0 | %13.0 | %6.0 | 2.05° |
+  | **RL (v1.3 P harmanı)** | **2.04°** | **42.7 px** | **%37.7** | **%95.0** | **%1.9** | **0.67°** |
+  | P (0.22) | 2.07° | 42.3 px | %39.8 | %82.2 | %0.9 | 1.34° |
+
+  - RL, P ile aynı pan/piksel hatasını verirken tilt hatasını 1.34 -> 0.67 dereceye düşürür, kilitli kalma süresini %82 -> %95'e çıkarır; komut yön değiştirme %0.9 -> %1.9'a çıkar ama hâlâ kararlı banttadır.
+  - v1.3'te saf RL bu plantta kararsızdı; bu yüzden P harmanı kullanıldı. v1.4'te plant/ödül/hız gözlemi düzeltilerek saf RL çalıştırıldı (FAZ 13).
+- **Negatif sonuç (dürüstçe):** 1.2 derece backlash ve yüksek jerk cezasıyla iki kez yeniden eğitim denendi. İlki satürasyona (RMS 439 px), ikincisi sabit maksimum komuta takıldı; yeni modeller kullanılmadı ve silindi. Sorun politika/plant uyumsuzluğu; sarmalayıcı tek başına çözemiyor.
+- **Test paketi:** 67 -> 33 test. Aynı işlevi gören testler birleştirildi; ölü FF testleri ve eski RL smoothing testleri kaldırıldı.
+
+### FAZ 12: Repo Geneli Denetim, Temizlik ve Son Mimari
+- **Kapsam:** P kontrolcü ve Kalman filtresi hariç tüm Python, Webots, STM32 ve analiz katmanları.
+- **Düzeltilen gerçek hatalar:**
+  1. `TargetSelector.is_tracking` kısa hedef kaybında hemen false oluyordu; 0.16 takip eşiği devre dışı kalıyordu. Artık `lost_counter <= max_lost_frames` boyunca histerezis korunur. Ayrıca ByteTrack ID atlaması mekânsal kapı ile reddedilir.
+  2. `FCSCommunicator` 10 baytlık paketi tek `read` çağrısında bekliyordu; bölünmüş paketler kayboluyordu. Artık kalıcı RX tamponu, yeniden senkronizasyon ve checksum döngüsü vardır. Sıfır komutta yalnız bir eksenin artığı sıfırlanıyordu; artık her eksen bağımsız sıfırlanır. Açıkça verilen port, ST-Link otomatik seçiminden önce denenir.
+  3. `CameraThread` "Logi C270" arıyordu; gerçek cihaz adı "Logitech C270" olduğu için eşleşmiyordu. "C270" alt dizesi kullanılır.
+  4. Webots tuning varsayılanları 0.11/0.06 idi; bu, `tuning_params.json` yoksa P'i sessizce legacy kazanca düşürüyordu. Varsayılanlar artık `CONFIG.control.kp_pan/kp_tilt` (0.22/0.11).
+  5. HUD spin-up sayacı 1.0 s sabitini kullanıyordu; gerçek 0.25 s (idle) veya 1.0 s (cold) süresi artık parametre olarak geçirilir. SETTLE aşaması da ayrı gösterilir.
+  6. Üretim ve Webots telemetrisi gerçek kamera açısal hatası yerine P kontrolcünün filtrelenmiş `actual_pan/tilt` değerini yazıyordu. Artık `last_pan_err_deg/last_tilt_err_deg` kullanılır. `latency_ms` dt değil, gerçek döngü işleme süresidir.
+  7. Webots telemetrisi hedef güvenini 0.90 sabitine, hit_prob'u 0-1 ölçeğine yazıyordu; artık gerçek `target_conf` ve yüzde `hit_probability` yazılır.
+  8. Firmware'de kullanılmayan `FCS_Comm_IsNewCommand/GetPan/GetTilt/GetState`, `Luna_IsDataReady` ve çift tersleme yapan `PAN_DIR_INVERT/TILT_DIR_INVERT` kaldırıldı.
+  9. `patrol` dokümanındaki ±35/±8 değerleri kodla (±45/±16) uyumsuzdu; doküman düzeltildi.
+- **Kaldırılanlar:** Eski `legacy/hsv` C++ prototipi, boş pip geçici dizinleri, `.pytest_cache`, `egg-info`, kullanılmayan Webots analiz betikleri/görselleri, YOLO eğitim eğrileri, eski mimari PNG'leri. GitHub'da `back_up` etiketi ve iki yerel yedek dal silindi; v1.0-v1.3 release etiketleri korundu.
+- **Geriye dönüklük kararı (v1.4'te güncellendi):** Eski P/RL kontrolcüleri, factory seçicileri ve ortam değişkenleri v1.4'te tamamen silindi. Tek yol `PController` ve `RLController`'dır; v1.3 davranışı için `v1.3` etiketi kullanılır.
+### FAZ 13: Saf RL Kurtarma, Tek Kontrolcü Mimarisi ve v1.4 Sürümü
+- **Amaç:** P harmanı olmadan, yalnızca PPO aksiyonuyla Webots ve gerçek donanım fiziğine yakın çalışan bir RL kontrolcü.
+- **Yapılan plant düzeltmeleri:**
+  1. `servo_deadband` 0.10 derece olarak korundu. 1.20 dereceyi deadband yapmak yanlıştı; 1.50 derece/kare adımı tamamen yutuyordu.
+  2. 1.20 derece ayrı `backlash_deg` olarak modellendi: komut biriktirici (`cmd += step`), sonra backlash (`target - 1.20`). Webots'taki modelle aynı.
+  3. `max_step_pan/tilt` 0.80/0.50'den 1.50/1.50'ye çıkarıldı. Webots motor hızı 1.35 derece/kare yerine 1.50 derece/kare (30 FPS'te 45 derece/s) yapıldı.
+  4. Ödül progress formuna çevrildi: `r = 2.0*(e_prev^2 - e^2) - 0.05*e^2 - 0.02*|u|^2 - 0.08*|du|^2 + bullseye`.
+  5. Eğitimde gerçek hız gözlemi kullanıldı; runtime'da Kalman hızı sıfırlandı. Webots/gerçek Kalman hızı gürültülü olduğu için politika onunla doyuma giriyordu. Statik hedefte sıfır hız eğitim dağılımında olduğu için güvenli.
+  6. `blend_with_p` tamamen kaldırıldı; RL saf PPO aksiyonu üretir.
+- **Eğitim:** 250k adım, PPO MlpPolicy, `turret_ppo_v14.zip` ve `turret_ppo_v14_policy.npz` (SB3/torch bağımsız NumPy çıkarım).
+- **Webots sonuçları (ilk 600 kare):**
+
+  | Profil | Kontrolcü | Pan RMS | Piksel | Kilit | Kilitli kalma | Yön değiştirme | Tilt hatası |
+  |---|---|---:|---:|---:|---:|---:|---:|
+  | 2 standart | RL saf PPO | 1.93° | 40.6 px | %36.3 | %92.5 | %4.4 | 0.78° |
+  | 2 standart | P 0.22 | 2.07° | 42.3 px | %39.8 | %82.2 | %0.9 | 1.34° |
+  | 5 zigzag | RL saf PPO | 2.34° | 42.9 px | %47.0 | %94.2 | %5.1 | 0.78° |
+  | 5 zigzag | P 0.22 | 2.66° | 49.0 px | %39.5 | %80.8 | %1.6 | 1.16° |
+  | 7 figure-8 | RL saf PPO | 2.06° | 43.6 px | %35.0 | %93.8 | %4.5 | 0.86° |
+  | 7 figure-8 | P 0.22 | 2.14° | 43.8 px | %38.8 | %65.2 | %0.8 | 1.87° |
+
+  - Saf RL üç profilde de P'a göre daha düşük pan RMS, piksel hatası ve tilt hatası; kilitli kalma süresi belirgin yüksek. Yön değiştirme %4.4-5.1 ile P'nin üstünde ama limit-cycle eşiği %8'in altında.
+- **Sınır:** Bu sonuçlar Webots'tadır; gerçek taret testi yapılmadı. Yön değiştirme oranı P'den yüksek olduğu için sahada uzun süreli aşınma izlenmelidir.
+- **Kontrolcü sadeleştirmesi:** P MAX üretim `p_controller.py` (`PController`), RL MAX üretim `rl_controller.py` (`RLController`) oldu. Eski kontrolcüler, factory seçicileri, `TURRET_P_CONTROLLER` / `TURRET_RL_CONTROLLER` ortam değişkenleri, `p_controller_impl` / `rl_controller_impl` alanları, `kp_pan_max` / `kp_tilt_max` takma adları ve v1.3 `turret_ppo_final` modeli silindi. Hiç okunmayan FF/EMA config alanları da kaldırıldı.
+- **Kurulum düzeltmesi:** `requirements.txt` çözülemiyordu (SB3 2.3.2 + gymnasium 1.0.0 + numpy 2.1.3 çelişkisi). Yeni pinler: numpy 1.26.4, stable-baselines3 2.4.1, gymnasium 1.0.0. `setup_env.bat` uygun Python'u seçiyor, bozuk venv'i yeniden kuruyor, CPU torch wheel kuruyor ve importları doğruluyor. Temiz klonda 38/38 test ve YOLO çıkarımı doğrulandı.
+- **Sürüm:** Tüm v1.3 sonrası değişiklikler v1.4'te toplandı; test paketi 38 test.
 
 ---
 
@@ -83,12 +194,12 @@
 
 | Soru / Konu | Verilecek Bilimsel ve Mühendislik Cevabı |
 |---|---|
-| **Neden türev (D-termi) kullanmadınız?** | Kamera ve YOLO tespit gürültüsünün türevi servolarda yüksek frekanslı mekanik titreşime (chattering) ve dişli aşınmasına yol açar. STM32 pozisyon biriktiricisi ayrık zamanda saf integratör olduğu için yumuşak ölü bölgeli saf Tip-1 P kontrolcü statik hedeflerde hatayı ölü bölge sınırları içerisine (Pan ±0.85°, Tilt ±0.95°) asimptotik olarak çekip sıfır motor titreşimi sunar. Hareketli hedeflerdeki sonlu rampa hatası ise Kalman filtreli hız ileri beslemesi ve önleme terimiyle bertaraf edilir; hızlı manevra gerektiren durumlarda ise yapay zeka (RL) devreye girerek çevik takibi üstlenir. |
+| **Neden türev (D-termi) kullanmadınız?** | Kamera ve YOLO tespit gürültüsünün türevi servolarda yüksek frekanslı mekanik titreşime (chattering) ve dişli aşınmasına yol açar. STM32 pozisyon biriktiricisi ayrık zamanda saf integratör olduğu için yumuşak ölü bölgeli saf Tip-1 P kontrolcü statik hedeflerde hatayı ölü bölge sınırları içerisine (Pan ±0.85°, Tilt ±0.95°) asimptotik olarak çekip sıfır motor titreşimi sunar. Hareketli hedeflerdeki sonlu rampa hatası ise Kalman filtreli lead/önleme terimiyle (P hız FF deneyi kapalı) bertaraf edilir; hızlı manevra gerektiren durumlarda ise yapay zeka (RL) devreye girerek çevik takibi üstlenir. |
 | **Neden integral (Ki) kullanmadınız?** | STM32 gömülü yazılımındaki pozisyon biriktiricisi (`theta_k = theta_{k-1} + delta`) ayrık zamanda saf integratördür (z/(z-1)). Harici Ki integrali sistemi Tip-2 yaparak çift kutuplu rezonans faz çökmesine ve kontrolsüz salınıma (limit cycle) sürükler. |
 | **Neden ölü bölgeye yumuşak geçiş (Soft Deadband) koydunuz?** | Sert eşikli ölü bölge, eşik sınırında anlık basamak darbesi üreterek dişli boşluğuyla (backlash) birleştiğinde yüksek frekanslı mekanik titreşime yol açar. Yumuşak ölü bölge hatayı sıfırdan başlatarak sıfır jerk ile kalkış sağlar. |
 | **Neden MPC veya LQR değil de PPO RL?** | Sistemde analitik olarak modellenmesi zor olan süreksiz doğrusal olmayanlıklar vardır (ölü bölge, 0.1° UART kuantalaması, dişli boşluğu, değişken 80 ms USB taşıma gecikmesi). PPO, bu rastgeleleştirilmiş POMDP ailesi üzerinde çevrimdışı eğitilmiş amortize bir optimal politika sunar; çalışma zamanında tek ileri geçiş maliyeti 0.17 ms'dir. |
 | **Eylem geçmişi (Action History) neden gözlem uzayında?** | Smith Predictor ilkesine göre, 80 ms (yaklaşık 2-3 kare) gecikmeli bir sistemde ajan doğru karar verebilmek için motora gönderilmiş ama henüz kameraya yansımamış olan "yoldaki komutları" (in-flight commands) bilmek zorundadır. |
-| **Atış anında neden basamak sıçraması olmuyor?** | 2 Aşamalı Atış Senkronizasyonu ve Zero-Lag Feedforward devrededir: Taret hedefi optik merkezde boresight takip eder. Y tuşuna basıldığında STM32 volan motorlarının nominal devrine (23.500 RPM) ulaşması için gereken 1.0 saniye (1000 ms, `spinup_time_s = 1.00`) içinde doğrudan önleme ileri beslemesi (`u = delta_slew + u_P`) ile taret balistik önleme ve süper-elevasyon açısına gecikmesiz ulaşır. 1.0 s sonra solenoid tetik darbesi (80 ms) uygulanır ve taret 350 ms içinde optik merkeze pürüzsüzce geri döner. EVAL ekranı 1.5 s gösterilirken ilk 0.75 s (22 kare) boyunca kilit muafiyeti (grace period) uygulanır; ani basamak sıçraması ve sahte kilit kaybı tamamen önlenir (fiziksel fırlatıcı yolu güvenlik gereği laboratuvar/HUD testlerinde simüle edilebilir). |
+| **Atış anında neden basamak sıçraması olmuyor?** | Kademeli atış senkronizasyonu ve Zero-Lag Feedforward devrededir: Hedef kilitliyken volanlar boşta döner. Y tuşundan sonra 0.25 s SPINUP/SLEW ile taret balistik önleme ve süper-elevasyon açısına gider; ardından 0.15 s SETTLE ile komut sabit tutulup servo lag/backlash oturur (lead/gravity canlı kalır). Sonra 80 ms solenoid darbesi uygulanır ve taret 350 ms içinde optik merkeze döner. EVAL 1.5 s gösterilirken ilk 0.75 s (22 kare) kilit muafiyeti uygulanır. Fiziksel fırlatıcı yolu güvenlik gereği laboratuvar/HUD testlerinde simüle edilebilir. |
 
 ---
 
@@ -96,26 +207,37 @@
 
 - [config.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/config.py): SSOT (Single Source of Truth) merkezi konfigürasyon; optik, aktüatör, kontrolcü ve yol parametreleri.
 - [main.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/main.py): Ana atış kontrol döngüsü, OpenCV video işleme, klavye kontrolleri.
-- [telemetry.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/telemetry.py): v2 Telemetri kaydedicisi (40 kolon), oturum özeti (`.meta.json`) ve taktiksel olay günlüğü (`_events.csv`).
-- [fcs_manager.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/fcs_manager.py): Durum makinesi (Arama, Tespit, Takip, Kilit, Ateşleme), balistik motoru, A/B mod yönetimi (`P` vs `RL`), menzil kapılama, 1. derece aktüatör gözlemcili ego-hareket telafisi (`tau = 45 ms`).
-- [p_controller.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/p_controller.py): Yumuşak Ölü Bölgeli Tip-1 P motor kontrolcüsü (`Kp_pan=0.10, Kp_tilt=0.05`).
-- [kalman_filter.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/kalman_filter.py): Ego-hareket telafili 2B durum gözlemcisi, hedef konum, hız kestirimi ve atış önleme (Lead Reticle).
-- [rl_controller.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/rl_controller.py): 11 boyutlu PPO çıkarım motoru; Smith Predictor eylem hafızası, asimetrik dikey sönümleme ve sıfır jerk filtresi.
+- [telemetry.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/telemetry.py): v2 Telemetri kaydedicisi (44 kolon, LOS dahil, gerçek kamera hatası ve ölçülen döngü latency'si), oturum özeti (`.meta.json`) ve taktiksel olay günlüğü (`_events.csv`).
+- [fcs_manager.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/fcs_manager.py): Durum makinesi (Arama, Tespit, Takip, Kilit, Ateşleme), balistik motoru, A/B mod yönetimi (`P` vs `RL`), menzil kapılama, 1. derece aktüatör gözlemcili ego-hareket telafisi (`tau = 30 ms`, ego için yalnızca komut modeli).
+- [p_controller.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/p_controller.py): Üretim P; tek EMA, kazanç planlaması (`Kp_pan=0.22, Kp_tilt=0.11`), pan/tilt komut ivme sınırı, FF/Ki/Kd yok.
+- [kalman_filter.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/kalman_filter.py): Ego-hareket telafili sabit hızlı (CV) Kalman; tek `sigma_a`/`r_var`, Joseph formu, robust tekil-sıçrama kapısı, 30-60 px/s yumuşak ölü bölge ve lead kestirimi.
+- [rl_controller.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/rl_controller.py): Üretim RL; saf PPO, 11-64-64-2 NumPy MLP çıkarımı (SB3/torch bağımsız), ölçülen bbox gözlemi, runtime'da sıfır hız gözlemi, temiz eylem geçmişi, 5 px ölü bölge ve yön değişim sönümlemesi; P harmanı yok.
+- [export_rl_policy.py](file:///c:/YTU/bitirme_projesi/turret_fcs/analysis/export_rl_policy.py): PPO zip modelini SB3'ten bağımsız `turret_ppo_v14_policy.npz` artifact'ine aktarır ve ileri geçişi doğrular.
+- [rl_diagnose.py](file:///c:/YTU/bitirme_projesi/turret_fcs/analysis/rl_diagnose.py): Aynı tohumlarda üretim RL yolu ile ham politikayı karşılaştıran teşhis aracı.
+- [rl_webots_eval.py](file:///c:/YTU/bitirme_projesi/turret_fcs/analysis/rl_webots_eval.py): Webots RL loglarında gerçek pan hatası, piksel hatası, kilit ve komut yön değişimi analizi.
+- [p_profile_sweep.py](file:///c:/YTU/bitirme_projesi/turret_fcs/analysis/p_profile_sweep.py): 6 profil x 8 kazanç Webots taraması ve limit-cycle sınıflandırması.
 - [turret_hud.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/turret_hud.py): Askeri standartta dinamik taktiksel HUD arayüzü ve renk disiplini (Yeşil, Mavi, Kırmızı).
 - [lock_manager.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/lock_manager.py): Dinamik kilit toleransı ve kademeli Gauss vuruş olasılığı (`hit_probability`).
 - [fcs_comm.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/fcs_comm.py): STM32 ile 115200 Baud ikili (binary) UART paketi alışverişi, 0.1° altı kuantalama biriktiricisi.
 - [camera_thread.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/camera_thread.py): Watchdog korumalı, sıfır gecikmeli kamera iş parçacığı.
 - [patrol_generator.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/patrol_generator.py): Lissajous eğrisi parametrik hava sahası tarama devriyesi.
-- [turret_env.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/rl_sim/turret_env.py): 11 boyutlu simülasyon ortamı; gecikmeli sensör kuyruğu (7D) + taze eylem geçmişi (4D).
-- [train_rl.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/rl_sim/train_rl.py): 250k adımlık PPO eğitim motoru.
+- [turret_env.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/rl_sim/turret_env.py): 11 boyutlu simülasyon ortamı; 1.20 derece backlash, 1.50 derece/kare adım, progress ödülü, gecikmeli sensör kuyruğu (7D) + taze eylem geçmişi (4D).
+- [train_rl.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/rl_sim/train_rl.py): 250k adımlık saf PPO eğitim motoru; `turret_ppo_v14.zip` üretir.
+- [webots_main.py](file:///c:/YTU/bitirme_projesi/turret_fcs/webots/controllers/webots_main/webots_main.py): Webots dijital ikiz ana döngüsü; üretim FCS/HUD modüllerini kullanır, kademeli SPINUP/SETTLE/FIRING sekansı içerir. P FF kapalıdır; lead/HUD canlıdır.
+- [webots_tuning.py](file:///c:/YTU/bitirme_projesi/turret_fcs/webots/controllers/webots_main/webots_tuning.py): Webots-only Kp/max_output override, profil tavanı ve telemetri metadata'sı; varsayılan P kazançları `CONFIG.control.kp_pan/kp_tilt` ile aynıdır.
+- [system_identification.py](file:///c:/YTU/bitirme_projesi/turret_fcs/analysis/system_identification.py): Sentetik nominal SOPDT/FOPDT analizi; gerçek telemetriye fit yapmaz, ölçülmüş tau/backlash üretmez.
 
 ---
 
 ## 5. Yeni Bir Sohbet Açıldığında Hatırlanacaklar
 
 Yeni bir sohbet açıldığında asistan bu dosyayı okur okumaz:
-1. Sistemin şu anki durumunun **v1.3 Production Release** olduğunu,
-2. Modelin yeni eğitilmiş LQR temelli `turret_ppo_final.zip` (+%59.0 takip iyileşmesi) olduğunu,
-3. Kontrolcünün adının **Yumuşak Ölü Bölgeli Tip-1 P Kontrolcü** olduğunu,
+1. Sistemin **v1.4 Production Release** etiketli olduğunu; çalışma ağacında P, saf RL ve repo denetimi değişikliklerinin bulunduğunu,
+2. RL politikasının `turret_ppo_v14.zip` / `turret_ppo_v14_policy.npz` olduğunu; eski `turret_ppo_final` modelinin silindiğini, üretim çıkarımının SB3/torch bağımsız yapıldığını,
+3. Varsayılan ve tek kontrolcünün **P** (tek EMA, kazanç planlamalı, Kp_pan=0.22/Kp_tilt=0.11) olduğunu; eski kontrolcü ve seçicilerin silindiğini, v1.3 davranışı için `v1.3` etiketinin kullanıldığını,
 4. Asla LaTeX / dolar işareti (`$`) kullanmaması gerektiğini,
-5. Kodda veya tezde yapılacak her yeni geliştirmenin yukarıdaki mimari ve güvenlik disiplinine bağlı kalması gerektiğini anında bilir.
+5. Kodda veya tezde yapılacak her yeni geliştirmenin yukarıdaki mimari ve güvenlik disiplinine bağlı kalması gerektiğini,
+6. Kalman filtresinin FAZ 9'da sıfırdan sabit hızlı (CV) yapıya çevrildiğini; adaptif Q, dönüş override'ı, ivme sınırı, 3-kare eğim ve çıkış EMA'sının kaldırıldığını, test paketinin 38 test olduğunu anında bilir.
+7. P'in FAZ 10'da eklendiğini; çift EMA ve 0.20 derece/kare pan slew'un kaldırıldığını, altı profil taramasında **tek bir evrensel Kp olmadığını** (standart sinüste 0.35'e kadar kararlı, zigzag'de 0.30'da, step/hold'da 0.20'de bile sınırda), tabanın 0.22/0.11 ve profil bazlı tavanların `webots_tuning.py` içinde olduğunu bilir.
+8. RL'in v1.4'te saf PPO'ya çevrildiğini; Webots profil 2'de pan RMS 1.93 derece, tilt 0.78 derece, kilitli kalma %92.5, yön değiştirme %4.4 olduğunu; P harmanının kaldırıldığını, runtime'da hız gözleminin sıfırlandığını ve eski RL sarmalayıcının silindiğini bilir.
+9. FAZ 12'de repo geneli denetim yapıldığını; hedef seçici histerezis/ID kapısı, UART RX tamponu ve eksen-bazlı residue, Webots tuning varsayılanları, HUD spin-up süresi, gerçek telemetri hatası/latency'si ve firmware ölü API'lerinin düzeltildiğini; eski Webots analiz araçlarının, YOLO eğitim grafiklerinin ve eski mimari PNG'lerinin kaldırıldığını bilir.
