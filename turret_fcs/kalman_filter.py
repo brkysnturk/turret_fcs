@@ -188,21 +188,6 @@ class KalmanFilter:
 
         return float(self.x[0, 0]), float(self.x[1, 0]), self.smooth_vx, self.smooth_vy
 
-    def predict_next_position(self, lead_time):
-        """lead_time saniye sonraki hedef konumunu ve hizini dondurur.
-
-        Hiz dunya referansli oldugu icin lead, kameranin gelecekteki donusunu
-        degil hedefin kendi hareketini temsil eder.
-        """
-        px, py = float(self.x[0, 0]), float(self.x[1, 0])
-        vx, vy = float(self.smooth_vx), float(self.smooth_vy)
-        return (
-            px + vx * float(lead_time),
-            py + vy * float(lead_time),
-            vx,
-            vy,
-        )
-
     def get_velocity(self):
         """Yumusak olu bolgeden gecmis hedef hizini (vx, vy) px/s olarak doner."""
         return float(self.smooth_vx), float(self.smooth_vy)

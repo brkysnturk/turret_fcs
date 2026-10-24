@@ -47,7 +47,6 @@ class FCSManager:
         if self.control_mode == "RL":
             self._init_rl()
 
-        self.current_rl_weight = 1.0 if self.control_mode == "RL" else 0.0
         self.patrol_enabled = bool(patrol_enabled)
         self.patrol_status = "STANDBY"
 
@@ -60,8 +59,6 @@ class FCSManager:
         self.gravity_comp_deg = 0.0
         self.last_pan_err_deg = 0.0
         self.last_tilt_err_deg = 0.0
-        self._last_fx = CONFIG.optics.compute_fx(CONFIG.optics.default_width)
-        self._last_fy = CONFIG.optics.compute_fy(CONFIG.optics.default_height)
 
         # Son karede tarete gonderilen motor komutlari (Ego-motion kompanzasyonu icin)
         self.last_cmd_pan = 0.0
@@ -273,8 +270,6 @@ class FCSManager:
             # Telemetri icin ham kamera hatasi (kontrolcu ici EMA'dan bagimsiz).
             self.last_pan_err_deg = float(np.degrees(np.arctan((bx - center_x) / max(float(fx), 1e-6))))
             self.last_tilt_err_deg = float(np.degrees(np.arctan(-(by - center_y) / max(float(fy), 1e-6))))
-            self._last_fx = float(fx)
-            self._last_fy = float(fy)
             angular_err = float(np.hypot(pan_deg, tilt_deg))
 
             # 2. Menzil Kapilama (Range Gating):
@@ -357,7 +352,6 @@ class FCSManager:
                 if self.rl_controller is None:
                     self._init_rl()
                 if self.rl_controller.is_loaded:
-                    self.current_rl_weight = 1.0
                     screen_w = center_x * 2
                     screen_h = center_y * 2
 
@@ -378,8 +372,6 @@ class FCSManager:
                     u_tilt = float(np.clip(d_tilt_deg + delta_slew_tilt, -step_limit_tilt, step_limit_tilt))
                     return self._integrate_command(u_pan, u_tilt)
 
-            # P modu veya RL yuklu degilse:
-            self.current_rl_weight = 0.0
             return self._integrate_command(u_p_pan, u_p_tilt)
 
         else:
