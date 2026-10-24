@@ -39,7 +39,7 @@ kilit olasılığı, kapalı çevrim kalıcı hata, ivme sınırı) ve çalışt
 4. **Çalışma ağacında commit edilmemiş bir refactor var** (Kalman tekil-sıçrama
    kapısının kaldırılması, RL hız gözleminin geri açılması, ivme sınırının
    `a*dt` yerine `a*dt^2` olması). Testler yeni sözleşmeye göre güncellendi
-   (tüm testler yeşil); ancak bu değişiklikler v1.4'te Webots ve saha
+   (tüm testler yeşil); ancak bu değişiklikler v2.0'de Webots ve saha
    testiyle doğrulanmış kazançları geçersiz kılıyor: yeni ivme sınırı kapalı
    çevrimin baskın dinamik elemanı haline geldi (Bölüm 6).
 
@@ -407,7 +407,7 @@ bu bilinçli ve doğru bir tercih (potansiyometre sıçraması sahte hız üreti
 | 3 | Orta | Çalışma ağacındaki refactor (Kalman kapısı, RL hız gözlemi, `a*dt^2`) commit edilmedi ve saha/Webots doğrulaması yok | `git status`, Bölüm 6.1 | Commit öncesi Webots profil 2/5/7 ve gerçek taret testini yinele |
 | 4 | Orta | Kalman tekil-sıçrama kapısı kaldırıldı ama docstring hâlâ var; tek sahte kutu hız durumunu çekebilir | `kalman_filter.py:20-23` vs güncel kod | Kapıyı geri koy veya docstring'i güncelle + saha loguyla doğrula |
 | 5 | Orta | İvme sınırı `a*dt^2`'ye çevrildi: 120 derece/s^2 ile 1.5 derece/kare'e 11 karede (0.37 s) ulaşılır; 45 derece/s'den durma mesafesi 8.4 derece | `p_controller.py:163-164`, `rl_controller.py:325-330` | Sınırı servo kapasitesine göre seç (45 derece/s'ye 50 ms'de çıkmak 900, 100 ms'de 450 derece/s^2 ister) ve Webots taramasını yinele; mevcut Kp doğrulaması artık geçersiz |
-| 6 | Orta | RL'de hız gözlemi geri açıldı (`uses_velocity_obs = True`) — v1.4'te gürültülü Kalman hızı politikayı doyuma soktuğu için kapatılmıştı | `rl_controller.py:88-90` | Yeniden eğitim/doğrulama olmadan üretime alma |
+| 6 | Orta | RL'de hız gözlemi geri açıldı (`uses_velocity_obs = True`) — v2.0'de gürültülü Kalman hızı politikayı doyuma soktuğu için kapatılmıştı | `rl_controller.py:88-90` | Yeniden eğitim/doğrulama olmadan üretime alma |
 | 7 | Orta | UART yazımı ana döngüde; `write_timeout = 40 ms` worst case kare düşürür | `fcs_comm.py:131-136,199-203` | Yazmayı kuyruk thread'ine al veya tamponu büyüt |
 | 8 | Orta | 8 bit toplam checksum (CRC değil) | `fcs_comm.py:200`, `fcs_comm.c:56-62` | CRC-8'e geç (iki taraf birlikte) |
 | 9 | Düşük | Ateş sonrası EVAL'de `range_valid` durumu eski değerde kalıyor; gating "dondu" mantığı docstring ile tam örtüşmüyor | `fcs_manager.py:142-145` | Davranış bilinçliyse docstring'i netleştir |
@@ -437,7 +437,7 @@ Değişikliklerin niteliği (18:17 ara denemesi - FAZ 14 ile geri alındı):
 | Dosya | Değişiklik | Analitik etki |
 |---|---|---|
 | `kalman_filter.py` | (Ara deneme) 150 px tekil-sıçrama kapısı kaldırılmıştı; FAZ 14 ile geri alındı | Tek sahte kutunun hızı saptırmasını önlemek için 150 px + R*100 sönümleme aktif kodda mevcuttur |
-| `rl_controller.py` | `uses_velocity_obs = True`, `prefers_smooth_velocity = True` | Politikaya gürültülü Kalman hızı giriyor (v1.4'te bu yüzden kapatılmıştı) |
+| `rl_controller.py` | `uses_velocity_obs = True`, `prefers_smooth_velocity = True` | Politikaya gürültülü Kalman hızı giriyor (v2.0'de bu yüzden kapatılmıştı) |
 | `p_controller.py`, `rl_controller.py` | İvme sınırı `a*dt` -> `a*dt^2` | Boyut olarak doğru; nihai mutabakatta fiziksel sınırlar 400.0/267.0 deg/s^2 olarak belirlendi |
 | `p_controller.py`, `fcs_manager.py` | Tilt adım sınırı ayrıldı (0.75 derece) | Doğru düzeltme; RL tilt çıkışı da artık 0.75 ile sınırlı |
 

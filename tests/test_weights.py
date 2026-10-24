@@ -52,24 +52,15 @@ def test_ensure_weight_file_missing_raises(tmp_path: Path):
         ensure_weight_file(non_existent, required=True)
 
 
-def test_download_falls_back_to_legacy_tag(tmp_path: Path, monkeypatch):
-    """A release tag without assets must fall back to the last published weights tag."""
+def test_release_tag_points_at_v2(tmp_path: Path):
+    """Weights must resolve from the v2.0 release; no legacy fallback exists."""
     import turret_fcs.weights as weights
 
-    attempts = []
-
-    def fake_download(filename, dest_path, tag, timeout, verify_checksum):
-        attempts.append(tag)
-        if tag == weights.LEGACY_RELEASE_TAG:
-            Path(dest_path).write_bytes(b"x" * 2048)
-            return True
-        return False
-
-    monkeypatch.setattr(weights, "download_weight_file_from_tag", fake_download)
-
-    target = tmp_path / "best.pt"
-    ok = weights.download_weight_file("best.pt", target, tag="v2.0")
-
-    assert ok is True
-    assert attempts == ["v2.0", weights.LEGACY_RELEASE_TAG]
-    assert target.exists()
+    assert weights.DEFAULT_RELEASE_TAG == "v2.0"
+    assert not hasattr(weights, "LEGACY_RELEASE_TAG")
+    assert weights.RELEASE_URL_TEMPLATE.format(
+        owner=weights.REPO_OWNER,
+        repo=weights.REPO_NAME,
+        tag=weights.DEFAULT_RELEASE_TAG,
+        filename="best.pt",
+    ).endswith("/releases/download/v2.0/best.pt")

@@ -72,7 +72,7 @@ Güncel durum:
 - Açık kalan bir çelişki: `fcs_manager` RL gözleminde hızı yine sıfırlıyor
   (`obs_vx, obs_vy = 0.0`), ama `rl_controller` docstring'i, AGENTS FAZ 14 ve
   dosya haritası "filtrelenmiş Kalman hızı politikaya verilir" diyor. Biri
-  güncellenmeli; kod sıfırlıyorsa bu, v1.4'teki gerekçeyle birlikte yazılmalı.
+  güncellenmeli; kod sıfırlıyorsa bu, v2.0'deki gerekçeyle birlikte yazılmalı.
 - Telemetriden LOS kolonları çıkınca `LosTracker` tüketicisiz kaldı: her karede
   hesaplanıyor, sıfırlanıyor ama hiçbir yerde okunmuyor (yalnız bir birim testi
   kullanıyor). Ya şemaya geri konmalı ya modül ve testi kaldırılmalı.
@@ -280,7 +280,7 @@ katmanı ve korunmalı.
      Kalman hızını politikaya veriyor.
    - `config.FCSState` docstring'i FIRING'i "firmware revizyonunda rezerve" diyor;
      firmware bu baytı gerçek solenoid tetiği olarak kullanıyor.
-   - Webots modüllerinin başlıkları hâlâ "v1.3"; depo v1.4.
+   - Webots modüllerinin başlıkları v2.0 ile hizalı; depo v2.0.
    - `webots_main` başlığı "40.5 derece/s limit" diyor; güncel sınır 1.50 derece /
      0.032 s = 46.9 derece/s.
    - `fcs_manager` başlığı "dairesel tarama" diyor; `patrol_generator` figure-8

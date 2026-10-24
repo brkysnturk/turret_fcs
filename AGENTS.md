@@ -99,7 +99,7 @@
   2. Pan `Kp = 0.22`, tilt `Kp = 0.11` (30 FPS bazında). Hata 5 dereceyi aştıkça Kp yumuşak geçişle 1.6 kata kadar artar. (Webots taraması 0.30'u en iyi gösterdi ama **gerçek tarete 0.30 rezonansa girdi**; saha geri bildirimiyle 0.22/0.11'e çekildi.)
   3. Sabit pan slew yerine komut ivme sınırı: pan 120, tilt 80 derece/s^2. Steady-state hız tavanı yok; kalkış/dönüş yumuşak.
   4. Ki, Kd ve hız FF yok; yumuşak ölü bölge (0.85/0.95 derece) korunur.
-  5. Tek kontrolcü yolu vardır: `turret_fcs/p_controller.py` içindeki `PController`. Seçici, ortam değişkeni ve eski kontrolcü v1.4'te kaldırıldı.
+  5. Tek kontrolcü yolu vardır: `turret_fcs/p_controller.py` içindeki `PController`. Seçici, ortam değişkeni ve eski kontrolcü v2.0'de kaldırıldı.
 - **Webots kazanç taraması (6 profil x 8 kazanç, `analysis/p_profile_sweep.py`):**
 
   | Profil | 0.20 | 0.24 | 0.28 | 0.30 | 0.32 | 0.34 | 0.36 | 0.38 |
@@ -133,8 +133,8 @@
   2. Politika ağırlıkları `turret_ppo_v14_policy.npz` olarak dışa aktarılır; çıkarım SB3/torch sürümünden bağımsız 11-64-64-2 NumPy MLP ile yapılır.
   3. Eylem geçmişi uygulanan normalize komutu saklar; reset ve hedef kaybında temizlenir.
   4. EMA/slew yok. Açısal yumuşak ölü bölge (pan 0.85°, tilt 0.95° ve Hermite taper geçişi; politikanın sıfır-hata bias'ını ve dişli boşluğu rezonansını bastırır; `deadband_px > 0` anahtarıyla tetiklenir) ve yön değiştiren aksiyonda 0.5 sönümleme var.
-  5. v1.3'te son komut P ile harmanlandı: `u = 0.3 * u_RL + 0.7 * u_P`. Bu harman v1.4'te kaldırıldı; RL artık saf PPO aksiyonu kullanır.
-  6. Tek RL yolu vardır: `turret_fcs/rl_controller.py` içindeki `RLController`. Seçici ve eski sarmalayıcı v1.4'te kaldırıldı.
+  5. v1.3'te son komut P ile harmanlandı: `u = 0.3 * u_RL + 0.7 * u_P`. Bu harman v2.0'de kaldırıldı; RL artık saf PPO aksiyonu kullanır.
+  6. Tek RL yolu vardır: `turret_fcs/rl_controller.py` içindeki `RLController`. Seçici ve eski sarmalayıcı v2.0'de kaldırıldı.
 - **Webots doğrulaması (profil 2, ilk 600 kare):**
 
   | Kontrolcü | Pan RMS | Piksel | Kilit | Kilitli kalma | Yön değiştirme | Tilt hatası |
@@ -144,7 +144,7 @@
   | P (0.22) | 2.07° | 42.3 px | %39.8 | %82.2 | %0.9 | 1.34° |
 
   - RL, P ile aynı pan/piksel hatasını verirken tilt hatasını 1.34 -> 0.67 dereceye düşürür, kilitli kalma süresini %82 -> %95'e çıkarır; komut yön değiştirme %0.9 -> %1.9'a çıkar ama hâlâ kararlı banttadır.
-  - v1.3'te saf RL bu plantta kararsızdı; bu yüzden P harmanı kullanıldı. v1.4'te plant/ödül/hız gözlemi düzeltilerek saf RL çalıştırıldı (FAZ 13).
+  - v1.3'te saf RL bu plantta kararsızdı; bu yüzden P harmanı kullanıldı. v2.0'de plant/ödül/hız gözlemi düzeltilerek saf RL çalıştırıldı (FAZ 13).
 - **Negatif sonuç (dürüstçe):** 1.2 derece backlash ve yüksek jerk cezasıyla iki kez yeniden eğitim denendi. İlki satürasyona (RMS 439 px), ikincisi sabit maksimum komuta takıldı; yeni modeller kullanılmadı ve silindi. Sorun politika/plant uyumsuzluğu; sarmalayıcı tek başına çözemiyor.
 - **Test paketi:** 67 -> 33 test. Aynı işlevi gören testler birleştirildi; ölü FF testleri ve eski RL smoothing testleri kaldırıldı.
 
@@ -161,8 +161,8 @@
   8. Firmware'de kullanılmayan `FCS_Comm_IsNewCommand/GetPan/GetTilt/GetState`, `Luna_IsDataReady` ve çift tersleme yapan `PAN_DIR_INVERT/TILT_DIR_INVERT` kaldırıldı.
   9. `patrol` dokümanındaki ±35/±8 değerleri kodla (±45/±16) uyumsuzdu; doküman düzeltildi.
 - **Kaldırılanlar:** Eski `legacy/hsv` C++ prototipi, boş pip geçici dizinleri, `.pytest_cache`, `egg-info`, kullanılmayan Webots analiz betikleri/görselleri, YOLO eğitim eğrileri, eski mimari PNG'leri. GitHub'da `back_up` etiketi ve iki yerel yedek dal silindi; v1.0-v1.3 release etiketleri korundu.
-- **Geriye dönüklük kararı (v1.4'te güncellendi):** Eski P/RL kontrolcüleri, factory seçicileri ve ortam değişkenleri v1.4'te tamamen silindi. Tek yol `PController` ve `RLController`'dır; v1.3 davranışı için `v1.3` etiketi kullanılır.
-### FAZ 13: Saf RL Kurtarma, Tek Kontrolcü Mimarisi ve v1.4 Sürümü
+- **Geriye dönüklük kararı (v2.0'de güncellendi):** Eski P/RL kontrolcüleri, factory seçicileri ve ortam değişkenleri v2.0'de tamamen silindi. Tek yol `PController` ve `RLController`'dır; v1.3 davranışı için `v1.3` etiketi kullanılır.
+### FAZ 13: Saf RL Kurtarma, Tek Kontrolcü Mimarisi ve v2.0 Sürümü
 - **Amaç:** P harmanı olmadan, yalnızca PPO aksiyonuyla Webots ve gerçek donanım fiziğine yakın çalışan bir RL kontrolcü.
 - **Yapılan plant düzeltmeleri:**
   1. `servo_deadband` 0.10 derece olarak korundu. 1.20 dereceyi deadband yapmak yanlıştı; 1.50 derece/kare adımı tamamen yutuyordu.
@@ -187,9 +187,9 @@
 - **Sınır:** Bu sonuçlar Webots'tadır; gerçek taret testi yapılmadı. Yön değiştirme oranı P'den yüksek olduğu için sahada uzun süreli aşınma izlenmelidir.
 - **Kontrolcü sadeleştirmesi:** P MAX üretim `p_controller.py` (`PController`), RL MAX üretim `rl_controller.py` (`RLController`) oldu. Eski kontrolcüler, factory seçicileri, `TURRET_P_CONTROLLER` / `TURRET_RL_CONTROLLER` ortam değişkenleri, `p_controller_impl` / `rl_controller_impl` alanları, `kp_pan_max` / `kp_tilt_max` takma adları ve v1.3 `turret_ppo_final` modeli silindi. Hiç okunmayan FF/EMA config alanları da kaldırıldı.
 - **Kurulum düzeltmesi:** `requirements.txt` çözülemiyordu (SB3 2.3.2 + gymnasium 1.0.0 + numpy 2.1.3 çelişkisi). Yeni pinler: numpy 1.26.4, stable-baselines3 2.4.1, gymnasium 1.0.0. `setup_env.bat` uygun Python'u seçiyor, bozuk venv'i yeniden kuruyor, CPU torch wheel kuruyor ve importları doğruluyor. Temiz klonda 38/38 test ve YOLO çıkarımı doğrulandı.
-- **RL çıkış katmanı düzeltmesi (v1.4):** `rl_controller.py` çıkışında yumuşak ölü bölge ölçeği (taper) ve ivme sınırı zaten vardı, ama `if self.deadband_px > 0.0` kapısı yüzünden hiç devreye girmiyordu. Ölçek + ivme sınırı (120/80 derece/s^2) devreye alındı, `fcs_manager` ivme sınırını RL'e geçirir, `max_step_tilt_deg` 1.50 -> 0.75 yapıldı. Gerçek log: kilit %1.5 -> %47.4, pan RMS 5.80 -> 4.23, merkezde komut 0.531 -> 0.021, median hata 5.47 -> 2.03.
-- **SSOT sözleşmesi (v1.4):** `RLConfig` eklendi (ölü bölge, taper, hız/mesafe ölçekleri, YOLO gürültüsü, servo tau aralığı, bölüm uzunluğu); `far_gain`, `far_error_deg`, `cmd_accel_*`, `lead_time_*`, `eval_display_time_s` ControlConfig/BallisticsConfig'e taşındı. P, RL, TurretEnv, FCS lead ve Webots EVAL süresi artık bu alanları okur. Kullanılmayan `lidar.gate_angle_deg` ve ölü `DEFAULT_LEAD_TIME` silindi. `tests/test_config_consistency.py` her CONFIG alanının okunduğunu ve varsayılanların bağlı olduğunu doğrular.
-- **Firmware sertlestirme (v1.4):** STM32 tarafinda alti gercek acik kapatildi.
+- **RL çıkış katmanı düzeltmesi (v2.0):** `rl_controller.py` çıkışında yumuşak ölü bölge ölçeği (taper) ve ivme sınırı zaten vardı, ama `if self.deadband_px > 0.0` kapısı yüzünden hiç devreye girmiyordu. Ölçek + ivme sınırı (120/80 derece/s^2) devreye alındı, `fcs_manager` ivme sınırını RL'e geçirir, `max_step_tilt_deg` 1.50 -> 0.75 yapıldı. Gerçek log: kilit %1.5 -> %47.4, pan RMS 5.80 -> 4.23, merkezde komut 0.531 -> 0.021, median hata 5.47 -> 2.03.
+- **SSOT sözleşmesi (v2.0):** `RLConfig` eklendi (ölü bölge, taper, hız/mesafe ölçekleri, YOLO gürültüsü, servo tau aralığı, bölüm uzunluğu); `far_gain`, `far_error_deg`, `cmd_accel_*`, `lead_time_*`, `eval_display_time_s` ControlConfig/BallisticsConfig'e taşındı. P, RL, TurretEnv, FCS lead ve Webots EVAL süresi artık bu alanları okur. Kullanılmayan `lidar.gate_angle_deg` ve ölü `DEFAULT_LEAD_TIME` silindi. `tests/test_config_consistency.py` her CONFIG alanının okunduğunu ve varsayılanların bağlı olduğunu doğrular.
+- **Firmware sertlestirme (v2.0):** STM32 tarafinda alti gercek acik kapatildi.
   1. Bagimsiz watchdog (IWDG, ~800 ms) eklendi. STM32Cube HAL IWDG surucusu kullanilir: stm32f4xx_hal_iwdg.c/.h projeye eklendi, HAL_IWDG_MODULE_ENABLED acildi, MX_IWDG_Init() (prescaler 64, reload 400) ve dongu basina HAL_IWDG_Refresh() eklendi; IWDG .ioc dosyasina da islendi (CubeMX yeniden uretiminde silinmesin). Yazilim kilitlenirse MCU reset atar ve pinler tekrar LOW'a cekilir; onceden volan sonsuza kadar donmeye devam ediyordu. DEBUG derlemesinde __HAL_DBGMCU_FREEZE_IWDG() ile breakpoint sirasinda IWDG dondurulur.
   2. E-stop artik basamaksiz degil: dogrudan Servo_SetPan(90) yazimi MAX_STEP korumasini atliyor ve 45 dereceye varan ani tork soku uretiyordu. Yerine hiz sinirli Servo_HomeStep() geldi (45 derece/s).
   3. state bayti 0-3 araliginda dogrulaniyor; E-stop yalnizca ust uste iki tutarli pakette kabul ediliyor. Tek bozulmus paket tareti merkeze firlatamiyor.
@@ -197,7 +197,7 @@
   5. 2000 ms servo park korumasi: PC kalici olarak yoksa servolar merkeze indirilir; onceden iki MG996R son konumda surekli stall akimi cekiyordu.
   6. Launcher_TriggerFire() volan hazir degilse atisi reddedip false donuyor; LAUNCHER_STATE_SPINUP ve FLYWHEEL_SPINUP_MS kaldirildi. Onceden sessizce 500 ms bekliyor, PC ise FIRING fazini 80 ms tuttugu icin dart gec ve yanlis yonde firlatilabiliyordu.
 - **Dogrulama:** Firmware arm-none-eabi-gcc 14.3 ile sifir uyarida derlendi ve linklendi (Debug text ~18 KB / 18048 B, Release text ~10 KB / 9960 B, data 20 B, bss 1948 B); protokol PC tarafiyla degismedi, test paketi konsolide ve tam kapsamlı.
-- **Sürüm:** Tüm v1.3 sonrasi degisiklikler v2.0'de toplandi (v1.4 ara etiket olarak korundu, ağırlık varlıkları için kullanılır); test paketi 36 test.
+- **Sürüm:** Tüm v1.3 sonrasi degisiklikler v2.0'de toplandi; test paketi 36 test.
 
 ### FAZ 14: Algoritmik Kararlılık, 150 px Robust Tekil-Sıçrama Kapısı ve Dinamik İvme İyileştirmesi
 - **Kapsam:** P Kontrolcü, Kalman Filtresi, RL Kontrolcü ve Sistem Entegrasyonu.
@@ -263,14 +263,14 @@
 ## 5. Yeni Bir Sohbet Açıldığında Hatırlanacaklar
 
 Yeni bir sohbet açıldığında asistan bu dosyayı okur okumaz:
-1. Sistemin **v2.0 Production Release** etiketli olduğunu; v2.0'in v1.3 sonrası tüm değişiklikleri (v1.4 içeriği, protokol SSOT, firmware B1 mandallı E-stop ve modül başlıkları, figür etiket düzeltmesi) topladığını; `v1.4` etiketinin RL/YOLO ağırlık varlıkları için korunduğunu (`LEGACY_RELEASE_TAG`),
+1. Sistemin **v2.0 Production Release** etiketli olduğunu; v1.3 sonrası tüm değişiklikleri (üretim P ve saf PPO, Kalman yeniden tasarımı, protokol SSOT, firmware B1 mandallı E-stop ve modül başlıkları, figür etiket düzeltmesi) topladığını; ağırlık varlıklarının `v2.0` release'inden indirildiğini (`DEFAULT_RELEASE_TAG = "v2.0"`, eski etiket fallback'i yoktur),
 2. RL politikasının `turret_ppo_v14.zip` / `turret_ppo_v14_policy.npz` olduğunu; eski `turret_ppo_final` modelinin silindiğini, üretim çıkarımının SB3/torch bağımsız yapıldığını,
 3. Varsayılan ve tek kontrolcünün **P** (tek EMA, saf oransal, Kp_pan=0.22/Kp_tilt=0.11, kazanç planlaması kaldırılmış) olduğunu; eski kontrolcü ve seçicilerin silindiğini, v1.3 davranışı için `v1.3` etiketinin kullanıldığını,
 4. Asla LaTeX / dolar işareti (`$`) kullanmaması gerektiğini,
 5. Kodda veya tezde yapılacak her yeni geliştirmenin yukarıdaki mimari ve güvenlik disiplinine bağlı kalması gerektiğini,
 6. Kalman filtresinin FAZ 9 ve FAZ 14 ile sabit hızlı (CV) + 150 px robust tekil-sıçrama kapılı yapıya kavuştuğunu; adaptif Q, dönüş override'ı, ivme sınırı, 3-kare eğim, çıkış EMA'sı ve sahada hatalı tetiklenen NIS kapısının kaldırıldığını, test paketinin konsolide ve yeşil olduğunu anında bilir.
 7. P'in FAZ 10 ve FAZ 14'te kararlılaştırıldığını; çift EMA, 0.20 derece/kare pan slew ve yapay kazanç planlamasının kaldırıldığını, ivme sınırının 400.0/267.0 derece/s^2 olduğunu, tabanın 0.22/0.11 olduğunu bilir.
-8. RL'in v1.4'te saf PPO'ya çevrildiğini; P harmanının kaldırıldığını, FAZ 14 ile çalışma zamanı Kalman hız gözleminin ego faz gecikmesi kaynaklı osilasyon nedeniyle `0.0` yapıldığını bilir.
+8. RL'in v2.0'de saf PPO'ya çevrildiğini; P harmanının kaldırıldığını, FAZ 14 ile çalışma zamanı Kalman hız gözleminin ego faz gecikmesi kaynaklı osilasyon nedeniyle `0.0` yapıldığını bilir.
 9. FAZ 12'de repo geneli denetim yapıldığını; hedef seçici histerezis/ID kapısı, UART RX tamponu ve eksen-bazlı residue, Webots tuning varsayılanları, HUD spin-up süresi, gerçek telemetri hatası/latency'si ve firmware ölü API'lerinin düzeltildiğini bilir.
 10. FAZ 14 ile hedef kaybı sonrası zıt yönde komut vermeyi önleyen `on_target_lost` sıfırlamasının eklendiğini, ego modelinin geri Euler ile eşitlendiğini (`tau = 0.045 s`), lead tavanının 0.40 s yapıldığını ve tilt adımı limitinin 0.75 derece olarak tüm hatlarda eşitlendiğini bilir.
 
