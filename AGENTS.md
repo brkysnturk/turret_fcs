@@ -196,7 +196,7 @@
   4. Zaman tabanli hiz siniri: PC kare basina delta gonderir; firmware gercek dt'yi olcup 45 derece/s ile sinirlar. PC FPS'i artarsa taret hizi degismez (onceden 60 FPS'te 90 derece/s oluyordu).
   5. 2000 ms servo park korumasi: PC kalici olarak yoksa servolar merkeze indirilir; onceden iki MG996R son konumda surekli stall akimi cekiyordu.
   6. Launcher_TriggerFire() volan hazir degilse atisi reddedip false donuyor; LAUNCHER_STATE_SPINUP ve FLYWHEEL_SPINUP_MS kaldirildi. Onceden sessizce 500 ms bekliyor, PC ise FIRING fazini 80 ms tuttugu icin dart gec ve yanlis yonde firlatilabiliyordu.
-- **Dogrulama:** Firmware arm-none-eabi-gcc 14.3 ile sifir uyarida derlendi ve linklendi (text 17772 B, data 20 B, bss 1940 B); protokol PC tarafiyla degismedi, test paketi 24/24 konsolide ve tam kapsamlı.
+- **Dogrulama:** Firmware arm-none-eabi-gcc 14.3 ile sifir uyarida derlendi ve linklendi (Debug text ~18 KB / 18048 B, Release text ~10 KB / 9960 B, data 20 B, bss 1948 B); protokol PC tarafiyla degismedi, test paketi konsolide ve tam kapsamlı.
 - **Sürüm:** Tüm v1.3 sonrasi degisiklikler v1.4'te toplandi; test paketi 24 test.
 
 ### FAZ 14: Algoritmik Kararlılık, 150 px Robust Tekil-Sıçrama Kapısı ve Dinamik İvme İyileştirmesi
@@ -270,7 +270,7 @@ Yeni bir sohbet açıldığında asistan bu dosyayı okur okumaz:
 5. Kodda veya tezde yapılacak her yeni geliştirmenin yukarıdaki mimari ve güvenlik disiplinine bağlı kalması gerektiğini,
 6. Kalman filtresinin FAZ 9 ve FAZ 14 ile sabit hızlı (CV) + 150 px robust tekil-sıçrama kapılı yapıya kavuştuğunu; adaptif Q, dönüş override'ı, ivme sınırı, 3-kare eğim, çıkış EMA'sı ve sahada hatalı tetiklenen NIS kapısının kaldırıldığını, test paketinin konsolide ve yeşil olduğunu anında bilir.
 7. P'in FAZ 10 ve FAZ 14'te kararlılaştırıldığını; çift EMA, 0.20 derece/kare pan slew ve yapay kazanç planlamasının kaldırıldığını, ivme sınırının 400.0/267.0 derece/s^2 olduğunu, tabanın 0.22/0.11 olduğunu bilir.
-8. RL'in v1.4'te saf PPO'ya çevrildiğini; P harmanının kaldırıldığını, FAZ 14 ile yumuşatılmış Kalman hız gözleminin politikanın çevik takibi için devreye alındığını bilir.
+8. RL'in v1.4'te saf PPO'ya çevrildiğini; P harmanının kaldırıldığını, FAZ 14 ile çalışma zamanı Kalman hız gözleminin ego faz gecikmesi kaynaklı osilasyon nedeniyle `0.0` yapıldığını bilir.
 9. FAZ 12'de repo geneli denetim yapıldığını; hedef seçici histerezis/ID kapısı, UART RX tamponu ve eksen-bazlı residue, Webots tuning varsayılanları, HUD spin-up süresi, gerçek telemetri hatası/latency'si ve firmware ölü API'lerinin düzeltildiğini bilir.
 10. FAZ 14 ile hedef kaybı sonrası zıt yönde komut vermeyi önleyen `on_target_lost` sıfırlamasının eklendiğini, ego modelinin geri Euler ile eşitlendiğini (`tau = 0.045 s`), lead tavanının 0.40 s yapıldığını ve tilt adımı limitinin 0.75 derece olarak tüm hatlarda eşitlendiğini bilir.
 
