@@ -8,7 +8,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from turret_fcs.config import CONFIG, FCSState
+from turret_fcs.config import FCSState
 from turret_fcs.fcs_manager import FCSManager
 from turret_fcs.lock_manager import LockManager
 from turret_fcs.los_tracker import LosTracker
