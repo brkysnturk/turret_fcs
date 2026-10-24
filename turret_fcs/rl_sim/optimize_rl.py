@@ -144,8 +144,7 @@ def run_optimization(n_trials=12):
     storage_url = f"sqlite:///{db_path.as_posix()}"
 
     print("==================================================================")
-    print(" TURRET FCS // LQR BAYESIAN OPTIMIZATION (OPTUNA TPE) MOTORU     ")
-    print(" SQLite Kaliciligi + 20 Sabit Tohum + Medyan & IQR Metrikleri   ")
+    print(" TURRET FCS // ODUL HIPERPARAMETRE TARAMASI (OPTUNA TPE) MOTORU    ")
     print("==================================================================")
     print(f"[Optuna DB] {db_path.name}")
     print(f"[Deneme] Planlanan Ek Deneme Sayisi: {n_trials}")
@@ -167,12 +166,12 @@ def run_optimization(n_trials=12):
 
     best = study.best_trial
     print("\n==================================================================")
-    print(" [OK] LQR BAYESIAN OPTIMIZASYON TAMAMLANDI!")
+    print(" [OK] ODUL HIPERPARAMETRE TARAMASI TAMAMLANDI!")
     print(f" Toplam Sure: {elapsed:.1f} saniye")
     print(f" En Iyi Deneme Numarasi: #{best.number}")
     print(f" En Iyi Maliyet (Score): {best.value:.2f}")
     print("------------------------------------------------------------------")
-    print(" EN IYI LQR & POLITIKA PARAMETRELERI:")
+    print(" EN IYI ODUL & POLITIKA PARAMETRELERI:")
     for k, v in best.params.items():
         if isinstance(v, float):
             print(f"   - {k:15s}: {v:.6f}")
