@@ -58,7 +58,6 @@ class TurretEnv(gym.Env):
         backlash_deg=1.20,
         use_velocity_obs=True,
         enable_randomization=True,
-        **kwargs,
     ):
         super().__init__()
         self.render_mode = render_mode
@@ -70,12 +69,12 @@ class TurretEnv(gym.Env):
 
         # Progress odulu: r = k_p * (e_prev^2 - e^2) - k_e * e^2
         #                - lambda_u * |u|^2 - mu_du * |du|^2 + bullseye
-        self.lambda_u = float(kwargs.get("lambda_u", lambda_u))
-        self.mu_du = float(kwargs.get("mu_du", mu_du))
-        self.progress_gain = float(kwargs.get("progress_gain", progress_gain))
-        self.error_gain = float(kwargs.get("error_gain", error_gain))
-        self.backlash_deg = max(0.0, float(kwargs.get("backlash_deg", backlash_deg)))
-        self.use_velocity_obs = bool(kwargs.get("use_velocity_obs", use_velocity_obs))
+        self.lambda_u = float(lambda_u)
+        self.mu_du = float(mu_du)
+        self.progress_gain = float(progress_gain)
+        self.error_gain = float(error_gain)
+        self.backlash_deg = max(0.0, float(backlash_deg))
+        self.use_velocity_obs = bool(use_velocity_obs)
 
         # 1. Logitech C270 Gercek Donanim Optik Parametreleri (SSOT)
         self.screen_w = float(CONFIG.optics.default_width)

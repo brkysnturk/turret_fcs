@@ -18,6 +18,65 @@ Yöntem: statik okuma, AST tabanlı ölü parametre/ölü metot taraması, satı
 
 ---
 
+## 0. REVİZYON: 24 Ekim 2026, 19:10
+
+Bu belgeden sonra yapılan refactor, aşağıdaki bulguların bir kısmını kapatmıştır.
+Güncel durum:
+
+**Kapananlar**
+
+- İki monolitik döngü ayrıştırıldı: `engagement.py` (186 satır, FSM),
+  `presenter.py` (142 satır, HUD sunumu), `keymap.py` (100 satır, tuş eylemleri).
+  `main.py` 405 -> 263, `webots_main.py` 390 -> 278 satır. İki dosyanın kalan
+  satır benzerliği %22; eski kopya bloklar (FSM, durum metni, HUD sırası, tuş
+  haritası) artık tek yerde. (Bölüm 3.1 kapandı.)
+- Telemetri `TelemetryRow` dataclass'ına geçti; başlıklar alan adlarından
+  üretiliyor. (Bölüm 3.3 kapandı.)
+- `PController.kp_pan/kp_tilt` ölü alanları `kp_frame_*` ile senkron property
+  oldu; `filtered_pan/tilt` de gerçek alana bağlandı. (Bölüm 4.1/4.4 kapandı.)
+- `FCSManager` içindeki gereksiz `omega_*` ön hesabı kaldırıldı; P/RL komut
+  integrasyonu `_integrate_command()` altında tekilleşti. (Bölüm 4.3 kapandı.)
+- Firmware: `main.c` CubeMX `USER CODE` bloklarına taşındı, `Error_Handler`
+  `FLYWHEEL_*` / `SOLENOID_*` makrolarını kullanıyor, `Servo_IsAtCenter()`
+  silindi. (Bölüm 7.2/2, 7.2/3, 7.2/4 kapandı.)
+- P, Kalman, RL, FIRING, Webots v1.3 etiketi, 40.5/46.9 derece/s ve HUD renk
+  docstring'leri düzeltildi. (Bölüm 5.2/3'ün bir kısmı kapandı.)
+
+**Açık kalanlar (19:10 itibarıyla)**
+
+1. `webots_main.py` tuş işleyicisi yeni `keymap` sözleşmesine bağlanmamış:
+   `process_key_event(key, is_estop=...)` çağrısı 8 argüman isteyen fonksiyona
+   uymuyor ve `action.action` diye bir dönüş yok. Webots denetleyicisi ilk
+   karede `TypeError` ile düşer; `keymap` ise saf eşleyici değil, FCS/angajman
+   durumunu değiştiren bir işleyici. Tek sözleşme seçilmeli.
+2. `presenter.py` devriye metni `patrol_status == "PATROLLING"` arıyor; gerçek
+   değerler `FIGURE-8 SCAN (...)`, `HOLDING (...)`, `RTB BORESIGHT (...)`,
+   `BORESIGHT LOCKED ...`. Eşleşme hiç olmadığı için HUD'da hep
+   "PATROL STANDBY" görünüyor. Ayrıca `render()` parametrelerinden
+   `latency_ms` ve `temp_c` kullanılmıyor.
+3. Kalman sözleşmesi: kod ve testler artık 150 px tekil-sıçrama kapısında
+   (NIS kapısı saha telemetrisinde 18 karede bir sahte reset attığı için
+   dönülmüş; gerekçe `test_kalman_dynamic_slew_innovations_never_false_reset`
+   docstring'inde yazılı). Buna karşılık `AGENTS.md` FAZ 14 ve dosya haritası
+   hâlâ Ki-Kare NIS'i "güncel" anlatıyor; `docs/algoritma_analizi.md` ise
+   kapının kaldırıldığını söylüyor. Üç metin tek karara hizalanmalı.
+4. `main.py` başlığı hâlâ "kazanç planlamalı" P diyor; `numpy` ithalatı
+   kullanılmıyor. `fcs_manager.py` içinde bir yorum hâlâ "dairesel tarama"
+   diyor. README dosya ağacı ve AGENTS dosya haritası yeni üç modülü ve
+   `weights.py` dosyasını listelemiyor.
+5. Eski ölü parametreler duruyor: `compute_velocity_ff()`, dört sınıfta
+   `**kwargs`, telemetride sabit `rl_weight`, `sensor_temp_c`, `sigma_a`,
+   `lock_thr`. Bu turda kapsam dışı bırakıldıysa sorun değil; kapatıldıysa
+   belge güncellenmeli.
+6. Üretimde EVAL metni hâlâ "ENGAGEMENT SUCCESSFUL"; isabet ölçen sensör yok.
+   Angajman yöneticisi "ENGAGEMENT COMPLETED" diyor, Webots gerçek HIT/MISS
+   gösteriyor. Üç yerde üç farklı anlam.
+
+Bu revizyonun ayrıntılı doğrulaması için bir sonraki inceleme turuna bakın;
+aşağıdaki bölümler tarihsel anlık görüntü olarak korunmuştur.
+
+---
+
 ## 1. Kısa Cevap: "Anlaşılır mı?"
 
 Evet, büyük ölçüde anlaşılır. İyi olan üç şey:

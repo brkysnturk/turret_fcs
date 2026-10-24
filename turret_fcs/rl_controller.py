@@ -25,8 +25,10 @@ TASARIM (v1.4, SAF RL):
 - Cikarim, SB3/torch gerektirmeyen 11-64-64-2 NumPy MLP ile yapilir.
 - Eylem gecmisi uygulanan normalize komutu saklar.
 - Cikista EMA/slew yok; yalnizca:
-  * 5 px yumusak olu bolge (politikanin sifir-hata bias'ini bastirir),
-  * yon degistiren aksiyonda 0.5 sonum (ileri-geri mikro salinimi keser).
+  * Acisal yumusak olu bolge (pan 0.85, tilt 0.95 derece ve Hermite taper;
+    deadband_px > 0 anahtariyla aktiflesir, politikanin bias'ini bastirir),
+  * Yon degistiren aksiyonda 0.5 sonum (ileri-geri mikro salinimi keser),
+  * Komut ivme siniri: pan 400.0, tilt 267.0 derece/s^2 (P ile ayni dinamik limit).
 - P harmani YOKTUR: son komut dogrudan RL aksiyonudur.
 - Egitim plant modeli: 1.2 derece backlash, 1.5 derece/kare adim siniri,
   0.10 derece servo deadband, progress odulu (k_p=2.0, k_e=0.05,
@@ -81,21 +83,13 @@ class RLController:
     OBS_DIM = 11
     ACT_DIM = 2
 
-    # FCS bu bayraklarla gözlem kaynagini secer:
-    # - Ölçülen bbox (P EMA'si degil), egitimdeki piksel hatasiyla ayni.
-    # - Yumusatilmis Kalman hizi, egitimdeki gercek hedef hizina daha yakin.
-    uses_measured_bbox = True
-    prefers_smooth_velocity = True
-    uses_velocity_obs = True
-
     def __init__(self, model_path=None, auto_load=True,
                  deadband_px=None,
                  reversal_damping=None,
                  deadband_pan_deg=None, deadband_tilt_deg=None,
                  taper_pan_deg=None, taper_tilt_deg=None,
                  cmd_accel_pan_deg_s2=None, cmd_accel_tilt_deg_s2=None,
-                 v_max_px_s=None, dist_min_m=None, dist_max_m=None,
-                 **kwargs):
+                 v_max_px_s=None, dist_min_m=None, dist_max_m=None):
         R = CONFIG.rl
         deadband_px = R.deadband_px if deadband_px is None else deadband_px
         reversal_damping = R.reversal_damping if reversal_damping is None else reversal_damping

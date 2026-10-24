@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -33,10 +34,10 @@ def test_kalman_convergence_lead_and_dt_normalization():
     assert kf.raw_vx == pytest.approx(100.0, rel=0.03)
     assert kf.smooth_vx == pytest.approx(100.0, rel=0.03)
 
-    # 3. Kinematik onleme (lead) hesabi
-    lead_x, _, lead_vx, _ = kf.predict_next_position(lead_time=0.1)
-    assert lead_vx == pytest.approx(kf.smooth_vx)
-    assert lead_x > float(kf.x[0, 0])
+    # 3. Hiz ve onleme hesabi
+    vel_x, vel_y = kf.get_velocity()
+    assert vel_x == pytest.approx(kf.smooth_vx)
+    assert vel_y == pytest.approx(0.0)
 
     omega_pan, omega_tilt = kf.get_angular_velocity_deg_s(fx=1000.0, fy=1000.0)
     assert omega_pan == pytest.approx(math.degrees(0.1), rel=0.03)
@@ -83,8 +84,8 @@ def test_kalman_reversal_and_deadband():
     assert fast.smooth_vx > CONFIG.kalman.velocity_deadband_high_px_s
 
 
-def test_kalman_nis_outlier_gating_and_reacquire():
-    """Tekil sahte YOLO sicramalarini Ki-Kare NIS kapisiyla sonumlemeyi ve 3 karede yeniden yakalamayi dogrular."""
+def test_kalman_outlier_gating_and_reacquire():
+    """Tekil sahte YOLO sicramalarini 150 px kapisiyla sonumlemeyi ve 3 karede yeniden yakalamayi dogrular."""
     kf = KalmanFilter()
     dt = 0.033
     # 1. 100 px/s sabit hizla oturma
@@ -95,7 +96,7 @@ def test_kalman_nis_outlier_gating_and_reacquire():
     # 2. Tekil 300 px sahte kutu sicramasi
     jump_x = last_x + 300.0
     kf.update((jump_x, 360.0), dt=dt)
-    assert kf.last_nis > kf.nis_threshold
+    assert kf.last_residual > kf.outlier_jump_px
     assert kf._outlier_frames == 1
     # Tekil sicrama R * 100 ile sonumlendigi icin hiz 400+ px/s'ye firlamaz
     assert abs(kf.smooth_vx - 100.0) < 35.0
@@ -103,7 +104,7 @@ def test_kalman_nis_outlier_gating_and_reacquire():
     # 3. Sonraki kare gercek hedefe donus
     normal_x = last_x + 100.0 * dt * 2
     kf.update((normal_x, 360.0), dt=dt)
-    assert kf.last_nis <= kf.nis_threshold
+    assert kf.last_residual <= kf.outlier_jump_px
     assert kf._outlier_frames == 0
 
     # 4. Ust uste 3 kare sapma: yeni hedef kabul edilip sifirdan baslatilmali
@@ -118,4 +119,37 @@ def test_kalman_nis_outlier_gating_and_reacquire():
             assert px == pytest.approx(jump_pos)
             assert vx == 0.0
             assert vy == 0.0
+
+
+def test_kalman_dynamic_slew_innovations_never_false_reset():
+    """Taretin donusu ve hedef manevrasi sirasinda 30-70 px normal inovasyonlarin
+    asla sahte outlier veya takip sifirlamasi tetiklemedigini dogrular.
+    (Saha telemetrisi regresyon testi: NIS kapisi her 18 karede bir sahte reset atiyordu,
+    150 px esigi ise 0 false reset uretir).
+    """
+    kf = KalmanFilter()
+    dt = 0.033
+    kf.update((640.0, 360.0), dt=dt)
+
+    # 100 kare boyunca gercek saha dinamigi: hedef hızlanıyor, donuyor, ego farkiyla
+    # inovasyonlar 30-70 px arasinda dalgalaniyor
+    np.random.seed(42)
+    pos = 640.0
+    vel = 120.0
+
+    for i in range(100):
+        vel += float(np.sin(i * 0.1) * 30.0)
+        pos += vel * dt
+        # 40-60 px inovasyon olusturan dinamik kamera ve YOLO kutu kaymasi
+        jitter = float(np.cos(i * 0.2) * 45.0)
+        m_x = pos + jitter
+
+        kf.update((m_x, 360.0), dt=dt, ego_dx=0.0)
+
+        # Normal manevrada residual 150 px'in altinda kalmali ve sifirlama olmamali
+        assert kf.last_residual < kf.outlier_jump_px
+        assert kf._outlier_frames == 0, f"Kare {i}'de sahte outlier tetiklendi (residual={kf.last_residual:.1f})"
+
+    assert abs(kf.smooth_vx) > 0.0
+
 

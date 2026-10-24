@@ -41,7 +41,7 @@ PROFILE_LIMITS = {
 }
 
 
-def _profile_limits_for(path):
+def _profile_limits_for():
     """Aktif balon profilini okur ve profile ozel tarama sinirlarini dondurur."""
     profile = os.environ.get("WEBOTS_BALLOON_PROFILE")
     if profile is None:
@@ -80,7 +80,7 @@ def load_tuning():
     except (OSError, ValueError):
         raw = {}
 
-    profile_limits = _profile_limits_for(path)
+    profile_limits = _profile_limits_for()
     for key in ("kp_pan", "kp_tilt", "max_output_deg"):
         try:
             val = float(raw.get(key, DEFAULTS[key]))
@@ -105,7 +105,5 @@ def apply_tuning(fcs, tuning):
 
     p.kp_frame_pan = kp_pan_frame
     p.kp_frame_tilt = kp_tilt_frame
-    p.kp_pan = kp_pan_frame / 0.03333
-    p.kp_tilt = kp_tilt_frame / 0.03333
     p.max_output = float(tuning["max_output_deg"])
     return tuning

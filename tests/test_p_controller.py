@@ -51,14 +51,6 @@ def test_p_controller_deadband_proportional_and_limits():
         u_large, _ = p_large.compute_p(8.0, 0.0, dt=0.03333)
     assert u_large > u_small > 0.0
 
-    # 4. Saf P: hiz feedforward'u sifirdir
-    assert p.compute_velocity_ff(10.0, 10.0, 0.03333) == (0.0, 0.0)
-    u_plain, _ = PController().compute_p(5.0, 3.0, dt=0.03333)
-    u_vel, _ = PController().compute_p(
-        5.0, 3.0, dt=0.03333, omega_pan_deg_s=10.0, omega_tilt_deg_s=10.0
-    )
-    assert u_vel == pytest.approx(u_plain)
-
 
 def test_p_controller_acceleration_and_dt_scaling():
     """Komut ivme rampalamasi ve kare hizina gore adim olceklemeyi dogrular."""

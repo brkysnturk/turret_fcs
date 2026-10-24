@@ -59,7 +59,6 @@ class PController:
         deadband_tilt=DEADBAND_TILT_DEG,
         cmd_accel_pan_deg_s2=CMD_ACCEL_PAN,
         cmd_accel_tilt_deg_s2=CMD_ACCEL_TILT,
-        **kwargs,
     ):
         self.kp_frame_pan = float(kp_pan)
         self.kp_frame_tilt = float(kp_tilt)
@@ -77,40 +76,6 @@ class PController:
         self.actual_tilt = 0.0
         self.smooth_cmd_pan = 0.0
         self.smooth_cmd_tilt = 0.0
-
-    @property
-    def kp_pan(self):
-        """Saniye bazinda esdeger kazanc (30 FPS nominal dt ile senkronize)."""
-        return self.kp_frame_pan / 0.03333
-
-    @kp_pan.setter
-    def kp_pan(self, val):
-        self.kp_frame_pan = float(val) * 0.03333
-
-    @property
-    def kp_tilt(self):
-        """Saniye bazinda esdeger kazanc (30 FPS nominal dt ile senkronize)."""
-        return self.kp_frame_tilt / 0.03333
-
-    @kp_tilt.setter
-    def kp_tilt(self, val):
-        self.kp_frame_tilt = float(val) * 0.03333
-
-    @property
-    def filtered_pan(self):
-        return self.actual_pan
-
-    @filtered_pan.setter
-    def filtered_pan(self, val):
-        self.actual_pan = float(val)
-
-    @property
-    def filtered_tilt(self):
-        return self.actual_tilt
-
-    @filtered_tilt.setter
-    def filtered_tilt(self, val):
-        self.actual_tilt = float(val)
 
     def compute_angles(self, bx, by, center_x, center_y, fx, fy):
         """Kamera merkezinden hedefin acisal sapmasini hesaplar; tek EMA uygular."""
@@ -143,10 +108,6 @@ class PController:
             return float(min(self.max_output_tilt * rate_scale, CONFIG.actuator.max_step_tilt_deg))
         return float(min(self.max_output * rate_scale, CONFIG.control.max_command_step_deg))
 
-    def compute_velocity_ff(self, omega_pan_deg_s=0.0, omega_tilt_deg_s=0.0, dt=0.033, max_step_deg=None):
-        """API uyumlulugu; Tip-1 P kontrolcu bilincli olarak hiz feedforward'i kullanmaz."""
-        return 0.0, 0.0
-
     def _axis_command(self, error_deg, kp_frame, deadband, accel_deg_s2, previous, dt):
         abs_error = abs(float(error_deg))
         if abs_error <= deadband:
@@ -160,7 +121,7 @@ class PController:
         max_delta = accel_deg_s2 * (dt ** 2)
         return float(np.clip(desired, previous - max_delta, previous + max_delta))
 
-    def compute_p(self, active_pan, active_tilt, dt=0.033, **kwargs):
+    def compute_p(self, active_pan, active_tilt, dt=0.033):
         """Tek filtreli, ivme sinirli, yumusak olu bolgeli saf Tip-1 P komutu."""
         effective_dt = max(0.010, min(float(dt), 0.100))
 

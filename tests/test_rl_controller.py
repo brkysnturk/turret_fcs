@@ -45,7 +45,6 @@ def test_rl_policy_loading_and_manager_wiring():
     assert unloaded.predict_angles(700, 300, 640, 360, 1280, 720, 0, 0, 2.0, 0, 0, 0.033) == (0.0, 0.0)
     assert not hasattr(unloaded, "blend_with_p")
     assert not hasattr(unloaded, "blend_commands")
-    assert unloaded.uses_velocity_obs is True
 
 
 def test_rl_observation_and_action_history():

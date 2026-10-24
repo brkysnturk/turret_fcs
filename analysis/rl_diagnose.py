@@ -1,9 +1,10 @@
 """Uretim PPO politikasinin TurretEnv uzerindeki kapali cevrim teshisi.
 
 Ayni tohum ve hedef uzerinde iki varyant:
-1. policy : `turret_fcs.rl_controller.RLController` (uretim cikarim yolu)
-2. raw    : egitimdeki gibi dogrudan ham politika aksiyonu
-Iki yolun ayni sonucu vermesi, uretim sarmalayicisinin egitim semantigini
+1. policy : `turret_fcs.rl_controller.RLController` (simulasyon zemin-gercegi hiziyla
+            denetleyici son isleme ve adim olcekleme tavanini olcer)
+2. raw    : egitimdeki gibi dogrudan ham politika aksiyonu (referans tavan)
+Iki yolun yakin sonuc vermesi, uretim sarmalayicisinin egitim semantigini
 korudugunu gosterir.
 """
 
@@ -106,4 +107,5 @@ def summarize(rows, label):
 if __name__ == "__main__":
     seeds = list(range(12))
     for mode in ("policy", "raw"):
-        summarize([run(s, mode) for s in seeds], mode)
+        label = "policy (controller with ground-truth velocity ceiling)" if mode == "policy" else "raw (direct policy observation)"
+        summarize([run(s, mode) for s in seeds], label)

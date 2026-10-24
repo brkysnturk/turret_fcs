@@ -73,13 +73,13 @@ class ActuatorConfig:
 
 @dataclass(frozen=True)
 class KalmanConfig:
-    """Sabit hizli (CV) Kalman filtresi: tek Q/R cifti ve Ki-Kare inovasyon kapisi."""
+    """Sabit hizli (CV) Kalman filtresi: tek Q/R cifti ve 150 px tekil-sicrama kapisi."""
     r_var: float = 64.0                  # Olcum gurultusu varyansi (px^2), ~8 px standart sapma
     sigma_a: float = 300.0               # Surec ivme gurultusu (px/s^2), ~12 deg/s^2
     initial_velocity_var: float = 90000.0  # Ilk hiz kovaryansi (px/s)^2, hizli yakinsama icin
     velocity_deadband_low_px_s: float = 30.0   # Bu hizin altinda cikis hizi sifir
     velocity_deadband_high_px_s: float = 60.0  # Bu hizdan itibaren cikis hizi tam gecerli
-    nis_threshold: float = 13.82         # 2-DOF %99.9 guvenlikli Ki-Kare inovasyon kapisi (Mahalanobis d^2)
+    outlier_jump_px: float = 150.0       # Tekil sahte kutu sicrama esigi (piksel inovasyon normu)
     reacquire_frames: int = 3            # Ust uste aykiri deger sonrasi yeni takip baslatma esigi
 
 

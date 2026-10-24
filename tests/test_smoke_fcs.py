@@ -9,7 +9,7 @@ def test_fcs_lifecycle_tracking_and_lock_recovery():
     fcs = FCSManager(control_mode="P")
     assert fcs.control_mode in ("P", "RL")
     assert fcs.PAN_LIMIT_MIN < fcs.PAN_LIMIT_MAX
-    assert fcs.target_angular_velocity_deg_s == (0.0, 0.0)
+    assert (fcs.target_velocity[0], fcs.target_velocity[1]) == (0.0, 0.0)
 
     # Taret açı senkronizasyonu
     fcs.sync_turret_pose(15.5, -5.2)

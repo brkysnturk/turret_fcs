@@ -253,11 +253,6 @@ class FCSManager:
     def target_conf(self):
         return getattr(self.selector, "last_target_conf", 0.0)
 
-    @property
-    def target_angular_velocity_deg_s(self):
-        """Kalman filtresinden hesaplanan gurultusuz acisal hedef hizini (pan, tilt deg/s) doner."""
-        return self.tracker.get_angular_velocity_deg_s(fx=self._last_fx, fy=self._last_fy)
-
     def select_best_target(self, boxes, center_x, center_y):
         return self.selector.select_best_target(boxes, center_x, center_y)
 

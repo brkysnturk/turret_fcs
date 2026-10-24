@@ -20,10 +20,10 @@ TASARIM KARARLARI (neden bu kadar sade?):
 4. Cikista yalnizca 30-60 px/s yumusak bir hiz olu bolgesi vardir. Bu bir filtre
    katmani degil, duran hedefin sifir civarindaki gurultusunu lead noktasindan
    uzak tutan statik bir esiklemedir.
-5. Ki-Kare Normalleştirilmiş İnovasyon Kapısı (NIS): Tekil 1-2 karelik sahte YOLO
-   kutu sicramalari (d^2 > 13.82, %99.9 guven bandi) olcum kovaryansi R * 100 ile
-   sonumlenir; boylece sahte kutular hizi ve lead'i patlatmaz. Sapma 3 kare ust uste
-   surerse hedef gercekten yer degistirmis kabul edilir ve takip sifirdan baslatilir.
+5. Robust Tekil-Sicrama Kapisi: Tek karelik 150 px ustu sahte YOLO kutu
+   sicramalarinda olcum kovaryansi R * 100 ile sonumlenir; hiz ve lead
+   patlamaz. Ayni sapma 3 kare surerse yeni hedef kabul edilerek takip
+   sifirdan baslatilir.
 ================================================================================
 """
 
@@ -47,9 +47,8 @@ class KalmanFilter:
         initial_velocity_var=CONFIG.kalman.initial_velocity_var,
         deadband_low=CONFIG.kalman.velocity_deadband_low_px_s,
         deadband_high=CONFIG.kalman.velocity_deadband_high_px_s,
-        nis_threshold=CONFIG.kalman.nis_threshold,
+        outlier_jump_px=CONFIG.kalman.outlier_jump_px,
         reacquire_frames=CONFIG.kalman.reacquire_frames,
-        **kwargs,
     ):
         self.dt = float(dt)
         self.r_var = float(r_var)
@@ -57,7 +56,7 @@ class KalmanFilter:
         self.initial_velocity_var = float(initial_velocity_var)
         self.velocity_deadband_low_px_s = float(deadband_low)
         self.velocity_deadband_high_px_s = float(deadband_high)
-        self.nis_threshold = float(nis_threshold)
+        self.outlier_jump_px = float(outlier_jump_px)
         self.reacquire_frames = int(reacquire_frames)
 
         self.H = np.array([
@@ -79,7 +78,6 @@ class KalmanFilter:
         self.P = self._initial_covariance()
         self.initialized = False
         self.last_residual = 0.0
-        self.last_nis = 0.0
         self._outlier_frames = 0
         self.raw_vx = 0.0
         self.raw_vy = 0.0
@@ -100,7 +98,6 @@ class KalmanFilter:
         self.P = self._initial_covariance()
         self.initialized = True
         self.last_residual = 0.0
-        self.last_nis = 0.0
         self._outlier_frames = 0
         self.raw_vx = 0.0
         self.raw_vy = 0.0
@@ -155,12 +152,11 @@ class KalmanFilter:
         residual = float(np.hypot(nu[0, 0], nu[1, 0]))
         self.last_residual = residual
 
-        # 3. Ki-Kare Normalleştirilmiş İnovasyon Kapısı (NIS - 2 DOF, p=0.001 -> 13.82)
-        S_nom = self.H @ P_pred @ self.H.T + self.R
-        d2 = float((nu.T @ np.linalg.solve(S_nom, nu)).item())
-        self.last_nis = d2
-
-        if d2 > self.nis_threshold:
+        # 3. Robust tekil-sicrama kapisi (150 px)
+        # Tek karelik sahte YOLO kutu sicramasinda R 100 kat buyutulur;
+        # hiz ve lead patlamaz. Ayni sapma 3 kare surerse yeni hedef
+        # kabul edilir: konum olcumden, hiz sifirdan.
+        if residual > self.outlier_jump_px:
             self._outlier_frames += 1
             if self._outlier_frames >= self.reacquire_frames:
                 return self._start_track(mx, my)
@@ -169,7 +165,7 @@ class KalmanFilter:
         else:
             self._outlier_frames = 0
             r_eff = self.R
-            S = S_nom
+            S = self.H @ P_pred @ self.H.T + self.R
 
         # 4. Kalman kazanci ve durum guncellemesi
         K = np.linalg.solve(S, self.H @ P_pred).T  # K: 4x2

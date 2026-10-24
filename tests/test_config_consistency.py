@@ -31,10 +31,9 @@ def test_config_ssot_and_component_defaults():
     assert lm.lock_threshold_frames == CONFIG.lock.lock_threshold_frames
     assert math.isclose(lm.lock_exit_margin_deg, CONFIG.lock.lock_exit_margin_deg, abs_tol=1e-5)
     assert math.isclose(kf.sigma_a, CONFIG.kalman.sigma_a, abs_tol=1e-5)
-    assert math.isclose(kf.r_var, CONFIG.kalman.r_var, abs_tol=1e-5)
-    assert math.isclose(kf.nis_threshold, CONFIG.kalman.nis_threshold, abs_tol=1e-5)
+    assert math.isclose(kf.outlier_jump_px, CONFIG.kalman.outlier_jump_px, abs_tol=1e-5)
     assert kf.reacquire_frames == CONFIG.kalman.reacquire_frames
-    assert math.isclose(CONFIG.kalman.nis_threshold, 13.82, abs_tol=1e-5)
+    assert math.isclose(CONFIG.kalman.outlier_jump_px, 150.0, abs_tol=1e-5)
     assert CONFIG.kalman.reacquire_frames == 3
     assert math.isclose(CONFIG.control.cmd_accel_pan_deg_s2, 400.0, abs_tol=1e-5)
     assert math.isclose(CONFIG.control.cmd_accel_tilt_deg_s2, 267.0, abs_tol=1e-5)
@@ -43,7 +42,6 @@ def test_config_ssot_and_component_defaults():
 
     # 3. RL Kontrolcu & Egitim Ortami SSOT
     assert rl.deadband_px == CONFIG.rl.deadband_px
-    assert rl.uses_velocity_obs is True
     assert math.isclose(rl.reversal_damping, CONFIG.rl.reversal_damping, abs_tol=1e-6)
     assert math.isclose(rl.taper_pan_deg, CONFIG.rl.taper_pan_deg, abs_tol=1e-6)
     assert math.isclose(rl.taper_tilt_deg, CONFIG.rl.taper_tilt_deg, abs_tol=1e-6)

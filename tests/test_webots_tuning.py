@@ -31,8 +31,8 @@ def test_tuning_application_and_clamping(tmp_path, monkeypatch, capsys):
         fcs,
         {"label": "test", "kp_pan": 0.22, "kp_tilt": 0.11, "max_output_deg": 1.2},
     )
-    assert fcs.p_controller.kp_pan == pytest.approx(0.22 / 0.03333)
-    assert fcs.p_controller.kp_tilt == pytest.approx(0.11 / 0.03333)
+    assert fcs.p_controller.kp_frame_pan == pytest.approx(0.22)
+    assert fcs.p_controller.kp_frame_tilt == pytest.approx(0.11)
     assert fcs.p_controller.max_output == pytest.approx(1.2)
     assert not hasattr(fcs.p_controller, "velocity_ff_gain")
 
