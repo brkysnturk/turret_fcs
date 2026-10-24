@@ -1,3 +1,19 @@
+/*
+ * ==============================================================================
+ * MODUL: VOLAN VE SOLENOID FIRLATICI SURUCUSU (PB0 / PB1)
+ * ==============================================================================
+ * PB0 volan MOSFET'ini, PB1 solenoid iticiyi surer. Pinler acilista PULLDOWN
+ * ve LOW'a cekilir; hata durumunda Error_Handler ayni pinleri sifirlar.
+ *
+ * Zamanlama (non-blocking):
+ * - PUSHING   : solenoid 80 ms enerjili (dart itilir).
+ * - RELOADING : 150 ms bekleme (yay mermiyi yuvaya ceker).
+ * - IDLE      : tetik beklenir.
+ *
+ * Launcher_TriggerFire() volan hazir degilse atisi reddeder; E-stop her seyi
+ * aninda keser. Boylece bobbin asiri isinmasi ve cift dart atisi onlenir.
+ * ==============================================================================
+ */
 #include "flywheel_solenoid.h"
 
 static LauncherState_t current_state = LAUNCHER_STATE_IDLE;
@@ -99,6 +115,11 @@ void Launcher_Update(void)
             {
                 current_state = LAUNCHER_STATE_IDLE;
             }
+            break;
+
+        default:
+            // Bozulmus/gecersiz durum: her iki aktüatoru de guvenli duruma al.
+            Launcher_EmergencyStop();
             break;
     }
 }

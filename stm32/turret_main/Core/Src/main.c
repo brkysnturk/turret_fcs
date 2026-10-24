@@ -66,7 +66,14 @@ UART_HandleTypeDef huart2;
 IWDG_HandleTypeDef hiwdg;
 
 /* USER CODE BEGIN PV */
-
+/*
+ * B1 mavi buton (PC13/EXTI13) mandalli yazilim E-stop'u:
+ * Her basista mandal terslenir. Mandal aktifken PC komutlari yok sayilir,
+ * launcher kesilir ve servolar hiz sinirli sekilde merkeze cekilir.
+ */
+static volatile bool b1_estop_latched = false;
+static volatile bool b1_press_event = false;
+static uint32_t b1_last_edge_ms = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -104,7 +111,7 @@ int main(void)
   uint32_t last_pc_cmd_time = HAL_GetTick();
   bool servos_park = false;  // Yumusak merkez donusu (E-stop veya link kaybi)
 #if ENABLE_PHYSICAL_FIRE
-  static uint8_t prev_fcs_state = 0;
+  static uint8_t prev_fcs_state = PROTO_STATE_TRACKING;
 #endif
   uint32_t last_led_time = 0;
   /* USER CODE END 2 */
@@ -126,14 +133,39 @@ int main(void)
     uint16_t strength = Luna_GetStrength();
     FCS_Comm_SendTelemetry(dist, strength, Servo_GetPan(), Servo_GetTilt());
 
-    // 2. PC'den yeni aci duzeltme komutu geldiginde motorlari sur (Atomik okuma ile veri yarisi onlendi)
+    // 2. B1 mavi buton: her basista E-stop mandalini degistir.
+    //    Mandal aktifken PC komutlari yok sayilir; launcher kesilir ve servolar parka alinir.
+    if (b1_press_event)
+    {
+      b1_press_event = false;
+      b1_estop_latched = !b1_estop_latched;
+      if (b1_estop_latched)
+      {
+        Launcher_EmergencyStop();
+        servos_park = true;
+#if ENABLE_PHYSICAL_FIRE
+        prev_fcs_state = PROTO_STATE_TRACKING;
+#endif
+      }
+      else
+      {
+        servos_park = false;
+      }
+    }
+    if (b1_estop_latched)
+    {
+      Launcher_EmergencyStop();
+      servos_park = true;
+    }
+
+    // 3. PC'den yeni aci duzeltme komutu geldiginde motorlari sur (Atomik okuma ile veri yarisi onlendi)
     float d_pan = 0.0f;
     float d_tilt = 0.0f;
     uint8_t state = 0;
-    if (FCS_Comm_GetCommand(&d_pan, &d_tilt, &state))
+    if (!b1_estop_latched && FCS_Comm_GetCommand(&d_pan, &d_tilt, &state))
     {
       last_pc_cmd_time = HAL_GetTick();
-      if (state == 3)
+      if (state == PROTO_STATE_ESTOP)
       {
         /*
          * Acil Durdurma: firlaticiyi aninda kes, servolari ise BASAMAKSIZ
@@ -144,7 +176,7 @@ int main(void)
         Launcher_EmergencyStop();
         servos_park = true;
 #if ENABLE_PHYSICAL_FIRE
-        prev_fcs_state = 0;  // E-stop sonrasi yanlis ates kenari olusmasin
+        prev_fcs_state = PROTO_STATE_TRACKING;  // E-stop sonrasi yanlis ates kenari olusmasin
 #endif
       }
       else
@@ -159,7 +191,7 @@ int main(void)
          * firlatilirdi. Bu sira ile Launcher_TriggerFire() yalnizca volan
          * onceki karelerde (PC SPINUP fazinda) gercekten hazirsa ates eder.
          */
-        if (state == 2 && prev_fcs_state != 2)
+        if (state == PROTO_STATE_FIRING && prev_fcs_state != PROTO_STATE_FIRING)
         {
           (void)Launcher_TriggerFire();
         }
@@ -172,7 +204,7 @@ int main(void)
          * volanlar zaten hazir olur.
          * TRACKING (0) veya ESTOP (3) durumunda volanlari kapat.
          */
-        if (state == 1 || state == 2)
+        if (state == PROTO_STATE_LOCKED || state == PROTO_STATE_FIRING)
         {
           if (!Launcher_IsFlywheelActive())
           {
@@ -188,40 +220,40 @@ int main(void)
         }
       }
 #if ENABLE_PHYSICAL_FIRE
-      prev_fcs_state = (state == 3) ? 0 : state;
+      prev_fcs_state = (state == PROTO_STATE_ESTOP) ? PROTO_STATE_TRACKING : state;
 #endif
     }
 
-    // 3. Heartbeat: PC komut akisi kesilirse firlaticiyi fail-safe durdur.
+    // 4. Heartbeat: PC komut akisi kesilirse firlaticiyi fail-safe durdur.
     if (HAL_GetTick() - last_pc_cmd_time > FCS_CMD_TIMEOUT_MS)
     {
       Launcher_EmergencyStop();
 #if ENABLE_PHYSICAL_FIRE
-      prev_fcs_state = 0;  // Yeniden baglanmada yanlis ates kenari olusmasin
+      prev_fcs_state = PROTO_STATE_TRACKING;  // Yeniden baglanmada yanlis ates kenari olusmasin
 #endif
     }
 
-    // 4. Uzun sureli PC kaybi: servolari yumusakca merkeze al.
+    // 5. Uzun sureli PC kaybi: servolari yumusakca merkeze al.
     //    Aksi halde iki MG996R son konumda surekli stall akimi cekip isinir.
     if (HAL_GetTick() - last_pc_cmd_time > SERVO_PARK_TIMEOUT_MS)
     {
       servos_park = true;
     }
 
-    // 5. Yumusak merkez donusu (E-stop veya link kaybi): hiz sinirli, basamaksiz.
+    // 6. Yumusak merkez donusu (E-stop veya link kaybi): hiz sinirli, basamaksiz.
     if (servos_park)
     {
       (void)Servo_HomeStep();
     }
 
-    // 6. Sistem Kalp Atisi LED Gostergesi (500 ms periyot - ISR yukunu onler)
+    // 7. Sistem Kalp Atisi LED Gostergesi (500 ms periyot - ISR yukunu onler)
     if (HAL_GetTick() - last_led_time >= 500)
     {
       last_led_time = HAL_GetTick();
       HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
     }
 
-    // 7. Firlatici durum makinesi (non-blocking)
+    // 8. Firlatici durum makinesi (non-blocking)
     Launcher_Update();
 
     HAL_Delay(10); // ~90-100 Hz kontrol dongusu (bloklayan telemetri TX dahil)
@@ -257,6 +289,25 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
   else if (huart->Instance == USART2)
   {
     FCS_Comm_HandleError();
+  }
+}
+
+/**
+  * @brief EXTI Callback (B1 mavi buton: mandalli yazilim E-stop)
+  *
+  * Buton aktif-low ve dahili pull-up ile okunur. Mekanik sicramayi elemek icin
+  * 250 ms debounce uygulanir; gercek islem ana dongude yapilir (ISR kisa kalir).
+  */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  if (GPIO_Pin == B1_Pin)
+  {
+    uint32_t now = HAL_GetTick();
+    if (b1_last_edge_ms == 0u || (now - b1_last_edge_ms) >= 250u)
+    {
+      b1_last_edge_ms = now;
+      b1_press_event = true;
+    }
   }
 }
 /* USER CODE END 4 */
@@ -376,7 +427,7 @@ static void MX_GPIO_Init(void)
 
   GPIO_InitStruct.Pin = B1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
   GPIO_InitStruct.Pin = LD2_Pin;
@@ -384,6 +435,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt Init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
 
 void Error_Handler(void)

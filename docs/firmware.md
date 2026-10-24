@@ -26,7 +26,7 @@ Bu doküman; Turret FCS projesinin gömülü denetleyici katmanı olan **STM32F4
 | **TF-Luna LiDAR TX** | `PA9` (USART1_TX) | Benewake TF-Luna | LiDAR konfigürasyon ve sorgulama hattı |
 | **PC İletişim TX** | `PA2` (USART2_TX) | ST-Link VCP | PC'ye 10-baytlık durum ve LiDAR telemetrisi iletimi (`0x55` header) |
 | **PC İletişim RX** | `PA3` (USART2_RX) | ST-Link VCP | PC'den 7-baytlık ikili komut paketi alımı (`0xAA` header + Pan + Tilt + State + CS) |
-| **Kullanıcı Butonu (B1)** | `PC13` (GPIO Input)| Mavi Buton (B1) | CubeMX'te EXTI hattı olarak tanımlı kullanıcı butonu |
+| **Kullanıcı Butonu (B1)** | `PC13` (GPIO Input)| Mavi Buton (B1) | Mandallı yazılım E-stop: ilk basışta volan/solenoid kesilir ve servolar merkeze iner; ikinci basışta mandal çözülür. Dahili pull-up + 250 ms debounce |
 | **Durum LED'i (LD2)** | `PA5` (GPIO Output)| Yeşil LED (LD2) | Sistem hazır / ana döngü aktivite göstergesi |
 
 ---
@@ -43,12 +43,18 @@ Bu doküman; Turret FCS projesinin gömülü denetleyici katmanı olan **STM32F4
 
 3. **Derleme (Build):**
    - `Project -> Build Project` (veya `Ctrl+B`) seçeneği ile projeyi derleyin.
-   - GNU Arm Embedded Toolchain (`arm-none-eabi-gcc`) kullanarak `Debug/turret_main.elf` dosyasını sıfır uyarı ile üretecektir.
+   - İki yapılandırma hazırdır: `Debug` (geliştirme) ve `Release` (saha). Debug çıktısı `Debug/turret_main.elf` yaklaşık 18 KB, Release çıktısı `Release/turret_main.elf` yaklaşık 10 KB'dir; ikisi de sıfır uyarı ile derlenir.
 
 4. **Karta Yükleme (Flash):**
    - STM32 Nucleo kartını USB kablosuyla bilgisayara bağlayın.
    - `Run -> Run As -> STM32 Cortex-M C/C++ Application` seçin.
    - Dahili ST-Link programlayıcı kodu mikrodenetleyiciye flaşlayacak ve sistemi başlatacaktır.
+
+### Debug ve Release Ne Demek?
+
+- **Debug:** Kod `-O0` ile (optimizasyon kapalı) derlenir, `DEBUG` makrosu tanımlıdır. Değişkenleri ve adımları izlemek kolaydır; kesme noktasında beklerken IWDG dondurulur. Kod daha büyük ve yavaştır; geliştirme ve hata ayıklama içindir.
+- **Release:** Kod `-Os` (boyut optimizasyonu) ve `-g0` ile derlenir, `DEBUG` tanımlı değildir. Daha küçük ve hızlıdır; sahada kullanılacak sürümdür. Optimizasyon zamanlamayı hafifçe değiştirebileceği için Release derlemesi de test edilmelidir.
+- Bu projede iki yapılandırma da hazırdır: `Debug` (text 18048 B, data 20 B, bss 1948 B) ve `Release` (text 9960 B, data 20 B, bss 1948 B). STM32CubeIDE'de `Project -> Build Configurations -> Set Active -> Release` ile Release seçilebilir.
 
 ---
 
@@ -65,7 +71,13 @@ Bu doküman; Turret FCS projesinin gömülü denetleyici katmanı olan **STM32F4
 3. **80 ms Yazılımsal Solenoid Durum Makinesi (`flywheel_solenoid.c`):**
    - Solenoid bobininin aşırı ısınıp yanmasını ve çift dart atılmasını önlemek için tetikleme `HAL_GetTick()` tabanlı durum makinesiyle (`PUSHING` 80 ms, `RELOADING` 150 ms) sınırlandırılmıştır.
 
-4. **Fiziksel Ateşleme İzolasyonu (Etik Güvenlik):**
+4. **B1 Mavi Buton ile Mandallı E-stop (`main.c` / `stm32f4xx_it.c`):**
+   - PC13/EXTI13, dahili pull-up ve 250 ms yazılımsal debounce ile okunur.
+   - İlk basış: `Launcher_EmergencyStop()` çağrılır, `servos_park` açılır; mandal aktifken PC komutları yok sayılır ve taret `Servo_HomeStep()` ile merkeze iner.
+   - İkinci basış: mandal çözülür, PC kontrolü yeniden devreye girer.
+   - NVIC etkinleştirmesi ve `EXTI15_10_IRQHandler` USER CODE bloklarında tutulur; CubeMX yeniden üretiminde silinmez.
+
+5. **Fiziksel Ateşleme İzolasyonu (Etik Güvenlik):**
    - Test ve simülasyon ortamında istenmeyen atışları engellemek için `stm32/turret_main/Core/Src/main.c` içinde:
      ```c
      #ifndef ENABLE_PHYSICAL_FIRE

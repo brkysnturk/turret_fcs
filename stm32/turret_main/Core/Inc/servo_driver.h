@@ -1,3 +1,12 @@
+/*
+ * ==============================================================================
+ * MODUL: PAN/TILT SERVO BASLIGI (MG996R)
+ * ==============================================================================
+ * Darbe genislikleri, guvenli aci sinirlari ve hiz siniri sabitleri buradadir.
+ * Bu sabitler mekanik limitlerle birlikte degistirilmelidir; ayrinti:
+ * servo_driver.c.
+ * ==============================================================================
+ */
 #ifndef __SERVO_DRIVER_H
 #define __SERVO_DRIVER_H
 

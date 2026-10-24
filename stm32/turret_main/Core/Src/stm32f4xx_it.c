@@ -212,16 +212,24 @@ void USART1_IRQHandler(void)
   /* USER CODE END USART1_IRQn 1 */
 }
 
-/* USER CODE BEGIN 1 */
-
-/* USER CODE END 1 */
-
-extern UART_HandleTypeDef huart2;
-
 /**
   * @brief This function handles USART2 global interrupt.
   */
+extern UART_HandleTypeDef huart2;
+
 void USART2_IRQHandler(void)
 {
   HAL_UART_IRQHandler(&huart2);
 }
+
+/**
+  * @brief This function handles EXTI line 15:10 interrupts (B1 button).
+  */
+void EXTI15_10_IRQHandler(void)
+{
+  HAL_GPIO_EXTI_IRQHandler(B1_Pin);
+}
+
+/* USER CODE BEGIN 1 */
+
+/* USER CODE END 1 */

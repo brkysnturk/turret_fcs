@@ -1,3 +1,17 @@
+/*
+ * ==============================================================================
+ * MODUL: PAN/TILT SERVO SURUCUSU (MG996R, TIM3 + TIM1)
+ * ==============================================================================
+ * PB4/PB5 (TIM3_CH1/CH2) uzerinden 50 Hz PWM uretir; PA8 (TIM1_CH1) yedek
+ * pan hattidir. 0..180 derece, 570..2470 us darbe araligina eslenir.
+ *
+ * GUVENLIK:
+ * - Pan 15..165 derece, tilt 65..115 derece araligina kilitlidir.
+ * - Her pakette adim siniri (MAX_STEP_DEG) ve zaman tabanli 45 derece/s
+ *   hiz siniri birlikte uygulanir; PC FPS'i artarsa taret hizlanmaz.
+ * - E-stop ve link kaybinda Servo_HomeStep() ile basamaksiz merkeze donulur.
+ * ==============================================================================
+ */
 #include "servo_driver.h"
 
 static TIM_HandleTypeDef htim3;

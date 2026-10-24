@@ -80,8 +80,11 @@ Güncel durum:
   taşıması yanıltıcı. Kolon seti değiştiği için "2.1" olmalı.
 - `main.py` içinde `temp_c` artık kullanılmıyor; `get_luna_data()` üçlü dönüşü
   sadeleştirilebilir.
-- Firmware'de dört `.c` dosyasında modül başlığı yok; bu ortamda ARM derleyici
-  bulunmadığı için "sıfır uyarı" iddiası burada doğrulanamadı.
+- Firmware modül başlıkları eklendi; B1 mavi buton mandallı E-stop oldu. Hâlâ
+  açık olan: USART2 NVIC/handler CubeMX `.ioc` sözleşmesinin dışında (yeniden
+  üretimde PC komut hattı kopabilir). ARM derleyici bu makinede mevcut; tüm
+  proje kaynakları `-Wall -Wextra` ile sıfır uyarıda derlendi ve linklendi
+  (text 18048 B, data 20 B, bss 1948 B).
 
 Bu revizyonun ayrıntılı doğrulaması için bir sonraki inceleme turuna bakın;
 aşağıdaki bölümler tarihsel anlık görüntü olarak korunmuştur.
@@ -343,6 +346,11 @@ soruyor; tersini (kodda sabit kalmış eşik) yakalamıyor. Bir "yasak sabit" te
 
 ### 7.2 Bulgular
 
+> Not: Bu liste ilk inceleme anlık görüntüsüdür. Modül başlıkları, `USER CODE`
+> blokları, `Error_Handler` makroları, `Servo_IsAtCenter` temizliği ve B1 E-stop
+> sonraki turlarda kapatıldı; güncel durum için yukarıdaki revizyon bloğuna bakın.
+> Açık kalan tek konu USART2 NVIC/handler'ının CubeMX sözleşmesine alınmasıdır.
+
 1. Modül başlığı eksik: `servo_driver.c`, `fcs_comm.c`, `luna_read.c`,
    `flywheel_solenoid.c` doğrudan `#include` ile başlıyor. Yalnız `main.c` ve
    `flywheel_solenoid.h` modül açıklaması taşıyor. Python'daki başlık disiplini
@@ -373,8 +381,9 @@ soruyor; tersini (kodda sabit kalmış eşik) yakalamıyor. Bir "yasak sabit" te
     yaklaşık 0.9 ms. Ölçülen döngü 10 ms olduğu için kabul edilebilir, ama
     `HAL_Delay(10)` ile birleşince gerçek periyot 10.9 ms olur ve hiçbir yerde
     yazmıyor. Yorumdaki "~90-100 Hz" ifadesi bu yüzden iyimser.
-11. `B1_Pin` EXTI olarak kuruluyor ama `HAL_GPIO_EXTI_Callback` yok; `TMS/TCK/SWO`
-    makroları da kullanılmıyor. CubeMX artıkları temizlenmeli.
+11. `B1_Pin` artık mandallı yazılım E-stop olarak çalışıyor (PC13/EXTI13,
+    dahili pull-up, 250 ms debounce, USER CODE içinde NVIC + handler). `TMS/TCK/SWO`
+    makroları hâlâ kullanılmıyor; CubeMX artıkları temizlenebilir.
 12. Statik analiz/biçimlendirme yok: `.clang-format`, `cppcheck` veya derleme
     uyarı bayrağı (`-Wall -Wextra -Wswitch-default`) yapılandırılmamış.
     `Launcher_Update` içindeki `switch` `default` içermiyor; `-Wswitch-default`
