@@ -91,8 +91,8 @@ def generate_kalman_plots():
     print(f"    - Hiz Kestirim RMSE       : {rmse_vel:.2f} px/s")
 
     # 4 Panelli Akademik Grafik Cizimi
-    fig = plt.figure(figsize=(14, 10), dpi=300)
-    gs = fig.add_gridspec(2, 2, hspace=0.30, wspace=0.24)
+    fig = plt.figure(figsize=(15, 10.5), dpi=300)
+    gs = fig.add_gridspec(2, 2, hspace=0.32, wspace=0.26)
 
     # PANEL 1: Zemin Gercegi vs Ham YOLO vs Kalman Filtrelenmis Kestirim
     ax1 = fig.add_subplot(gs[0, 0])
@@ -142,31 +142,50 @@ def generate_kalman_plots():
     # PANEL 4: Performans Parametreleri ve Metrik Tablosu
     ax4 = fig.add_subplot(gs[1, 1])
     ax4.axis("off")
+    ax4.set_title("Kalman Performans Parametreleri ve Dogrulama", fontsize=11, fontweight="bold", pad=12)
 
     table_data = [
-        ["Kalman Parametresi / Metrik", "Sistem Degeri", "Hedef Kriter", "Degerlendirme"],
-        ["Kinematik Model", "Sabit Hizli (CV) + Joseph Kovaryans", "Fiziksel Model", "Kararli"],
-        ["Olcum Gurultusu (R / r_var)", f"{CONFIG.kalman.r_var:.1f} px^2 (~8.0 px std)", "Optik Gurultu", "Optimal"],
-        ["Surec Gurultusu (Q / sigma_a)", f"{CONFIG.kalman.sigma_a:.1f} px/s^2", "Hedef Manevra Limiti", "Cevik Takip"],
-        ["Hiz Yon Uyumu (Hiz > 120 px/s)", f"%{sign_high:.1f}", "> %70.0", "Yuksek Guvenilirlik"],
-        ["Referans Hiz Korelasyonu", f"+{corr:.3f}", "> +0.70", "Guclu Takip"],
-        ["Titreme Azalimi (Jitter Suppression)", f"%{((jitter_raw - jitter_kf)/jitter_raw)*100:.1f} Azalma", "> %50.0", "Yumusatilmis"],
-        ["Cevrim Gecikmesi (CPU)", "< 0.03 ms / kare", "< 1.0 ms", "Gercek Zamanli (30 FPS)"],
+        ["  Parametre / Metrik", "Sistem Degeri", "Hedef Kriter", "Degerlendirme"],
+        ["  Kinematik Model", "CV + Joseph Kovaryans", "Fiziksel Model", "Kararli"],
+        ["  Olcum Gurultusu (R)", f"{CONFIG.kalman.r_var:.1f} px^2 (~8 px)", "Optik Gurultu", "Optimal"],
+        ["  Surec Gurultusu (Q)", f"{CONFIG.kalman.sigma_a:.1f} px/s^2", "Manevra Limiti", "Cevik Takip"],
+        ["  Hiz Yon Uyumu", f"%{sign_high:.1f} (>120 px/s)", "> %70.0", "Yuksek Guven"],
+        ["  Hiz Korelasyonu", f"+{corr:.3f}", "> +0.70", "Guclu Takip"],
+        ["  Jitter Azalimi", f"%{((jitter_raw - jitter_kf)/jitter_raw)*100:.1f} Azalma", "> %50.0", "Yumusatilmis"],
+        ["  Cevrim Suresi (CPU)", "< 0.03 ms / kare", "< 1.0 ms", "30 FPS Uyumlu"],
     ]
 
-    tbl = ax4.table(cellText=table_data, loc="center", cellLoc="center")
+    col_widths = [0.36, 0.25, 0.17, 0.22]
+    tbl = ax4.table(
+        cellText=table_data,
+        colWidths=col_widths,
+        loc="center",
+        cellLoc="center"
+    )
     tbl.auto_set_font_size(False)
-    tbl.set_fontsize(8.8)
-    tbl.scale(1.0, 1.45)
+    tbl.set_fontsize(8.2)
+    tbl.scale(1.0, 1.55)
 
     for (row, col), cell in tbl.get_celld().items():
+        cell.set_edgecolor("#cccccc")
+        cell.set_linewidth(0.8)
         if row == 0:
             cell.set_facecolor("#222222")
-            cell.set_text_props(color="white", fontweight="bold")
-        elif col == 3:
-            cell.set_text_props(fontweight="bold", color="#006600")
-        elif row % 2 == 1:
-            cell.set_facecolor("#f8f9fa")
+            if col == 0:
+                cell.set_text_props(color="white", fontweight="bold", fontsize=8.8, ha="left")
+            else:
+                cell.set_text_props(color="white", fontweight="bold", fontsize=8.8, ha="center")
+        else:
+            if col == 0:
+                cell.set_text_props(fontweight="bold", ha="left")
+            elif col == 3:
+                cell.set_text_props(fontweight="bold", color="#006600", ha="center")
+            else:
+                cell.set_text_props(ha="center")
+            if row % 2 == 1:
+                cell.set_facecolor("#f8f9fa")
+            else:
+                cell.set_facecolor("#ffffff")
 
     out_file = FIG_DIR / "kalman_tracking_performance.png"
     plt.savefig(out_file, bbox_inches="tight")
