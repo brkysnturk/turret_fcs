@@ -1,6 +1,6 @@
 # Taret Atış Kontrol Sistemi — Algoritma Analizi
 
-Kapsam: `camera_thread`, `fcs_comm`, `fcs_manager`, `los_tracker`, `lock_manager`,
+Kapsam: `camera_thread`, `fcs_comm`, `fcs_manager`, `lock_manager`,
 `patrol_generator`, `target_selector`, `turret_hud`, `telemetry`.
 Entegrasyon için `main.py`, `p_controller.py`, `kalman_filter.py`, `rl_controller.py`,
 `webots/` çağrı yolları ve STM32 firmware protokolü de okundu.
@@ -10,8 +10,8 @@ kilit olasılığı, kapalı çevrim kalıcı hata, ivme sınırı) ve çalışt
 (`python -m pytest tests`).
 
 > ÖNEMLİ — ANALİZ ANLIK GÖRÜNTÜSÜ: Çalışma ağacı analiz sırasında aktif olarak
-> düzenlendi. 18:11'de paket import edilemiyordu (`KalmanConfig.outlier_residual_px`
-> yok). 18:12-18:13'te Kalman ve RL dosyaları güncellendi; import düzeldi.
+> düzenlendi. 18:11'de paket import edilemiyordu (eski adıyla `KalmanConfig.outlier_residual_px`,
+> güncel adıyla `outlier_jump_px` yok). 18:12-18:13'te Kalman ve RL dosyaları güncellendi; import düzeldi.
 > Bu belge 18:17 itibarıyla alınan anlık görüntüyü anlatır. Bkz. Bölüm 6.1.
 
 ---
@@ -63,7 +63,7 @@ Tek karelik döngü (`main.py`):
       -> select_best_target -> best_box
       -> fcs.update(...) -> (pan_cmd, tilt_cmd)
       -> UART TX (7 bayt) -> firmware hız sınırı -> servo PWM
-      -> telemetri (44 kolon) -> HUD çizimi -> klavye
+      -> telemetri (35 kolon) -> HUD çizimi -> klavye
 
 | Aşama | Tipik gecikme | Kaynak |
 |---|---:|---|
@@ -223,26 +223,7 @@ devriye açıksa `patrol_generator` devreye girer, değilse sıfır komut döner
   büyük olabilir (adım sınırı 1.5 dereceye kırpıldığı için sınırlı).
 - `reset()` `patrol_status` alanını sıfırlamıyor (kozmik).
 
-### 3.5 `los_tracker.py` — dünya görüş hattı (alpha-beta)
-
-`psi = taret_acisi + kamera_hata_acisi` (kamera tarete sabit). Ölçüm gürültüsünü
-bastırmak için klasik alpha-beta:
-
-    tahmin  = konum + hiz*dt
-    artik   = olcum - tahmin
-    konum  += alpha*artik
-    hiz    += beta*artik/dt        (alpha=0.70, beta=0.20)
-
-Karakteristik denklem `z^2 - (2-alpha-beta)z + (1-alpha) = z^2 - 1.1z + 0.3`;
-kökler 0.600 ve 0.500 — gerçek, pozitif, kararlı. Yani salınım yok, sönüm
-fazlasıyla yüksek; konum ~6-8 karede oturur, sabit hızlı girdide kalıcı hata sıfırdır.
-
-**Değerlendirme:** doğru ve ucuz bir tahminci. **Kontrol hattına bağlı değildir**;
-yalnızca telemetri ve log/Webots karşılaştırması içindir. Bu bilinçli bir karar
-(FAZ 9'da Kalman ile karıştırılmasın diye ayrıldı) ama bakım maliyeti yaratıyor:
-iki ayrı hız tahmincisi aynı logda iki farklı "hedef hızı" üretir.
-
-### 3.6 `lock_manager.py` — kilit ve isabet olasılığı
+### 3.5 `lock_manager.py` — kilit ve isabet olasılığı
 
 **(a) Dinamik kilit penceresi.** Hedef hızına göre giriş eşiği:
 
@@ -291,7 +272,7 @@ olasılıkla ateş edilebilir.
 - `sigma_motion` için `t_toplam` 0.28 s kullanılırken kontrolcü lead'i 0.215 s
   hesaplıyor; iki model aynı gecikmeyi farklı varsayıyor (Bölüm 5).
 
-### 3.7 `patrol_generator.py` — devriye
+### 3.6 `patrol_generator.py` — devriye
 
 Üç durumlu makine:
 
@@ -313,7 +294,7 @@ girmez. Desen merkezden iki kez geçer ve köşe içermez — servo için en naz
 eşiği kod içinde sabit; `CONFIG` dışında. Devriye sırasında tilt 16 derece,
 firmware sınırı 25 derece olduğu için güvenli.
 
-### 3.8 `turret_hud.py` — taktik arayüz
+### 3.7 `turret_hud.py` — taktik arayüz
 
 Saf çizim katmanı; karar üretmez. Algoritmik değeri **bilgi mimarisi** ve
 **declutter** kurallarında:
@@ -331,13 +312,13 @@ maliyet birkaç ms olabilir. Metin ölçümleri kareler arası önbelleklenebili
 Ayrıca panel ROI'si çerçeve dışına taşarsa boş dilim `addWeighted`'a girer; küçük
 çözünürlüklerde istisna riski var.
 
-### 3.9 `telemetry.py` — kara kutu
+### 3.8 `telemetry.py` — kara kutu
 
-**Şema v2, 44 kolon:** kimlik (frame_id, time, dt, latency, fps), hedef geometrisi,
-ham ve filtrelenmiş hız, inovasyon, kontrolcü dinamikleri (kp_eff, db_eff), LiDAR,
-FCS durumu, kilit/olasılık, taret pozu, servo geri beslemesi, devriye ve dünya LOS.
+**Şema v2, 35 kolon:** kimlik (frame_id, time, dt, latency, fps), hedef geometrisi
+(box_cx, box_cy, box_w, box_h), ham ve filtrelenmiş hız, inovasyon, LiDAR ve menzil kapılama (range_valid),
+FCS durumu ve angajman evresi (fire_stage), kilit/olasılık, taret pozu, servo geri beslemesi ve devriye.
 
-**Mimari:** 30 karelik tampon -> toplu CSV yazımı (I/O maliyeti 1/30'a iner),
+**Mimari:** Kalıcı dosya tanıtıcıları (persistent file handle) ve 30 karelik tampon -> toplu CSV yazımı (I/O maliyeti 1/30'a iner),
 oturum başına `.meta.json` (git commit, donanım, tüm kritik CONFIG değerleri, kolon
 listesi) ve `_events.csv` (operatör/sistem olayları). Kapanışta özet: süre, ortalama
 FPS, tespit ve kilit oranları.
@@ -347,10 +328,10 @@ FPS, tespit ve kilit oranları.
 - `latency_ms` gerçek işlem süresidir (dt değil) — doğru.
 - `angular_err_*` kontrolcünün filtrelenmiş değeri değil, ham kamera hatası — doğru
   (FAZ 12'de düzeltilmiş).
-- **Ölü sütunlar:** `sensor_temp_c` hiç doldurulmuyor (TF-Luna çerçevesinde sıcaklık
-  yok), `sigma_a` artık sabit 300 (adaptif Q kaldırıldı). İkisi de analizde yanıltıcı.
-- Tampon 30 kare: ani çökmede en fazla 1 saniyelik veri kaybı. `fsync` yok (doğru
-  tercih; CSV için gereksiz maliyet).
+- **Ölü sütunların temizlenmesi:** `sensor_temp_c` (TF-Luna çerçevesinde sıcaklık
+  yoktu), `sigma_a` (sabit 300), `kp_eff_*`, `db_eff_*`, `rl_weight` ve `lock_thr` ile `los_*` (dünya LOS) kaldırılmış;
+  yerine `box_w`, `box_h`, `fire_stage` ve `range_valid` getirilerek 35 dinamik kolona optimize edilmiştir.
+- Tampon 30 kare ve kalıcı dosya tanıtıcısı: I/O takılmaları önlenmiş, kapanışta temiz kaynak kapatma sağlanmıştır.
 
 ---
 
@@ -433,7 +414,7 @@ bu bilinçli ve doğru bir tercih (potansiyometre sıçraması sahte hız üreti
 | 10 | Düşük | `compute_hit_probability` fy yedeği `fx * 9/16`; kare pikselde fy = fx olduğu için yanlış (latent) | `lock_manager.py:81` | Yedeği `CONFIG.optics.compute_fy(...)` ile hesapla |
 | 11 | Düşük | Devriye ve kilit eşikleri kod içinde sabit (SSOT ihlali) | `patrol_generator.py:38-42`, `lock_manager.py:56-61` | `CONFIG.patrol` / `CONFIG.lock` altına taşı |
 | 12 | Düşük | Atıl alanlar: `PController.kp_pan/kp_tilt` hiç okunmuyor; P modunda `get_angular_velocity_deg_s` her karede hesaplanıp kullanılmıyor | `p_controller.py:90-91`, `fcs_manager.py:350-358` | Kaldır veya FF yoluna bağla |
-| 13 | Düşük | Telemetride `sensor_temp_c` hep 0, `sigma_a` hep 300 | `telemetry.py:269, 344` | Kaldır veya gerçek kaynakla besle |
+| 13 | Düşük | Telemetride `sensor_temp_c` ve `sigma_a` temizlendi | `telemetry.py` (35 kolon) | Çözüldü: ölü/statik sütunlar kaldırıldı, şema optimize edildi |
 | 14 | Düşük | `max_lost_frames` varsayılanı 5; dokümanda 4 | `fcs_manager.py:40`, AGENTS.md FAZ 8 | Dokümanı koda uydur |
 
 ### 6.1 Analiz penceresinde gözlenen durum değişimi
@@ -448,7 +429,7 @@ Ağaç analiz sırasında aktif olarak düzenlendi; kronoloji:
 - 18:12-18:13: `kalman_filter.py` ve `rl_controller.py` güncellendi (tekil-sıçrama
   kapısı kaldırıldı, RL hız gözlemi açıldı, ivme `dt^2`).
 - 18:14-18:16: testler yeni sözleşmeye göre güncellendi.
-- `pytest tests` -> **35 geçti (%100 yeşil)**.
+- `pytest tests` -> **36 geçti (%100 yeşil)**.
   `import turret_fcs` çalışıyor.
 
 Değişikliklerin niteliği (18:17 ara denemesi - FAZ 14 ile geri alındı):

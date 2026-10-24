@@ -371,7 +371,11 @@ class FCSManager:
 
                     eff_bx = float(bx) + float(np.tan(np.radians(applied_lead_pan))) * fx
                     eff_by = float(by) - float(np.tan(np.radians(applied_lead_tilt))) * fy
-                    obs_vx, obs_vy = self.tracker.get_velocity()
+
+                    # RL velocity observation is intentionally zeroed: Kalman
+                    # velocity is noisy on the real/Webots plant and destabilises
+                    # the policy. Lead/HUD still use the Kalman estimate.
+                    obs_vx, obs_vy = 0.0, 0.0
 
                     d_pan_deg, d_tilt_deg = self.rl_controller.predict_angles(
                         eff_bx, eff_by, center_x, center_y, screen_w, screen_h,

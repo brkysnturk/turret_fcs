@@ -58,7 +58,7 @@ webots/worlds/.*.wbproj
 webots/worlds/.*.jpg
 webots/worlds/.*.png
 
-# Logs, Metrics & Telemetry (Representative evidence kept in docs/evidence/)
+# Logs, Metrics & Telemetry
 logs/
 webots/logs/
 *.tfevents.*

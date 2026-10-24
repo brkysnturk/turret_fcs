@@ -7,17 +7,15 @@ eyleyici, Kalman kestirimi ve sensor parametrelerini Schema v2 formatinda tampon
 CSV olarak kaydeder. Ayni zamanda oturum basinda JSON metadata sidecar (.meta.json)
 ve kritik taktiksel olay gunlugunu (_events.csv) uretir.
 
-SCHEMA V2 KOLONLARI (44 KRITIK MUHENDISLIK PARAMETRESI):
-- Urun ve Kare Kimligi: schema_version, frame_id, time_sec, dt, latency_ms, fps
-- Hedef Algilama ve Geometri: target_detected, target_conf, box_cx, box_cy
+SCHEMA V2 KOLONLARI (35 KRITIK MUHENDISLIK PARAMETRESI):
+- Urun ve Kare Kimligi: frame_id, time_sec, dt, latency_ms, fps
+- Hedef Algilama ve Geometri: target_detected, target_conf, box_cx, box_cy, box_w, box_h
 - Hata ve Eyleyici Komutlari: angular_err_pan, angular_err_tilt, cmd_pan, cmd_tilt
-- Kalman ve Inovasyon: vx_raw, vy_raw, target_vel_x, target_vel_y, target_speed, innov_px, sigma_a
-- Kontrolcu Dinamikleri: kp_eff_pan, kp_eff_tilt, db_eff_pan, db_eff_tilt
-- Sensorler (LiDAR & Sicaklik): dist_cm, signal_strength, sensor_temp_c
-- FCS Durum Makinasi: fcs_state, control_mode, rl_weight
-- Kilit ve Balistik Kriterleri: is_locked, lock_counter, lock_thr, hit_prob
+- Kalman ve Inovasyon: vx_raw, vy_raw, target_vel_x, target_vel_y, target_speed, innov_px
+- Sensorler ve Menzil Kapilama: dist_cm, signal_strength, range_valid
+- FCS Durum Makinasi ve Angajman: fcs_state, control_mode, fire_stage
+- Kilit ve Balistik Kriterleri: is_locked, lock_counter, hit_prob
 - Donanim Geri Besleme ve Devriye: turret_pan, turret_tilt, servo_pan_fb, servo_tilt_fb, patrol_status
-- Dunya LOS: los_pan_deg, los_tilt_deg, los_pan_rate_deg_s, los_tilt_rate_deg_s
 ================================================================================
 """
 
@@ -36,7 +34,6 @@ from .config import CONFIG
 @dataclass
 class TelemetryRow:
     """Schema v2 telemetri satiri veri yapisi (Tek Dogruluk Kaynagi - SSOT)."""
-    schema_version: str = "2.0"
     frame_id: int = 0
     time_sec: float = 0.0
     dt: float = 0.0
@@ -46,6 +43,8 @@ class TelemetryRow:
     target_conf: float = 0.0
     box_cx: int = 0
     box_cy: int = 0
+    box_w: int = 0
+    box_h: int = 0
     angular_err_pan: float = 0.0
     angular_err_tilt: float = 0.0
     cmd_pan: float = 0.0
@@ -56,30 +55,20 @@ class TelemetryRow:
     target_vel_y: float = 0.0
     target_speed: float = 0.0
     innov_px: float = 0.0
-    sigma_a: float = 300.0
-    kp_eff_pan: float = 0.0
-    kp_eff_tilt: float = 0.0
-    db_eff_pan: float = 0.0
-    db_eff_tilt: float = 0.0
     dist_cm: int = 0
     signal_strength: int = 0
-    sensor_temp_c: float = 0.0
+    range_valid: int = 0
     fcs_state: int = 0
     control_mode: str = "P"
-    rl_weight: float = 0.0
+    fire_stage: str = "STANDBY"
     is_locked: int = 0
     lock_counter: int = 0
-    lock_thr: int = 0
     hit_prob: float = 0.0
     turret_pan: float = 0.0
     turret_tilt: float = 0.0
     servo_pan_fb: float = 0.0
     servo_tilt_fb: float = 0.0
     patrol_status: str = "STANDBY"
-    los_pan_deg: float = 0.0
-    los_tilt_deg: float = 0.0
-    los_pan_rate_deg_s: float = 0.0
-    los_tilt_rate_deg_s: float = 0.0
 
     def to_list(self):
         """Dataclass alanlarinin sirali deger listesini dondurur."""
@@ -89,8 +78,8 @@ class TelemetryRow:
 class TelemetryLogger:
     """
     Turret FCS Gercek Donanim Telemetri v2 Kaydedicisi (SSOT).
-    Tamponlu disk yazimi, JSON metadata sidecar ve olay gunlugu ile
-    sistemin tam gozlemlenebilirligini (full observability) saglar.
+    Tamponlu ve kalici dosya taniticili (persistent file handle) disk yazimi,
+    JSON metadata sidecar ve olay gunlugu ile tam gozlemlenebilirlik saglar.
     """
 
     SCHEMA_VERSION = "2.0"
@@ -120,9 +109,18 @@ class TelemetryLogger:
         # Basliklar dogrudan TelemetryRow alanlarindan dinamik uretilir (pozisyon kaymasi imkansizdir)
         self.headers = [f.name for f in fields(TelemetryRow)]
 
-        self._init_csv()
+        # Acik dosya taniticilari: Surekli open/close yapilmaz, I/O takilmasi (jitter) onlenir
+        self.csv_file = open(self.csv_path, mode="w", newline="", encoding="utf-8")
+        self.csv_writer = csv.writer(self.csv_file)
+        self.csv_writer.writerow(self.headers)
+        self.csv_file.flush()
+
+        self.events_file = open(self.events_path, mode="w", newline="", encoding="utf-8")
+        self.events_writer = csv.writer(self.events_file)
+        self.events_writer.writerow(["time_sec", "frame_id", "event_type", "message"])
+        self.events_file.flush()
+
         self._init_metadata()
-        self._init_events()
 
     def _get_git_commit(self):
         try:
@@ -135,16 +133,6 @@ class TelemetryLogger:
             return res.stdout.strip() if res.returncode == 0 else "unknown"
         except Exception:
             return "unknown"
-
-    def _init_csv(self):
-        with open(self.csv_path, mode="w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(self.headers)
-
-    def _init_events(self):
-        with open(self.events_path, mode="w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(["time_sec", "frame_id", "event_type", "message"])
 
     def _init_metadata(self):
         meta_data = {
@@ -172,6 +160,12 @@ class TelemetryLogger:
                     "deadband_tilt_deg": CONFIG.control.deadband_tilt_deg,
                     "max_output_deg": CONFIG.control.max_output_deg,
                     "alpha_filter": CONFIG.control.alpha_filter,
+                },
+                "kalman": {
+                    "sigma_a": CONFIG.kalman.sigma_a,
+                    "r_var": CONFIG.kalman.r_var,
+                    "velocity_deadband_low": CONFIG.kalman.velocity_deadband_low_px_s,
+                    "velocity_deadband_high": CONFIG.kalman.velocity_deadband_high_px_s,
                 },
                 "actuator": {
                     "max_step_pan_deg": CONFIG.actuator.max_step_pan_deg,
@@ -213,13 +207,12 @@ class TelemetryLogger:
 
     def log_event(self, event_type, message):
         """Kritik sistem olaylarini zaman damgali olarak _events.csv dosyasina yazar."""
-        if not self.is_active:
+        if not self.is_active or self.events_file is None or self.events_file.closed:
             return
         now = time.time()
         elapsed = round(now - (self.start_time or now), 4)
-        with open(self.events_path, mode="a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow([elapsed, self.frame_id_counter, str(event_type), str(message)])
+        self.events_writer.writerow([elapsed, self.frame_id_counter, str(event_type), str(message)])
+        self.events_file.flush()
 
     def log_frame(
         self,
@@ -232,12 +225,13 @@ class TelemetryLogger:
         tilt_cmd=0.0,
         dist_cm=0,
         strength=0,
-        temp_c=0.0,
         fcs_state=0,
+        fire_stage=None,
         servo_pan_fb=None,
         servo_tilt_fb=None,
         frame_id=None,
         latency_ms=None,
+        **kwargs,
     ):
         """Her kamera karesinde tek satir Telemetri v2 verisi ekler."""
         if not self.is_active:
@@ -256,12 +250,14 @@ class TelemetryLogger:
 
         latency_val = round(float(latency_ms), 1) if latency_ms is not None else round(float(dt) * 1000.0, 1)
 
-        # Hedef merkez koordinatlari
-        box_cx, box_cy = 0, 0
+        # Hedef geometrisi (merkez, genislik, yukseklik)
+        box_cx, box_cy, box_w, box_h = 0, 0, 0, 0
         if best_box is not None:
-            x1, y1, x2, y2 = best_box
+            x1, y1, x2, y2 = best_box[:4]
             box_cx = int((x1 + x2) // 2)
             box_cy = int((y1 + y2) // 2)
+            box_w = int(abs(x2 - x1))
+            box_h = int(abs(y2 - y1))
 
         # FCS parametreleri: kontrolcu ici filtre degil, gercek kamera acisal hatasi
         err_pan = round(float(getattr(fcs, "last_pan_err_deg", 0.0)), 3) if fcs else 0.0
@@ -276,33 +272,25 @@ class TelemetryLogger:
             vx_raw = float(getattr(kalman, "raw_vx", vx))
             vy_raw = float(getattr(kalman, "raw_vy", vy))
             innov_px = round(float(getattr(kalman, "last_residual", 0.0)), 2)
-            sigma_a = round(float(getattr(kalman, "current_sigma_a", kalman.sigma_a)), 1)
         else:
             vx, vy = 0.0, 0.0
             vx_raw, vy_raw = 0.0, 0.0
             innov_px = 0.0
-            sigma_a = 0.0
 
         target_speed = round(math.hypot(vx, vy), 2)
 
-        # Kontrolcu dinamikleri
-        p_ctrl = getattr(fcs, "p_controller", None) if fcs else None
-        if p_ctrl is not None:
-            kp_eff_pan = round(float(getattr(p_ctrl, "kp_frame_pan", CONFIG.control.kp_pan)), 4)
-            kp_eff_tilt = round(float(getattr(p_ctrl, "kp_frame_tilt", CONFIG.control.kp_tilt)), 4)
-            db_eff_pan = round(float(getattr(p_ctrl, "deadband_pan", CONFIG.control.deadband_pan_deg)), 3)
-            db_eff_tilt = round(float(getattr(p_ctrl, "deadband_tilt", CONFIG.control.deadband_tilt_deg)), 3)
-        else:
-            kp_eff_pan = CONFIG.control.kp_pan
-            kp_eff_tilt = CONFIG.control.kp_tilt
-            db_eff_pan = CONFIG.control.deadband_pan_deg
-            db_eff_tilt = CONFIG.control.deadband_tilt_deg
+        # LiDAR menzil kapilama (range gating) durumu
+        range_valid_flag = 1 if getattr(fcs, "range_valid", False) else 0
 
+        # Durum, kontrol modu ve angajman asamasi
         control_mode = getattr(fcs, "control_mode", "P") if fcs else "P"
-        rl_weight = round(getattr(fcs, "current_rl_weight", 0.0), 3) if fcs else 0.0
+        if fire_stage is not None:
+            stage_str = str(fire_stage)
+        else:
+            stage_str = "FIRING" if int(fcs_state) == 2 else ("TRACKING" if target_detected else "STANDBY")
+
         is_locked_flag = 1 if getattr(fcs, "is_locked", False) else 0
         lock_counter = int(getattr(fcs, "lock_counter", 0)) if fcs else 0
-        lock_thr = int(CONFIG.lock.lock_threshold_frames)
         hit_prob = round(float(getattr(fcs, "hit_probability", 0.0)), 1) if fcs else 0.0
         turret_p = round(float(getattr(fcs, "turret_pan_deg", 0.0)), 2) if fcs else 0.0
         turret_t = round(float(getattr(fcs, "turret_tilt_deg", 0.0)), 2) if fcs else 0.0
@@ -313,18 +301,7 @@ class TelemetryLogger:
         pan_fb = round(float(servo_pan_fb), 2) if servo_pan_fb is not None else -999.0
         tilt_fb = round(float(servo_tilt_fb), 2) if servo_tilt_fb is not None else -999.0
 
-        # Dunya gorus hatti (LOS) prototipi: taret acisi + kamera hatasi
-        los = getattr(fcs, "los_tracker", None) if fcs else None
-        if los is not None and los.pan is not None:
-            los_pan = round(float(los.pan), 3)
-            los_tilt = round(float(los.tilt), 3)
-            los_pan_rate = round(float(los.pan_rate), 3)
-            los_tilt_rate = round(float(los.tilt_rate), 3)
-        else:
-            los_pan = los_tilt = los_pan_rate = los_tilt_rate = 0.0
-
         row = TelemetryRow(
-            schema_version=self.SCHEMA_VERSION,
             frame_id=current_frame_id,
             time_sec=elapsed_sec,
             dt=round(dt, 4),
@@ -334,6 +311,8 @@ class TelemetryLogger:
             target_conf=target_conf,
             box_cx=box_cx,
             box_cy=box_cy,
+            box_w=box_w,
+            box_h=box_h,
             angular_err_pan=err_pan,
             angular_err_tilt=err_tilt,
             cmd_pan=round(float(pan_cmd), 3),
@@ -344,30 +323,20 @@ class TelemetryLogger:
             target_vel_y=round(vy, 2),
             target_speed=target_speed,
             innov_px=innov_px,
-            sigma_a=sigma_a,
-            kp_eff_pan=kp_eff_pan,
-            kp_eff_tilt=kp_eff_tilt,
-            db_eff_pan=db_eff_pan,
-            db_eff_tilt=db_eff_tilt,
             dist_cm=int(dist_cm or 0),
             signal_strength=int(strength or 0),
-            sensor_temp_c=round(float(temp_c or 0.0), 1),
+            range_valid=range_valid_flag,
             fcs_state=int(fcs_state),
             control_mode=str(control_mode),
-            rl_weight=rl_weight,
+            fire_stage=stage_str,
             is_locked=is_locked_flag,
             lock_counter=lock_counter,
-            lock_thr=lock_thr,
             hit_prob=hit_prob,
             turret_pan=turret_p,
             turret_tilt=turret_t,
             servo_pan_fb=pan_fb,
             servo_tilt_fb=tilt_fb,
             patrol_status=p_status,
-            los_pan_deg=los_pan,
-            los_tilt_deg=los_tilt,
-            los_pan_rate_deg_s=los_pan_rate,
-            los_tilt_rate_deg_s=los_tilt_rate,
         )
 
         self.buffer.append(row.to_list())
@@ -382,18 +351,31 @@ class TelemetryLogger:
 
     def flush(self):
         """Tampondaki verileri diske yazar."""
-        if not self.buffer:
+        if not self.buffer or self.csv_file is None or self.csv_file.closed:
             return
-        with open(self.csv_path, mode="a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerows(self.buffer)
+        self.csv_writer.writerows(self.buffer)
+        self.csv_file.flush()
         self.buffer.clear()
 
     def close(self):
-        """Log dosyasini kapatir ve .meta.json dosyasina oturum ozetini yazar."""
+        """Log dosyalarini kapatir ve .meta.json dosyasina oturum ozetini yazar."""
         if not self.is_active:
             return
         self.flush()
+
+        # Acik dosya taniticilarini guvenli sekilde kapat
+        if self.csv_file is not None and not self.csv_file.closed:
+            try:
+                self.csv_file.close()
+            except Exception:
+                pass
+
+        if self.events_file is not None and not self.events_file.closed:
+            try:
+                self.events_file.close()
+            except Exception:
+                pass
+
         self.is_active = False
 
         duration_s = round(time.time() - (self.start_time or time.time()), 2)
@@ -423,8 +405,15 @@ class TelemetryLogger:
 
         print(f"[TELEMETRY v2] Oturum kapandi: Toplam {self.total_records} kare ({duration_s}s, {mean_fps} FPS) -> {self.csv_path.name}")
 
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+

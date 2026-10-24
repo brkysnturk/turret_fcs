@@ -26,7 +26,7 @@ pip install -e .[test]
 
 ## 2. Otomatik Test Paketinin Koşulması
 
-Donanıma (kamera veya STM32) ihtiyaç duymadan çalışan 35 birim, entegrasyon, ağırlık ve SSOT tutarlılık testi:
+Donanıma (kamera veya STM32) ihtiyaç duymadan çalışan 36 birim, entegrasyon, ağırlık ve SSOT tutarlılık testi:
 
 ```bash
 pytest -v

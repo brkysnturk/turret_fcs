@@ -63,7 +63,7 @@ Sistem; **Logitech C270 RGB Kamera (720p @ 30 FPS)** ve **Benewake TF-Luna ToF L
 
 ### v1.3
 * **SSOT (Single Source of Truth) Merkezi Yapılandırması (`turret_fcs/config.py`):** Tüm optik parametreler, aktüatör sınırları, kontrolcü kazançları, Kalman katsayıları ve dosya yolları saf matematiksel tek bir yaprak modülde (`CONFIG`) toplandı; dairesel bağımlılıklar giderildi.
-* **Telemetri v2 ve Taktiksel Metadata Sidecar (`turret_fcs/telemetry.py`):** Veri şeması 44 kolona genişletildi; anlık donanım odometrisi, Kalman inovasyonu ve kontrolcü kazançları senkronize kaydedildi. Oturum açılış/kapanış istatistiklerini özetleyen JSON metadata sidecar (`.meta.json`) ve milisaniye olay kütüğü (`_events.csv`) eklendi.
+* **Telemetri v2 ve Taktiksel Metadata Sidecar (`turret_fcs/telemetry.py`):** Veri şeması 35 dinamik kolona optimize edildi; anlık donanım odometrisi, Kalman inovasyonu, hedef geometrisi (genişlik/yükseklik), angajman evresi ve LiDAR ToF menzil kapılama senkronize kaydedildi. Kalıcı dosya tanıtıcıları ile I/O jitter'ı önlendi. Oturum açılış/kapanış istatistiklerini özetleyen JSON metadata sidecar (`.meta.json`) ve milisaniye olay kütüğü (`_events.csv`) eklendi.
 * **Webots Dijital İkiz Refaktörü & İnce HAL Katmanı:** Tekrarlanan 8 ayrı simülasyon kontrolcüsü silinerek doğrudan üretim kodunu çalıştıran ince donanım soyutlama katmanı (`webots_hardware_interface.py`) oluşturuldu; 80 ms taşıyıcı gecikme, 45 ms servo gecikmesi ve 1.20° mekanik dişli boşluğu simülatöre işlendi.
 * **Kapsamlı Otomatik Test Paketi:** 44 otomatik Pytest birim, SSOT ve duman testi ile GitHub Actions sürekli entegrasyon (CI) boru hattı kuruldu.
 
@@ -316,7 +316,7 @@ Kurulumun ve modül tutarlılığının doğrulanması için otomatik test paket
 venv\Scripts\pytest tests/
 ```
 
-24 testin tamamı harici donanım veya kamera bağlı olmasa dahi simüle edilmiş girdilerle yaklaşık 1.0 saniyede geçer.
+36 testin tamamı harici donanım veya kamera bağlı olmasa dahi simüle edilmiş girdilerle yaklaşık 1.0 saniyede geçer.
 
 ### 4. Sistemi Başlatma
 Donanım bağlantılarını tamamladıktan sonra ana başlatıcıyı çalıştırın:
@@ -367,7 +367,7 @@ venv\Scripts\python.exe analysis/inspect_logs.py
 ```text
 turret_fcs/
 ├── .github/                   # GitHub Actions CI sürekli entegrasyon iş akışları (ci.yml)
-├── tests/                     # 35 adet otomatik Pytest birim, SSOT ve entegrasyon testi
+├── tests/                     # 36 adet otomatik Pytest birim, SSOT ve entegrasyon testi
 ├── requirements.txt           # Python kütüphane bağımlılıkları (YOLO, Torch, SB3, vb.)
 ├── pyproject.toml             # Python paket ve yapılandırma manifestosu
 ├── CHANGELOG.md               # Sürüm değişiklikleri ve detaylı sürüm geçmişi

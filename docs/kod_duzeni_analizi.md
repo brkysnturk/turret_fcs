@@ -57,29 +57,31 @@ Güncel durum:
    dosya haritaları düzeltildi; EVAL metni nötr "ENGAGEMENT COMPLETED" oldu.
 5. `compute_velocity_ff()` ve sınıflardaki `**kwargs` yutucuları kaldırıldı.
 
-**19:42 itibarıyla durum (b838c38 sonrası)**
+**20:05 itibarıyla durum**
 
 - E-stop kapandı: `keymap` mandallanınca devriyeyi kapatıyor, girişte ve çıkışta
-  `fcs.reset()` çağrılıyor; Webots'taki mükerrer satır kaldırıldı. Eski kilit
-  üzerinden kazara ateş riski yok.
-- Giriş noktası sözleşmesi artık AST tabanlı testle denetleniyor; iki dosyadaki
+  `fcs.reset()` çağrılıyor; Webots'taki mükerrer satır kaldırıldı.
+- Giriş noktası sözleşmesi AST tabanlı testle denetleniyor; iki dosyadaki
   `process_key_event` çağrısının sekiz anahtar sözcüğü statik olarak doğrulanıyor.
-- Telemetri sütunları Schema v2 uyumluluğu için korunuyor. Bu doğru karar; ancak
-  belgelerde `sensor_temp_c` gerçek sıcaklık taşıyormuş gibi anlatılmamalı:
-  firmware TF-Luna çerçevesinin sıcaklık baytlarını ayrıştırmıyor ve 10 baytlık
-  telemetri paketinde sıcaklık alanı yok; `FCSCommunicator.temp` hiç atanmıyor,
-  yani değer donanım bağlıyken de 0 kalıyor. `sigma_a` sabit 300, `lock_thr`
-  gerçekte 10 (CONFIG), `rl_weight` ise `control_mode` ile aynı bilgiyi taşıyan
-  ikili bayrak. Sütunlar kalacaksa "sabit/erişilemez" olarak belgelenmeli;
-  gerçek sıcaklık isteniyorsa protokol v2.1'de genişletilmeli.
-- `docs/algoritma_analizi.md` başına tarihsel not eklendi, fakat notta alan adı
-  `outlier_residual_px` yazıyor; güncel ad `outlier_jump_px`. 456. satırdaki
-  tablo hâlâ "kapı kaldırıldı" diyor; not bunu açıklıyor ama satır da
-  güncellenmeli.
+- Telemetri 44'ten 35 kolona indirildi: `sensor_temp_c`, `sigma_a`, `lock_thr`,
+  `rl_weight`, `kp_eff_*`, `db_eff_*` ve LOS kolonları kaldırıldı; `box_w`,
+  `box_h`, `range_valid`, `fire_stage` eklendi. Ölü sütun sorunu böylece kapandı,
+  kalıcı dosya tanıtıcıları I/O jitter'ını azalttı.
+- Kalman kapısı dokümanı düzeltildi: `outlier_jump_px` adı ve "ara deneme geri
+  alındı" notu doğru; 150 px + R * 100 anlatımı kodla uyumlu.
+- Açık kalan bir çelişki: `fcs_manager` RL gözleminde hızı yine sıfırlıyor
+  (`obs_vx, obs_vy = 0.0`), ama `rl_controller` docstring'i, AGENTS FAZ 14 ve
+  dosya haritası "filtrelenmiş Kalman hızı politikaya verilir" diyor. Biri
+  güncellenmeli; kod sıfırlıyorsa bu, v1.4'teki gerekçeyle birlikte yazılmalı.
+- Telemetriden LOS kolonları çıkınca `LosTracker` tüketicisiz kaldı: her karede
+  hesaplanıyor, sıfırlanıyor ama hiçbir yerde okunmuyor (yalnız bir birim testi
+  kullanıyor). Ya şemaya geri konmalı ya modül ve testi kaldırılmalı.
+- `SCHEMA_VERSION` hâlâ "2.0"; 44 kolonlu eski v2 loglarla aynı sürüm adını
+  taşıması yanıltıcı. Kolon seti değiştiği için "2.1" olmalı.
+- `main.py` içinde `temp_c` artık kullanılmıyor; `get_luna_data()` üçlü dönüşü
+  sadeleştirilebilir.
 - Firmware'de dört `.c` dosyasında modül başlığı yok; bu ortamda ARM derleyici
   bulunmadığı için "sıfır uyarı" iddiası burada doğrulanamadı.
-- AST testi anahtar sözcükleri denetliyor; konum argümanı ve yinelenen parametre
-  gibi çağrı hatalarını yakalamıyor. Yeterli, ama sınırı bilinmeli.
 
 Bu revizyonun ayrıntılı doğrulaması için bir sonraki inceleme turuna bakın;
 aşağıdaki bölümler tarihsel anlık görüntü olarak korunmuştur.
@@ -126,7 +128,7 @@ Kendi firmware kodumuz (CubeMX üretimi dahil) yaklaşık 2.650 satır; bunun ya
 |---|---:|---|---|
 | `turret_fcs/main.py` | 405 | `main()` 366 satır | Başlatma + FSM + HUD + klavye + telemetri tek fonksiyonda |
 | `turret_fcs/fcs_manager.py` | 485 | `update()` 194 satır | 6 ayrı iş tek metotta |
-| `turret_fcs/telemetry.py` | 420 | `log_frame()` 158 satır | 44 sütun pozisyonel liste |
+| `turret_fcs/telemetry.py` | 420 | `log_frame()` 125 satır | 35 sütun `@dataclass TelemetryRow` |
 | `turret_fcs/turret_hud.py` | 482 | `draw_combat_panel()` 112 satır | 6 benzer dal |
 | `turret_fcs/rl_controller.py` | 348 | `predict_angles()` 91 satır | Gözlem + taper + ivme + geçmiş |
 | `turret_fcs/fcs_comm.py` | 287 | `_consume_rx_buffer()` 27 satır | Modül içi dağılım dengeli |
@@ -181,13 +183,13 @@ edilebilir hâle getirir.
 Ayrıca RL ve P dallarında `turret_pan_deg`/`turret_tilt_deg` güncellemesi üç satır
 hâlinde iki kez yazılmış; tek bir `_integrate_pose()` çağrısına alınabilir.
 
-### 3.3 `TelemetryLogger.log_frame()` 158 satır / 44 sütun
+### 3.3 `TelemetryLogger.log_frame()` (35 dinamik sütun / `@dataclass TelemetryRow`)
 
-Sütunlar pozisyonel bir liste ile yazılıyor, başlıklar ayrı bir listede. Bir sütun
-eklemek veya sırasını değiştirmek, sessizce yanlış CSV üretir; testler bunu
-yakalamıyor. Öneri: `@dataclass TelemetryRow` (44 alan) + `HEADERS = [f.name for f
-in fields(TelemetryRow)]`. Bu, tek kaynak sağlar ve `writer.writerow(asdict(row))`
-ile kolon kaymasını imkânsız kılar.
+Eski sürümde sütunlar pozisyonel bir liste ile yazılıyor ve 7-8 adet ölü/statik alan içeriyordu.
+Yapılan optimizasyon ile `@dataclass TelemetryRow` (35 dinamik alan) + `headers = [f.name for f in fields(TelemetryRow)]`
+mimarisine geçildi. Bu, tek kaynak sağladı ve kolon kaymasını imkânsız kıldı; gereksiz statik alanlar (`kp_eff_*`,
+`sigma_a`, `sensor_temp_c` vb.) ile kullanılmayan dünya LOS alanları (`los_*`) temizlendi, hedef kutu boyutları (`box_w, box_h`),
+angajman evresi (`fire_stage`) ve menzil kapılama (`range_valid`) eklendi. Ayrıca kalıcı dosya tanıtıcıları ile I/O takılmaları önlendi.
 
 ### 3.4 `TurretHUD.draw_combat_panel()` 112 satır
 
@@ -222,9 +224,9 @@ ya da yalnızca testte okunuyor.
 | 5 | RL gözlem bayrakları sabit `True`; `getattr(..., False)` dallarının `else`'i ölü | `rl_controller` sınıf alanları; `fcs_manager` iki iç içe `getattr` | Üç bayrak ve iki dal, tek davranış için var. Kaldırılırsa 12 satır ve bir kavram eksilir. |
 | 6 | `RLConfig.deadband_px` adı yanıltıcı | `rl_controller.predict_angles` yalnız `> 0` kapısı olarak kullanıyor; gerçek ölü bölge `deadband_pan_deg/tilt_deg` | "5 px ölü bölge" docstring'i yanlış; 0 verilince açısal deadband+taper tamamen kapanıyor. |
 | 7 | `KalmanFilter._outlier_frames` ve `current_sigma_a` işlevsiz | `reset`/`_start_track` dışında yazılmıyor | Kaldırılan tekil-sıçrama kapısının kalıntısı; docstring hâlâ kapıyı anlatıyor. |
-| 8 | Telemetri `sensor_temp_c` hep 0 | `fcs_comm.temp` hiç atanmıyor; firmware sıcaklık göndermiyor | 44 sütunun biri baştan sona sabit; tez tablosunda yanıltıcı. |
-| 9 | Telemetri `sigma_a` hep 300 | `current_sigma_a` güncellenmiyor | "Dinamik süreç gürültüsü" açıklaması kodla uyuşmuyor. |
-| 10 | Telemetri `rl_weight` artık ağırlık değil mod bayrağı | `fcs_manager.current_rl_weight` yalnız 1.0/0.0 | Harman kaldırıldı; sütun adı eski mimariyi anlatıyor. |
+| 8 | Telemetri `sensor_temp_c` kaldırıldı | `fcs_comm.temp` hiç atanmıyordu; firmware sıcaklık göndermiyordu | Telemetri 35 kolona optimize edilerek bu ölü alan temizlendi. |
+| 9 | Telemetri `sigma_a` kaldırıldı | `current_sigma_a` sabit 300 idi | Satırlardan kaldırıldı; metadata sidecar altına taşındı. |
+| 10 | Telemetri `rl_weight` kaldırıldı | Eski mimariden kalma ikili mod bayrağıydı | `control_mode` zaten mevcut olduğundan telemetriden çıkarıldı. |
 | 11 | `TelemetryLogger.log_event()` hiç çağrılmıyor | `main.py` yalnız `hud.log_event` kullanıyor | `_events.csv` yalnız başlık satırıyla oluşuyor; modül docstring'i olay günlüğü vadediyor. |
 | 12 | `main.py` içinde `fx/fy` erken ataması ölü | 54-55. satırlar; 141-142'de döngü içinde yeniden hesaplanıyor | İlk değer hiç kullanılmıyor. |
 | 13 | Test-only üretim API'leri | `KalmanFilter.predict_next_position`, `FCSManager.target_angular_velocity_deg_s`, `TurretHUD.get_box_label` | Üretimde tüketicisi yok; ya kaldır ya gerçek yolda kullan. |
@@ -257,8 +259,8 @@ katmanı ve korunmalı.
    Öneri: ilk 5 satır sözleşme (girdi birimleri, çıktı, yan etki, varsayılanlar),
    geri kalan "tasarım gerekçesi" `docs/` altına.
 2. Karar fonksiyonlarında docstring yok: `FCSManager.update()`,
-   `TargetSelector.select_best_target()`, `LockManager.update()`, `los_tracker`
-   metotları. Projenin en kritik üç kararı belgelenmemiş; buna karşılık önemsiz
+   `TargetSelector.select_best_target()`, `LockManager.update()`
+   metotları. Projenin en kritik kararları belgelenmemiş; buna karşılık önemsiz
    `get_box_label()` docstring sahibi. Docstring önceliği ters.
 3. Doküman-kod kayması (asıl sorun bu):
    - `p_controller` başlığı "hata büyüdükçe Kp'yi 1.0'dan 1.6'ya çıkaran kazanç
@@ -408,7 +410,7 @@ soruyor; tersini (kodda sabit kalmış eşik) yakalamıyor. Bir "yasak sabit" te
 | P0 | Ölü alanları kaldır veya bağla: `kp_pan/kp_tilt`, `compute_velocity_ff`, `omega_*`, `filtered_*`, `_outlier_frames`, `current_sigma_a`, `temp`, `rl_weight`, `log_event`, erken `fx/fy` | 1-2 saat | Kod ile telemetri arasındaki yalan kalkar |
 | P0 | `**kwargs` yutucularını kaldır; çağrıları derleme anında kır | 30 dakika | Kaldırılan alanların sessizce yutulması biter |
 | P1 | `engagement.py` + `presenter.py` + `keymap.py` çıkar; `main.py` ve `webots_main.py` incelt | 1 gün | ~250 satır tekrar yok olur, iki uygulama tek çekirdek kullanır |
-| P1 | `TelemetryRow` dataclass'ı; 44 sütunu tek kaynağa bağla | 2-3 saat | Sütun kayması riski biter |
+| P1 | `TelemetryRow` dataclass'ı; 35 sütunu tek kaynağa bağla (Tamamlandı) | 2-3 saat | Sütun kayması riski bitti; kalıcı dosya tanıtıcıları eklendi |
 | P2 | ruff + biçimlendirici + CI lint adımı; `pyright` `typeCheckingMode` en az `basic` | 2 saat | Ölü ithalat/parametre birikmesi durur |
 | P2 | Firmware: modül başlıkları, `protocol.h`, `USER CODE` blokları, `Error_Handler` makroları, `Servo_IsAtCenter` temizliği | 1 gün | CubeMX yeniden üretim riski ve pin tuzağı kalkar |
 | P3 | SSOT taşıma (selector/lock/patrol/hud) ve `analysis/` konsolidasyonu | 1-2 gün | Tek kaynak iddiası tam olur |

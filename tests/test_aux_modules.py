@@ -1,4 +1,4 @@
-"""Kilit, LOS, HUD, firmware durum kodu ve telemetri konsolide testleri."""
+"""Kilit, HUD, firmware durum kodu ve telemetri konsolide testleri."""
 import csv
 import sys
 from pathlib import Path
@@ -63,17 +63,17 @@ def test_los_tracker_rate_estimate():
     assert pan_rate == pytest.approx(2.0, abs=0.15)
 
 
-def test_telemetry_writes_los_columns(tmp_path):
-    """Telemetri CSV kaydinda LOS ve durum sutunlarinin dogru yazildigini dogrular."""
+def test_telemetry_writes_columns(tmp_path):
+    """Telemetri CSV kaydinda durum ve geometri sutunlarinin dogru yazildigini dogrular."""
     fcs = FCSManager(control_mode="P")
-    logger = TelemetryLogger(output_dir=str(tmp_path), filename_prefix="los")
+    logger = TelemetryLogger(output_dir=str(tmp_path), filename_prefix="test")
     for i in range(10):
         box = [630 + i, 350, 650 + i, 370]
         fcs.update(box, 640, 360, 1100.0, 1100.0, 0.033, dist_cm=200)
         logger.log_frame(
             0.033, 30, target_detected=True, best_box=box, fcs=fcs,
             pan_cmd=0.1, tilt_cmd=0.05, dist_cm=200, strength=1000,
-            temp_c=25.0, fcs_state=0,
+            fcs_state=0,
         )
     logger.close()
 
@@ -81,7 +81,17 @@ def test_telemetry_writes_los_columns(tmp_path):
         reader = csv.DictReader(fh)
         rows = list(reader)
 
-    for col in ("los_pan_deg", "los_tilt_deg", "los_pan_rate_deg_s", "los_tilt_rate_deg_s"):
+    for col in (
+        "box_w", "box_h", "fire_stage", "range_valid",
+        "cmd_pan", "cmd_tilt", "target_detected",
+    ):
         assert col in reader.fieldnames
+    assert "los_pan_deg" not in reader.fieldnames
+    assert "los_tilt_deg" not in reader.fieldnames
+    assert "los_pan_rate_deg_s" not in reader.fieldnames
+    assert "los_tilt_rate_deg_s" not in reader.fieldnames
+    assert "kp_eff_pan" not in reader.fieldnames
+    assert "schema_version" not in reader.fieldnames
     assert rows
-    assert rows[-1]["los_pan_deg"] != ""
+    assert int(rows[-1]["box_w"]) == 20
+    assert int(rows[-1]["box_h"]) == 20
