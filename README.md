@@ -765,7 +765,6 @@ turret_fcs/
 ├── weights/                          # best.pt ve yolov8n.pt
 ├── main.bat                          # Gerçek zamanlı başlatıcı
 ├── setup_env.bat                     # Ortam kurulumu
-├── requirements.txt                  # Pinlenmiş bağımlılıklar
 ├── pyproject.toml                    # Paket ve pytest yapılandırması
 ├── CITATION.cff                      # Akademik atıf üstverisi
 └── LICENSE                           # MIT

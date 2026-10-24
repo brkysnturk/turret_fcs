@@ -1,5 +1,5 @@
 # Test/CI ortamı için hafif bağımlılıklar (Linux sudo + wheel uyumlu).
-# Üretim kurulumu requirements.txt (tam pinli) kullanır.
+# Uretim kurulumu pyproject.toml (tam pinli) kullanir.
 # stable-baselines3 2.4.x numpy<2 ister; bu yüzden CI ortamı numpy 1.26 kullanır.
 numpy>=1.26,<2.0
 scipy>=1.13,<1.15

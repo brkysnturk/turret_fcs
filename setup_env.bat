@@ -44,7 +44,7 @@ echo [WARN] Mevcut venv bozuk veya farkli Python surumune bagli; yeniden kuruluy
 goto :build_venv
 
 :build_venv
-echo [1/4] Sanal ortam olusturuluyor (venv)...
+echo [1/3] Sanal ortam olusturuluyor (venv)...
 if exist "venv" rmdir /s /q "venv"
 %PY_CMD% -m venv venv
 if errorlevel 1 goto :venv_failed
@@ -57,7 +57,7 @@ rem ------------------------------------------------------------------
 rem 3) pip
 rem ------------------------------------------------------------------
 echo.
-echo [2/4] pip guncelleniyor...
+echo [2/3] pip guncelleniyor...
 "%VENV_PY%" -m pip install --upgrade pip
 if errorlevel 1 goto :pip_failed
 
@@ -67,14 +67,9 @@ rem    PyTorch CPU wheel'i ayri indeksten kurulur; boylece 2.5 GB'lik CUDA
 rem    indirmesi yapilmaz.
 rem ------------------------------------------------------------------
 echo.
-echo [3/4] Bagimliliklar yukleniyor (requirements.txt)...
-"%VENV_PY%" -m pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+echo [3/3] Bagimliliklar ve paket kuruluyor (pyproject.toml, gelistirme modu)...
+"%VENV_PY%" -m pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cpu
 if errorlevel 1 goto :deps_failed
-
-echo.
-echo [4/4] Paket gelistirme modunda kuruluyor...
-"%VENV_PY%" -m pip install --no-deps -e .
-if errorlevel 1 goto :pkg_failed
 
 echo.
 echo [Dogrulama] Temel importlar kontrol ediliyor...
@@ -105,10 +100,6 @@ goto :fail
 
 :deps_failed
 echo [HATA] Bagimliliklar kurulamadi.
-goto :fail
-
-:pkg_failed
-echo [HATA] Paket kurulumu basarisiz.
 goto :fail
 
 :verify_failed

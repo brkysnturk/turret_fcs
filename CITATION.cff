@@ -5,7 +5,7 @@ authors:
   - family-names: "Senturk"
     given-names: "Berkay"
     affiliation: "Yildiz Technical University"
-version: 1.4.0
+version: 2.0.0
 date-released: 2026-10-24
 license: MIT
 repository-code: "https://github.com/brkysnturk/turret_fcs"
