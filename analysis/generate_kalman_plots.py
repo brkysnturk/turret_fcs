@@ -185,7 +185,7 @@ def generate_kalman_plots():
             else:
                 cell.set_facecolor("#ffffff")
 
-    out_file = FIG_DIR / "kalman_tracking_performance.png"
+    out_file = FIG_DIR / "fig10_kalman_tracking_performance.png"
     plt.savefig(out_file, bbox_inches="tight")
     plt.close()
     print(f"[+] Kalman basarim grafigi olusturuldu: {out_file}")

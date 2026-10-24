@@ -76,7 +76,7 @@ python analysis/export_rl_policy.py
 
 ## 5. P Kontrolcü vs PPO RL Benchmark Karşılaştırması
 
-İki kontrolcünün dinamik hedef yörüngesi üzerindeki başarımını karşılaştırmak ve 5 panelli akademik benchmark grafiğini (`analysis/figures/p_vs_rl_final_benchmark.png`) üretmek için:
+İki kontrolcünün dinamik hedef yörüngesi üzerindeki başarımını karşılaştırmak ve 5 panelli akademik benchmark grafiğini (`analysis/figures/fig11_p_vs_rl_final_benchmark.png`) üretmek için:
 
 ```bash
 python analysis/generate_benchmark_plots.py

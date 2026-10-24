@@ -12,11 +12,11 @@ Tüm grafikler `analysis/figures/` dizinine 300 DPI çözünürlükte kaydedilir
 | :--- | :--- | :--- | :--- |
 | **Sistem Tanıma** | `plot_tuned_system.py` | 8 panelli analitik model, basamak yanıtı, faz portresi ve Bode kararlılık analizi (`fig1`–`fig8`). | `python analysis/plot_tuned_system.py` |
 | **Sistem Tanıma** | `system_identification.py` | Taret motor gecikmesi, zaman sabiti (tau = 45 ms), transfer fonksiyonu kestirimi ve kök-yer eğrisi (`fig9_system_identification.png`). | `python analysis/system_identification.py` |
-| **Kontrol & Benchmark** | `generate_benchmark_plots.py` | Saf PPO RL ile Tip-1 P kontrolcünün TurretEnv benchmark karşılaştırma görseli (`p_vs_rl_final_benchmark.png`). | `python analysis/generate_benchmark_plots.py` |
+| **Kontrol & Benchmark** | `generate_benchmark_plots.py` | Saf PPO RL ile Tip-1 P kontrolcünün TurretEnv benchmark karşılaştırma görseli (`fig11_p_vs_rl_final_benchmark.png`). | `python analysis/generate_benchmark_plots.py` |
 | **Kontrol & Benchmark** | `p_controller_benchmark.py` | Farklı hedef profillerinde (zikzak, kaçış, dairesel) hızlı kapalı çevrim P adım yanıtı benchmark'ı. | `python analysis/p_controller_benchmark.py` |
 | **Kontrol & Benchmark** | `export_rl_policy.py` | PyTorch / SB3 politikasını hafif 11-64-64-2 NumPy MLP (`.npz`) formatına aktarır. | `python analysis/export_rl_policy.py` |
 | **Kontrol & Benchmark** | `rl_diagnose.py` | PPO politikasının durum dağılımlarını, eylem sürekliliğini ve kapalı çevrim başarımını doğrular. | `python analysis/rl_diagnose.py` |
-| **Kalman** | `generate_kalman_plots.py` | CV Kalman filtresi hız kestirimi ile yer gerçeği (ground truth) karşılaştırma grafiği (`kalman_tracking_performance.png`). | `python analysis/generate_kalman_plots.py` |
+| **Kalman** | `generate_kalman_plots.py` | CV Kalman filtresi hız kestirimi ile yer gerçeği (ground truth) karşılaştırma grafiği (`fig10_kalman_tracking_performance.png`). | `python analysis/generate_kalman_plots.py` |
 | **Kalman** | `kalman_validation.py` | Telemetri loglarında dünya LOS hızıyla Kalman hız kestiriminin kovaryans ve işaret doğrulaması. | `python analysis/kalman_validation.py` |
 | **Optik & Donanım** | `calibrate_camera_fov.py` | Logitech C270 kamera optik FOV açılarının (69° HFOV / 42° VFOV) ve odak uzaklığının piksel ölçümleriyle kalibrasyonu. | `python analysis/calibrate_camera_fov.py` |
 | **Mimari ve Diyagramlar** | `generate_readme_diagrams.py` | Güncel CONFIG değerleriyle mimari, akış ve donanım SVG şemalarını (`docs/assets/turret_fcs_*.svg`) üretir. | `python analysis/generate_readme_diagrams.py` |

@@ -285,7 +285,7 @@ def generate_plots():
             else:
                 cell.set_facecolor('#ffffff')
 
-    out_file = FIG_DIR / "p_vs_rl_final_benchmark.png"
+    out_file = FIG_DIR / "fig11_p_vs_rl_final_benchmark.png"
     plt.savefig(out_file, bbox_inches="tight")
     plt.close()
     print(f"[+] P vs RL benchmark grafigi olusturuldu: {out_file}")

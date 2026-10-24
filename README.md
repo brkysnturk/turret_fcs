@@ -526,7 +526,7 @@ Aşağıdaki değerler, aynı oturumda operatörün P ve RL modları arasında g
 
 ### 9.3 P ve PPO RL benzetim karşılaştırması
 
-![P Kontrolcü vs PPO RL Benchmark](analysis/figures/p_vs_rl_final_benchmark.png)
+![P Kontrolcü vs PPO RL Benchmark](analysis/figures/fig11_p_vs_rl_final_benchmark.png)
 
 Benzetim, 80 ms taşıma gecikmesi ve dinamik eyleyici lag'i altında dört tohumla çalıştırılır. P kontrolcü düşük komut yön değişimiyle hassas kilit sağlar; PPO RL özellikle hızlı manevralarda daha düşük pan RMS hatası ve daha yüksek kilit oranı üretir. Bu figür, iki modun birbirinin yerine değil, farklı tehdit dinamikleri için tasarlandığını gösterir.
 
@@ -543,7 +543,7 @@ Benzetim, 80 ms taşıma gecikmesi ve dinamik eyleyici lag'i altında dört tohu
 | `fig7_sim_still_lock.png` | Sabit hedefte kapalı çevrim kilit ve motor sessizliği (benzetim) |
 | `fig8_sim_moving_tracking.png` | Manevralı hedefte takip ve kilit kararlılığı (benzetim) |
 | `fig9_system_identification.png` | Sentetik FOPDT/SOPDT sistem tanımlama ve kök-yer eğrisi |
-| `kalman_tracking_performance.png` | Kalman konum/hız doğruluğu, inovasyon dağılımı ve KPI tablosu |
+| `fig10_kalman_tracking_performance.png` | Kalman konum/hız doğruluğu, inovasyon dağılımı ve KPI tablosu |
 
 ![20 Derece Basamak Yanıtı](analysis/figures/fig1_tuned_step_and_control_effort.png)
 
@@ -563,7 +563,7 @@ Benzetim, 80 ms taşıma gecikmesi ve dinamik eyleyici lag'i altında dört tohu
 
 ![Sistem Tanımlama](analysis/figures/fig9_system_identification.png)
 
-![Kalman Doğrulama](analysis/figures/kalman_tracking_performance.png)
+![Kalman Doğrulama](analysis/figures/fig10_kalman_tracking_performance.png)
 
 ---
 
