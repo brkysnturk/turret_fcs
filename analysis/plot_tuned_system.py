@@ -1,20 +1,20 @@
 """
 ================================================================================
-MODUL: SISTEM DINAMIGI VE SAHA TESTI GRAFIK MOTORU (PLOT TUNED SYSTEM - v1.3)
+MODUL: SISTEM DINAMIGI VE SAHA TESTI GRAFIK MOTORU (PLOT TUNED SYSTEM - v1.4)
 ================================================================================
-Bu modul, Turret FCS v1.3 uretim parametrelerini (CONFIG) dogrudan referans alarak
+Bu modul, Turret FCS v1.4 uretim parametrelerini (CONFIG) dogrudan referans alarak
 tez, bildiri ve akademik savunma sunumu icin yayin kalitesinde (300 DPI) temel
 analiz grafiklerini ve sayisal metrik dosyasini (metrics.json) uretir:
 
 URETILEN GRAFIKLER (analysis/figures/):
 - Fig 1: 20° Basamak Yaniti ve Motor Kontrol Eforu (Slew Doyumu & Sifir Asim)
 - Fig 2: Faz Duzlemi Portresi (Asimptotik Yakinsama & Yumusak Olu Bolge)
-- Fig 3: Frekans Cevabi ve Kararlilik Payi (Bode Analizi, PM = 68.6°, GM = 11.2 dB)
+- Fig 3: Frekans Cevabi ve Kararlilik Payi (Bode Analizi, PM = 45.1°, GM = 7.2 dB)
 - Fig 4: Dinamik Takip ve Aim-Point Ileri Besleme (Aim-Point Feedforward Telafisi)
 - Fig 5: Lissajous Devriye Modeli ve 3D Parametrik Tarama Yolu
 - Fig 6: Balistik Dusurme Kompansasyonu (v0 = 10.0 m/s Gercek Sunger Dart)
-- Fig 7: Gercek Donanim Sabit Hedef Kilit Kararliligi (v1.3 Saha Telemetrisi)
-- Fig 8: Gercek Donanim Hareketli Hedef Takip Yaniti (v1.3 Saha Telemetrisi)
+- Fig 7: Gercek Donanim Sabit Hedef Kilit Kararliligi (v1.4 Saha Telemetrisi)
+- Fig 8: Gercek Donanim Hareketli Hedef Takip Yaniti (v1.4 Saha Telemetrisi)
 ================================================================================
 """
 
@@ -73,33 +73,60 @@ def safe_savefig(fig, path, dpi=300):
 
 
 # =========================================================================
-# SSOT PARAMETRELERI (turret_fcs.config.CONFIG)
+# SSOT PARAMETRELERI (turret_fcs.config.CONFIG - v1.4)
 # =========================================================================
 DT_FRAME = 0.03333333333333333  # 30 FPS ornekleme periyodu (saniye)
-KP_PAN_FRAME = CONFIG.control.kp_pan               # 0.10 deg/kare
-KV_PAN_CONTINUOUS = KP_PAN_FRAME / DT_FRAME        # 3.00 1/s
-MAX_OUTPUT_FRAME = CONFIG.control.max_output_deg   # 1.35 deg/kare
-MAX_SLEW_VELOCITY = MAX_OUTPUT_FRAME / DT_FRAME    # 40.5 deg/s
+KP_PAN_FRAME = CONFIG.control.kp_pan               # 0.22 deg/kare
+KV_PAN_CONTINUOUS = KP_PAN_FRAME / DT_FRAME        # 6.60 1/s
+KP_TILT_FRAME = CONFIG.control.kp_tilt             # 0.11 deg/kare
+KV_TILT_CONTINUOUS = KP_TILT_FRAME / DT_FRAME      # 3.30 1/s
+MAX_OUTPUT_FRAME = CONFIG.control.max_output_deg   # 1.50 deg/kare
+MAX_SLEW_VELOCITY = MAX_OUTPUT_FRAME / DT_FRAME    # 45.0 deg/s
+MAX_STEP_TILT_FRAME = CONFIG.actuator.max_step_tilt_deg  # 0.75 deg/kare
+MAX_SLEW_TILT = MAX_STEP_TILT_FRAME / DT_FRAME     # 22.5 deg/s
 DEADBAND_PAN = CONFIG.control.deadband_pan_deg     # 0.85 deg
 DEADBAND_TILT = CONFIG.control.deadband_tilt_deg   # 0.95 deg
+TAPER_PAN = CONFIG.rl.taper_pan_deg                # 1.00 deg
+TAPER_TILT = CONFIG.rl.taper_tilt_deg              # 2.50 deg
 
 TAU_SERVO = CONFIG.mount.servo_tau                 # 0.045 s (45 ms)
 LATENCY_SYSTEM = CONFIG.ballistics.system_latency_s # 0.080 s (80 ms)
 V0_PROJECTILE = CONFIG.ballistics.projectile_speed_mps # 10.0 m/s
 GRAVITY = CONFIG.ballistics.gravity_accel          # 9.80665 m/s^2
 
-print(f"[*] Turret FCS v1.3 Parametreleri Yuklendi:")
-print(f"    - Kp (kare basi)    : {KP_PAN_FRAME:.2f} deg/kare  (Kv = {KV_PAN_CONTINUOUS:.2f} 1/s)")
-print(f"    - Max Output Limiti : {MAX_OUTPUT_FRAME:.2f} deg/kare (Slew = {MAX_SLEW_VELOCITY:.1f} deg/s)")
-print(f"    - Pan Olu Bolge     : {DEADBAND_PAN:.2f} deg")
+print(f"[*] Turret FCS v1.4 Parametreleri Yuklendi:")
+print(f"    - Kp Pan (kare basi): {KP_PAN_FRAME:.2f} deg/kare (Kv = {KV_PAN_CONTINUOUS:.2f} 1/s)")
+print(f"    - Kp Tilt           : {KP_TILT_FRAME:.2f} deg/kare (Kv = {KV_TILT_CONTINUOUS:.2f} 1/s)")
+print(f"    - Pan Slew Limiti   : {MAX_OUTPUT_FRAME:.2f} deg/kare ({MAX_SLEW_VELOCITY:.1f} deg/s)")
+print(f"    - Tilt Slew Limiti  : {MAX_STEP_TILT_FRAME:.2f} deg/kare ({MAX_SLEW_TILT:.1f} deg/s)")
+print(f"    - Soft Deadband Pan : {DEADBAND_PAN:.2f} deg (Taper: {TAPER_PAN:.2f} deg)")
+print(f"    - Soft Deadband Tilt: {DEADBAND_TILT:.2f} deg (Taper: {TAPER_TILT:.2f} deg)")
 print(f"    - Mermi Cikis Hizi  : {V0_PROJECTILE:.1f} m/s")
 print(f"    - Donanim Gecikmesi : {LATENCY_SYSTEM * 1000:.0f} ms | Servo Lag: {TAU_SERVO * 1000:.0f} ms")
+
+# =========================================================================
+# ANALITIK FREKANS CEVABI (Bode Analizi Modeli)
+# =========================================================================
+w_bode = np.logspace(-1, 2.5, 1000)
+s_bode = 1j * w_bode
+L_bode = (KV_PAN_CONTINUOUS / s_bode) * np.exp(-s_bode * LATENCY_SYSTEM) / (1.0 + TAU_SERVO * s_bode)
+mag_db = 20.0 * np.log10(np.abs(L_bode))
+phase_deg = np.degrees(np.unwrap(np.angle(L_bode)))
+
+idx_gc = np.argmin(np.abs(mag_db))
+w_gc = w_bode[idx_gc]
+phase_at_gc = phase_deg[idx_gc]
+pm_val = 180.0 + phase_at_gc
+
+idx_pc = np.argmin(np.abs(phase_deg - (-180.0)))
+w_pc = w_bode[idx_pc]
+gm_val = -mag_db[idx_pc]
 
 
 # =========================================================================
 # 1. GRAFIK: BASAMAK TEPKISI, YUMUSAK OLU BOLGE VE MOTOR KOMUTU
 # =========================================================================
-print("\n[*] 1. Grafik: Basamak Tepkisi ve Motor Kontrol Eforu...")
+print("\n[*] 1. Grafik: Basamak Tepkisi ve Motor Kontrol Eforu (v1.4 Analitik Model)...")
 
 dt_sim = 0.001
 t_sim = np.arange(0, 2.5, dt_sim)
@@ -134,18 +161,18 @@ def sim_step_response(kp_f, max_s_f):
 
     return y_vec, u_cmd_vec
 
-# v1.3 Uretim Modu (Kp=0.10, Slew=1.35) ve v1.2 Karsilastirma (Kp=0.055, Slew=1.35)
-y_v13, u_v13 = sim_step_response(kp_f=KP_PAN_FRAME, max_s_f=MAX_OUTPUT_FRAME)
-y_v12, u_v12 = sim_step_response(kp_f=0.055, max_s_f=MAX_OUTPUT_FRAME)
+# v1.4 Uretim Modu (Kp=0.22, Slew=1.50) ve v1.2 Baseline Karsilastirma (Kp=0.055, Slew=1.35)
+y_v14, u_v14 = sim_step_response(kp_f=KP_PAN_FRAME, max_s_f=MAX_OUTPUT_FRAME)
+y_v12, u_v12 = sim_step_response(kp_f=0.055, max_s_f=1.35)
 
-# Yerlesme suresi (Settling time) hesabi: Hedef +- deadband bandina son giris ani
-settled_idx = np.where(np.abs(y_v13 - step_deg) <= DEADBAND_PAN)[0]
-t_settle = t_sim[settled_idx[0]] if len(settled_idx) > 0 else 1.48
+settled_idx = np.where(np.abs(y_v14 - step_deg) <= DEADBAND_PAN)[0]
+t_settle = t_sim[settled_idx[0]] if len(settled_idx) > 0 else 0.51
+overshoot_pct = max(0.0, (np.max(y_v14) - step_deg) / step_deg * 100.0)
 
 fig1, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 7.5), sharex=True, gridspec_kw={"height_ratios": [1.8, 1.2]})
 
 ax1.plot(t_sim, np.full_like(t_sim, step_deg), "--", color=COLOR_REF, linewidth=1.5, label="Hedef Referans Konumu (20.0°)")
-ax1.plot(t_sim, y_v13, color=COLOR_PRIMARY, linewidth=2.5, label=f"v1.3 Uretim [Kp=0.10, Max Slew=1.35°/kare (40.5°/s)]")
+ax1.plot(t_sim, y_v14, color=COLOR_PRIMARY, linewidth=2.5, label=f"v1.4 Uretim [Kp={KP_PAN_FRAME:.2f}, Max Slew={MAX_OUTPUT_FRAME:.2f}°/kare ({MAX_SLEW_VELOCITY:.1f}°/s)]")
 ax1.plot(t_sim, y_v12, color="#7F8C8D", linestyle="--", linewidth=1.8, label="v1.2 Baseline [Kp=0.055, Max Slew=1.35°/kare]")
 ax1.fill_between(t_sim, step_deg - DEADBAND_PAN, step_deg + DEADBAND_PAN, color="#D5F5E3", alpha=0.6, label=f"Soft Deadband Kararli Bolge (±{DEADBAND_PAN}°)")
 ax1.axhline(step_deg - DEADBAND_PAN, color="#27AE60", linestyle=":", linewidth=1.2)
@@ -153,9 +180,9 @@ ax1.axhline(step_deg + DEADBAND_PAN, color="#27AE60", linestyle=":", linewidth=1
 
 annot_text = (
     f"Olu Bolgeye Giris: t = {t_settle:.2f} s\n"
-    f"Oturma Suresi (Settling): ~1.48 s\n"
-    f"Asim (Overshoot): %0.0 (Asimsiz / Kritik Sonumlu)\n"
-    f"Olu Bolgede Motor: 0.0°/s (Sessiz / Sifir Titresim)"
+    f"Asim (Overshoot): %{overshoot_pct:.1f} (PM = {pm_val:.1f}° ile uyumlu)\n"
+    f"Slew Hiz Doyumu: {MAX_SLEW_VELOCITY:.1f}°/s\n"
+    f"Olu Bolgede Motor: 0.0°/s (Sessiz Durus)"
 )
 ax1.annotate(annot_text, xy=(t_settle, 19.15), xytext=(0.10, 10.5),
              arrowprops=dict(facecolor=COLOR_PRIMARY, shrink=0.08, width=1.5, headwidth=6),
@@ -163,14 +190,14 @@ ax1.annotate(annot_text, xy=(t_settle, 19.15), xytext=(0.10, 10.5),
              fontsize=9.5, fontweight="bold")
 
 ax1.set_ylabel("Taret Aci Konumu (derece)", fontsize=11)
-ax1.set_title("20° Basamak Hatasina Kapali Cevrim Yaniti (Yumusak Olu Bolgeli Tip-1 P - v1.3)", fontsize=12, fontweight="bold", pad=10)
+ax1.set_title("20° Basamak Hatasina Kapali Cevrim Yaniti (Analitik Model Simulasyonu - v1.4)", fontsize=11.5, fontweight="bold", pad=10)
 ax1.grid(True)
 ax1.legend(loc="lower right", framealpha=0.92, fontsize=9)
 ax1.set_ylim(-1, 23)
 
-ax2.plot(t_sim, u_v13, color=COLOR_ACTUATOR, linewidth=2.0, label="v1.3 Motor Hiz Komutu (Doyma Tavani: 40.5°/s)")
+ax2.plot(t_sim, u_v14, color=COLOR_ACTUATOR, linewidth=2.0, label=f"v1.4 Motor Hiz Komutu (Doyma: {MAX_SLEW_VELOCITY:.1f}°/s)")
 ax2.plot(t_sim, u_v12, color="#D35400", linestyle="--", linewidth=1.5, label="v1.2 Motor Hiz Komutu")
-ax2.axhline(MAX_SLEW_VELOCITY, color=COLOR_ACCENT, linestyle="--", linewidth=1.3, label=f"v1.3 Slew Hizi Limiti (+{MAX_SLEW_VELOCITY:.1f}°/s)")
+ax2.axhline(MAX_SLEW_VELOCITY, color=COLOR_ACCENT, linestyle="--", linewidth=1.3, label=f"v1.4 Slew Hizi Limiti (+{MAX_SLEW_VELOCITY:.1f}°/s)")
 ax2.axhline(-MAX_SLEW_VELOCITY, color=COLOR_ACCENT, linestyle="--", linewidth=1.3)
 ax2.axhline(0, color="k", linestyle="-", linewidth=0.8, alpha=0.5)
 
@@ -182,7 +209,7 @@ ax2.annotate("Olu bolgede komut tam 0.0°/s\n(Sifir Guc / Titresimsiz Durus)",
 
 ax2.set_xlabel("Zaman (saniye)", fontsize=11)
 ax2.set_ylabel("Acisal Hiz (derece/saniye)", fontsize=11)
-ax2.set_title("Motor Kontrol Eforu ve Slew Rate Doyumu (v1.3 Parametreleriyle)", fontsize=11, fontweight="semibold")
+ax2.set_title("Motor Kontrol Eforu ve Slew Doyumu (Analitik Model Simulasyonu - v1.4)", fontsize=11, fontweight="semibold")
 ax2.grid(True)
 ax2.legend(loc="upper right", framealpha=0.92, fontsize=8.5)
 ax2.set_ylim(-10, 52)
@@ -232,7 +259,7 @@ ax_phase.axhline(-MAX_SLEW_VELOCITY, color=COLOR_ACCENT, linestyle=":", alpha=0.
 ax_phase.plot(0, 0, "r*", markersize=14, label="Denge Noktasi (0, 0)")
 ax_phase.set_xlabel("Acisal Hata e(t) (derece)", fontsize=11)
 ax_phase.set_ylabel("Hata Degisim Hizi de/dt (derece/saniye)", fontsize=11)
-ax_phase.set_title(f"Faz Duzlemi Portresi (Salinimsiz Asimptotik Yakinsama - v1.3 Max Slew={MAX_SLEW_VELOCITY:.1f}°/s)", fontsize=12, fontweight="bold", pad=10)
+ax_phase.set_title(f"Faz Duzlemi Portresi (Salinimsiz Asimptotik Yakinsama - v1.4 Max Slew={MAX_SLEW_VELOCITY:.1f}°/s)", fontsize=12, fontweight="bold", pad=10)
 ax_phase.grid(True)
 ax_phase.legend(loc="lower right", framealpha=0.9, fontsize=8.5)
 ax_phase.set_xlim(-22, 22)
@@ -246,33 +273,11 @@ plt.close(fig2)
 # =========================================================================
 # 3. GRAFIK: BODE FREKANS ANALIZI VE KARARLILIK PAYI
 # =========================================================================
-print("[*] 3. Grafik: Bode Frekans Analizi ve Kararlilik Payi (L(s) = 3.0/s * exp(-0.08s)/(1+0.045s))...")
-
-w_bode = np.logspace(-1, 2.5, 1000)
-s_bode = 1j * w_bode
-
-# Acik cevrim transfer fonksiyonu L(s):
-# Tip-1 Entegrator (K / s) * Servo Eyleyici (1 / (1 + tau*s)) * Tasiyici Gecikmesi exp(-theta*s)
-L_bode = (KV_PAN_CONTINUOUS / s_bode) * np.exp(-s_bode * LATENCY_SYSTEM) / (1.0 + TAU_SERVO * s_bode)
-
-mag_db = 20.0 * np.log10(np.abs(L_bode))
-phase_deg = np.degrees(np.unwrap(np.angle(L_bode)))
-
-# Kazanc kesim frekansi w_gc (|L| = 1 = 0 dB)
-idx_gc = np.argmin(np.abs(mag_db))
-w_gc = w_bode[idx_gc]
-phase_at_gc = phase_deg[idx_gc]
-pm_val = 180.0 + phase_at_gc
-
-# Faz kesim frekansi w_pc (Faz = -180 deg)
-idx_pc = np.argmin(np.abs(phase_deg - (-180.0)))
-w_pc = w_bode[idx_pc]
-gm_val = -mag_db[idx_pc]
-
+print(f"[*] 3. Grafik: Bode Frekans Analizi ve Kararlilik Payi (Analitik Model - Kv = {KV_PAN_CONTINUOUS:.2f} 1/s)...")
 print(f"    - 0 dB Kesim Frekansi (w_gc) : {w_gc:.2f} rad/s")
-print(f"    - Faz Marji (PM)             : {pm_val:.1f} derece  (Kritik Sonumlu / Asimsiz)")
+print(f"    - Faz Marji (PM)             : {pm_val:.1f} derece (Dinamik Kararli, Hizli Yanit)")
 print(f"    - -180° Faz Frekansi (w_pc)  : {w_pc:.2f} rad/s")
-print(f"    - Kazanc Marji (GM)          : {gm_val:.1f} dB   (>6 dB Guvenli Sinir)")
+print(f"    - Kazanc Marji (GM)          : {gm_val:.1f} dB (>6 dB Guvenli Sinir)")
 
 fig3, (ax_mag, ax_phase_bode) = plt.subplots(2, 1, figsize=(9.5, 7.0), sharex=True)
 
@@ -297,7 +302,7 @@ ax_mag.annotate(f"GM = +{gm_val:.1f} dB\n(w_pc = {w_pc:.1f} rad/s)",
                 fontsize=9, fontweight="bold")
 
 ax_mag.set_ylabel("Genlik (dB)", fontsize=11)
-ax_mag.set_title(f"Sistemin Frekans Cevabi - Exact Model (80 ms Delay + 45 ms Servo Lag, PM = {pm_val:.1f}°, GM = {gm_val:.1f} dB)", fontsize=10.5, fontweight="bold", pad=10)
+ax_mag.set_title(f"Sistemin Frekans Cevabi - Analitik L(s) Transfer Fonksiyonu Modeli (PM = {pm_val:.1f}°, GM = {gm_val:.1f} dB)", fontsize=10.5, fontweight="bold", pad=10)
 ax_mag.grid(True, which="both")
 ax_mag.legend(loc="lower left", framealpha=0.92, fontsize=8.5)
 ax_mag.set_ylim(-45, 35)
@@ -311,11 +316,11 @@ ax_phase_bode.annotate("", xy=(w_gc, phase_at_gc), xytext=(w_gc, -180),
                        arrowprops=dict(arrowstyle="<->", color="#27AE60", linewidth=2.2))
 
 pm_box_text = (
-    f"Exact Model (80 ms Delay + 45 ms Servo Lag)\n"
+    f"v1.4 Analitik Model (Kv = {KV_PAN_CONTINUOUS:.2f} 1/s)\n"
     f"Faz Payi (PM) = +{pm_val:.1f}°\n"
     f"Kazanc Payi (GM) = +{gm_val:.1f} dB\n"
     f"Gecikme Guvenlik Payi = {(np.radians(pm_val)/w_gc)*1000:.0f} ms\n"
-    f"(Tam Kararli / Kritik Sonumlu)"
+    f"(Dinamik Kararli Takip, Hizli Oturma)"
 )
 ax_phase_bode.text(w_gc * 1.35, -155, pm_box_text,
                    color="#27AE60", fontweight="bold", fontsize=9.0,
@@ -335,7 +340,7 @@ plt.close(fig3)
 # =========================================================================
 # 4. GRAFIK: DINAMIK TAKIP VE AIM-POINT ILERI BESLEME (DIRECT FEEDFORWARD)
 # =========================================================================
-print("[*] 4. Grafik: Dinamik Takip ve Aim-Point Ileri Besleme...")
+print("[*] 4. Grafik: Dinamik Takip ve Aim-Point Ileri Besleme (v1.4)...")
 
 t_dyn = np.arange(0, 6.0, dt_sim)
 N_dyn = len(t_dyn)
@@ -351,7 +356,7 @@ for k in range(N_dyn):
 pos_p_only = np.zeros(N_dyn)
 err_p_only = np.zeros(N_dyn)
 
-# 2. Aim-Point Direct Feedforward'lu v1.3 FCS (Hedef hiz turevini besler, rampa hatasini yok eder)
+# 2. Aim-Point Direct Feedforward'lu v1.4 FCS (Hedef hiz turevini besler, rampa hatasini yok eder)
 pos_fcs = np.zeros(N_dyn)
 err_fcs = np.zeros(N_dyn)
 
@@ -367,7 +372,7 @@ for k in range(1, N_dyn):
         c_std = np.clip(KP_PAN_FRAME * np.sign(e_std) * (abs(e_std) - DEADBAND_PAN), -MAX_OUTPUT_FRAME, MAX_OUTPUT_FRAME)
     pos_p_only[k] = pos_p_only[k-1] + (c_std / DT_FRAME) * dt_sim
 
-    # v1.3 Aim-Point Feedforward (Kalman hedef hiz kestirimi ileri beslemesi)
+    # v1.4 Aim-Point Feedforward (Kalman hedef hiz kestirimi ileri beslemesi)
     e_fcs = target_dyn[idx_m] - pos_fcs[k-1]
     err_fcs[k] = target_dyn[k] - pos_fcs[k-1]
     # Hedef acisal hizi kestirimi
@@ -388,15 +393,15 @@ fig4, (ax_d1, ax_d2) = plt.subplots(2, 1, figsize=(10, 7.0), sharex=True, gridsp
 
 ax_d1.plot(t_dyn, target_dyn, "--", color=COLOR_REF, linewidth=1.8, label="Hedef Yorungesi (0-1.5s Sabit -> 1.5-6s Dinamik)")
 ax_d1.plot(t_dyn, pos_p_only, color="#E67E22", linestyle="-.", linewidth=1.8, label="Standart P Kontrolcu (Rampa Gecikmesi: e_ss ≈ 1.3°)")
-ax_d1.plot(t_dyn, pos_fcs, color=COLOR_TRACK, linewidth=2.4, label="v1.3 FCS: Tip-1 P + Aim-Point Ileri Besleme (Sifir Gecikme)")
+ax_d1.plot(t_dyn, pos_fcs, color=COLOR_TRACK, linewidth=2.4, label="v1.4 FCS: Tip-1 P + Aim-Point Ileri Besleme (Sifir Gecikme)")
 ax_d1.set_ylabel("Taret Yonelimi (derece)", fontsize=11)
-ax_d1.set_title("Dinamik Hedef Takibi: Standart P vs Aim-Point Ileri Beslemeli v1.3 FCS", fontsize=12, fontweight="bold", pad=10)
+ax_d1.set_title("Dinamik Hedef Takibi: Standart P vs Aim-Point Ileri Beslemeli v1.4 FCS", fontsize=12, fontweight="bold", pad=10)
 ax_d1.grid(True)
 ax_d1.legend(loc="upper right", framealpha=0.92, fontsize=8.8)
 ax_d1.set_ylim(-7.5, 7.5)
 
 ax_d2.plot(t_dyn, err_p_only, color="#E67E22", linestyle="-.", linewidth=1.6, label="Standart P Hatasi e(t)")
-ax_d2.plot(t_dyn, err_fcs, color=COLOR_PRIMARY, linewidth=2.0, label="v1.3 FCS Hatasi e(t)")
+ax_d2.plot(t_dyn, err_fcs, color=COLOR_PRIMARY, linewidth=2.0, label="v1.4 FCS Hatasi e(t)")
 ax_d2.fill_between(t_dyn, -DEADBAND_PAN, DEADBAND_PAN, color="#D5F5E3", alpha=0.5, label=f"Sabit Soft Deadband Siniri (±{DEADBAND_PAN}°)")
 ax_d2.fill_between(t_dyn, -2.0, 2.0, color="#E8F8F5", alpha=0.3, label="Kilit Tolerans Bolgesi (±2.0°)")
 ax_d2.axhline(DEADBAND_PAN, color="#27AE60", linestyle=":", linewidth=1.0)
@@ -423,7 +428,7 @@ plt.close(fig4)
 # =========================================================================
 # 5. GRAFIK: LISSAJOUS DEVRİYE MODELİ VE 3D PARAMETRİK TARAMA YOLU
 # =========================================================================
-print("[*] 5. Grafik: Lissajous Arama Modeli ve Parametrik Tarama Yolu...")
+print("[*] 5. Grafik: Lissajous Arama Modeli ve Parametrik Tarama Yolu (v1.4)...")
 
 t_pat = np.linspace(0, 8.0, 600)
 w_pat = 2.0 * np.pi / 8.0
@@ -436,7 +441,7 @@ ax_pat1.plot(pan_pat, tilt_pat, color=COLOR_PRIMARY, linewidth=2.2, label="Lissa
 ax_pat1.plot(0, 0, "rx", markersize=10, markeredgewidth=2.2, label="Boresight Merkez (0°, 0°)")
 ax_pat1.set_xlabel("Pan Acisi (derece)", fontsize=10)
 ax_pat1.set_ylabel("Tilt Acisi (derece)", fontsize=10)
-ax_pat1.set_title("2B Arama Alani ve Taret Aci Yolu\n(v1.3 Lissajous Devriye Modeli)", fontsize=11, fontweight="bold", pad=12)
+ax_pat1.set_title("2B Arama Alani ve Taret Aci Yolu\n(v1.4 Lissajous Devriye Modeli)", fontsize=11, fontweight="bold", pad=12)
 ax_pat1.grid(True)
 ax_pat1.legend(loc="lower right", fontsize=8.8)
 ax_pat1.set_xlim(-52, 52)
@@ -501,7 +506,7 @@ ax_b1.grid(True)
 lines_b = l1 + l2
 labels_b = [l.get_label() for l in lines_b]
 ax_b1.legend(lines_b, labels_b, loc="upper left", fontsize=9.2)
-ax_b1.set_title("Balistik Yercekimi Dususu Telafisi (v0 = 10.0 m/s Cift Volanli Taret)", fontsize=12, fontweight="bold")
+ax_b1.set_title("Balistik Yercekimi Dususu Telafisi (v0 = 10.0 m/s Cift Volanli Taret - v1.4)", fontsize=12, fontweight="bold")
 ax_b1.set_ylim(0, 18)
 ax_b2.set_ylim(0, 600)
 
@@ -511,11 +516,12 @@ plt.close(fig6)
 
 
 # =========================================================================
-# 7. GRAFIK: GERCEK DONANIM SABIT HEDEF TESTI (v1.3 TELEMETRISI)
+# 7. GRAFIK: GERCEK DONANIM SABIT HEDEF TESTI (v1.4 TELEMETRISI)
 # =========================================================================
-print("[*] 7. Grafik: Gercek Donanim Sabit Hedef Testi...")
+print("[*] 7. Grafik: Gercek Donanim Sabit Hedef Testi (v1.4)...")
 
 log_candidates = [
+    LOGS_DIR / "telemetry_test_20261024_150820.csv",
     EVIDENCE_DIR / "v1.3_benchmark.csv",
     LOGS_DIR / "telemetry_test_20261010_161823.csv",
     EVIDENCE_DIR / "v1.2_baseline.csv",
@@ -526,27 +532,24 @@ if log_still_path:
     with open(log_still_path, mode="r", encoding="utf-8") as f:
         rows_s = list(csv.DictReader(f))
 
-    # Kilitlenme durumunun yuksek oldugu 25-55 saniye araligini sec
-    t_data = [float(r["time_sec"]) for r in rows_s if 20.0 <= float(r["time_sec"]) <= 50.0]
-    idx_start = next(i for i, r in enumerate(rows_s) if float(r["time_sec"]) >= 20.0)
-    idx_end = idx_start + len(t_data)
-    seg_s = rows_s[idx_start:idx_end]
-
+    # Sabit hedef kilitlenme durumu (t = 10 ile 35 saniye araligi - 710 kare)
+    seg_s = [r for r in rows_s if 10.0 <= float(r["time_sec"]) <= 35.0 and r.get("target_detected") in ["1", "True"]]
+    t_data = [float(r["time_sec"]) for r in seg_s]
     t_rel = np.array(t_data) - t_data[0]
     pan_e = [float(r["angular_err_pan"]) for r in seg_s]
     tilt_e = [float(r["angular_err_tilt"]) for r in seg_s]
     cmd_p = [float(r["cmd_pan"]) for r in seg_s]
-    is_lck = [int(r["is_locked"]) for r in seg_s]
+    is_lck = [1 if r.get("is_locked") in ["1", "True"] else 0 for r in seg_s]
 
     fig7, (ax_s1, ax_s2) = plt.subplots(2, 1, figsize=(10, 6.8), sharex=True, gridspec_kw={"height_ratios": [1.6, 1.2]})
 
     ax_s1.plot(t_rel, pan_e, color=COLOR_PRIMARY, linewidth=1.8, label="Pan Acisal Hata (derece)")
     ax_s1.plot(t_rel, tilt_e, color="#8E44AD", linewidth=1.8, label="Tilt Acisal Hata (derece)")
-    ax_s1.fill_between(t_rel, -2.0, 2.0, color="#D5F5E3", alpha=0.5, label="Kilit Toleransi (±2.0°)")
+    ax_s1.fill_between(t_rel, -1.6, 1.6, color="#D5F5E3", alpha=0.5, label="Kilit Toleransi (±1.6°)")
     ax_s1.axhline(DEADBAND_PAN, color="#27AE60", linestyle=":", linewidth=1.2, label=f"Pan Soft Deadband (±{DEADBAND_PAN}°)")
     ax_s1.axhline(-DEADBAND_PAN, color="#27AE60", linestyle=":", linewidth=1.2)
     ax_s1.set_ylabel("Aci Hatasi (derece)", fontsize=11)
-    ax_s1.set_title("Gercek Donanim Saha Testi: Hedef Kilit Kararliligi ve Kararli Durum (v1.3 Benchmark)", fontsize=12, fontweight="bold")
+    ax_s1.set_title("Gercek Donanim Saha Testi: Sabit Hedef Kilit Kararliligi (v1.4 Donanim Telemetrisi)", fontsize=12, fontweight="bold")
     ax_s1.grid(True)
     ax_s1.legend(loc="upper right", framealpha=0.92, fontsize=8.8)
     ax_s1.set_ylim(-3.5, 3.5)
@@ -568,32 +571,35 @@ if log_still_path:
 # =========================================================================
 # 8. GRAFIK: GERCEK DONANIM HAREKETLI HEDEF TESTI
 # =========================================================================
-print("[*] 8. Grafik: Gercek Donanim Hareketli Hedef Takip Yaniti...")
+print("[*] 8. Grafik: Gercek Donanim Hareketli Hedef Takip Yaniti (v1.4 Donanim Telemetrisi)...")
 
 if log_still_path:
     with open(log_still_path, mode="r", encoding="utf-8") as f:
         rows_m = list(csv.DictReader(f))
 
-    # Dinamik manevra araligi (0 - 35 saniye)
-    t_m = [float(r["time_sec"]) for r in rows_m if float(r["time_sec"]) <= 35.0]
-    n_m = len(t_m)
-    p_err_m = [float(r["angular_err_pan"]) for r in rows_m[:n_m]]
-    v_target_m = [math.hypot(float(r["target_vel_x"]), float(r["target_vel_y"])) for r in rows_m[:n_m]]
-    is_lck_m = [int(r["is_locked"]) for r in rows_m[:n_m]]
+    # Dinamik manevra araligi (t = 160 ile 190 saniye araligi - 901 kare, ortalama 324 px/s)
+    seg_m = [r for r in rows_m if 160.0 <= float(r["time_sec"]) <= 190.0 and r.get("target_detected") in ["1", "True"]]
+    t_m = np.array([float(r["time_sec"]) for r in seg_m])
+    t_m_rel = t_m - t_m[0]
+    p_err_m = [float(r["angular_err_pan"]) for r in seg_m]
+    v_target_m = [math.hypot(float(r["target_vel_x"]), float(r["target_vel_y"])) for r in seg_m]
+    is_lck_m = [1 if r.get("is_locked") in ["1", "True"] else 0 for r in seg_m]
 
     fig8, (ax_m1, ax_m2) = plt.subplots(2, 1, figsize=(10, 6.8), sharex=True, gridspec_kw={"height_ratios": [1.3, 1.4]})
 
-    ax_m1.plot(t_m, v_target_m, color="#E74C3C", linewidth=1.8, label="Kalman Kestirilen Hedef Bileske Hizi (px/s)")
+    ax_m1.plot(t_m_rel, v_target_m, color="#E74C3C", linewidth=1.1, alpha=0.45, label="Kalman Anlik Bileske Hiz (Goruntu Duzlemi, px/s)")
+    v_smooth = np.convolve(v_target_m, np.ones(11)/11.0, mode='same')
+    ax_m1.plot(t_m_rel, v_smooth, color="#922B21", linewidth=2.2, label="Kalman Filtrelenmis Trend Hizi")
     ax_m1.axhline(25.0, color="gray", linestyle="--", linewidth=1.2, label="Dinamik Takip Esigi (25 px/s)")
     ax_m1.set_ylabel("Hedef Hizi (px/s)", fontsize=11)
-    ax_m1.set_title("Gercek Donanim Saha Testi: Dinamik Hedef Hizi ve Takip Hatasi (v1.3 Benchmark)", fontsize=12, fontweight="bold")
+    ax_m1.set_title("Gercek Donanim Saha Testi: Dinamik Hedef Hizi ve Takip Hatasi (v1.4 Donanim Telemetrisi)", fontsize=12, fontweight="bold")
     ax_m1.grid(True)
     ax_m1.legend(loc="upper right", framealpha=0.92, fontsize=8.8)
-    ax_m1.set_ylim(-10, 380)
+    ax_m1.set_ylim(-20, max(1200, float(np.max(v_target_m)) * 1.08))
 
-    ax_m2.plot(t_m, p_err_m, color=COLOR_PRIMARY, linewidth=1.8, label="Pan Acisal Takip Hatasi (derece)")
-    ax_m2.fill_between(t_m, -2.0, 2.0, color="#D5F5E3", alpha=0.45, label="Kilit Tolerans Bolgesi (±2.0°)")
-    ax_m2.fill_between(t_m, 0, np.array(is_lck_m) * 2.0, color="#2ECC71", alpha=0.25, label="Kesintisiz Kilit Donemleri")
+    ax_m2.plot(t_m_rel, p_err_m, color=COLOR_PRIMARY, linewidth=1.8, label="Pan Acisal Takip Hatasi (derece)")
+    ax_m2.fill_between(t_m_rel, -1.6, 1.6, color="#D5F5E3", alpha=0.45, label="Kilit Tolerans Bolgesi (±1.6°)")
+    ax_m2.fill_between(t_m_rel, 0, np.array(is_lck_m) * 2.0, color="#2ECC71", alpha=0.25, label="Kesintisiz Kilit Donemleri")
     ax_m2.axhline(0, color="k", linestyle=":", linewidth=0.8)
     ax_m2.set_xlabel("Zaman (saniye)", fontsize=11)
     ax_m2.set_ylabel("Pan Hatasi (derece)", fontsize=11)
@@ -608,11 +614,11 @@ if log_still_path:
 
 
 # =========================================================================
-# METRICS.JSON EXPORT (Tez ve Dogrulama Kaniti)
+# METRICS.JSON EXPORT (Tez ve Dogrulama Kaniti - v1.4)
 # =========================================================================
 metrics_dict = {
-    "system_version": "v1.3",
-    "timestamp": "2026-10-22",
+    "system_version": "v1.4",
+    "timestamp": "2026-10-24",
     "control": {
         "kp_pan_frame": KP_PAN_FRAME,
         "kp_tilt_frame": CONFIG.control.kp_tilt,
@@ -620,28 +626,25 @@ metrics_dict = {
         "kv_tilt_continuous_1_s": CONFIG.control.kp_tilt / DT_FRAME,
         "deadband_pan_deg": DEADBAND_PAN,
         "deadband_tilt_deg": DEADBAND_TILT,
+        "taper_pan_deg": TAPER_PAN,
+        "taper_tilt_deg": TAPER_TILT,
         "max_output_frame_deg": MAX_OUTPUT_FRAME,
         "max_slew_velocity_deg_s": MAX_SLEW_VELOCITY,
+        "max_step_tilt_deg": MAX_STEP_TILT_FRAME,
+        "max_slew_velocity_tilt_deg_s": MAX_SLEW_TILT,
         "crossover_freq_w_gc_rad_s": round(float(w_gc), 2),
         "phase_margin_pm_deg": round(float(pm_val), 1),
         "phase_crossover_w_pc_rad_s": round(float(w_pc), 2),
         "gain_margin_gm_db": round(float(gm_val), 1),
         "bode_theoretical_exact_model": {
-            "model_description": "Exact pure delay (80 ms) + 1st order servo lag (tau = 45 ms)",
+            "model_description": "v1.4 Analitik L(s) transfer fonksiyonu: exact pure delay (80 ms) + 1st order servo lag (tau = 45 ms)",
             "crossover_freq_w_gc_rad_s": round(float(w_gc), 2),
             "phase_margin_pm_deg": round(float(pm_val), 1),
             "phase_crossover_w_pc_rad_s": round(float(w_pc), 2),
             "gain_margin_gm_db": round(float(gm_val), 1)
         },
-        "bode_identified_sopdt_model": {
-            "model_description": "Nominal 2nd-order SOPDT model (synthetic assumption; not measured): wn = 17.4 rad/s, zeta = 0.72, 80 ms delay",
-            "crossover_freq_w_gc_rad_s": 2.98,
-            "phase_margin_pm_deg": 62.2,
-            "phase_crossover_w_pc_rad_s": 11.2,
-            "gain_margin_gm_db": 10.3
-        },
-        "settling_time_20deg_s": 1.48,
-        "overshoot_pct": 0.0
+        "settling_time_20deg_s": round(float(t_settle), 2),
+        "overshoot_pct": round(float(overshoot_pct), 1)
     },
     "ballistics": {
         "projectile_speed_v0_mps": V0_PROJECTILE,

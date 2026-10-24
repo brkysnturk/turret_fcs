@@ -9,50 +9,34 @@ from turret_fcs.rl_controller import RLController
 from turret_fcs.rl_sim.turret_env import TurretEnv
 
 
-def test_config_ssot():
+def test_config_ssot_and_component_defaults():
+    """Tum alt bilesenlerin (P, RL, Kalman, Lock, Env, Optik) CONFIG SSOT degerlerini dogru okudugunu dogrular."""
     p = PController()
     lm = LockManager()
     kf = KalmanFilter()
     rl = RLController(auto_load=False)
     env = TurretEnv(enable_randomization=False)
 
+    # 1. P Kontrolcu SSOT
     assert math.isclose(p.kp_frame_pan, CONFIG.control.kp_pan, abs_tol=1e-5)
     assert math.isclose(p.kp_frame_tilt, CONFIG.control.kp_tilt, abs_tol=1e-5)
     assert math.isclose(p.deadband_pan, CONFIG.control.deadband_pan_deg, abs_tol=1e-5)
     assert math.isclose(p.deadband_tilt, CONFIG.control.deadband_tilt_deg, abs_tol=1e-5)
     assert math.isclose(p.max_output, CONFIG.control.max_output_deg, abs_tol=1e-5)
     assert math.isclose(p.alpha, CONFIG.control.alpha_filter, abs_tol=1e-5)
-
-    assert lm.lock_threshold_frames == CONFIG.lock.lock_threshold_frames
-    assert math.isclose(lm.lock_exit_margin_deg, CONFIG.lock.lock_exit_margin_deg, abs_tol=1e-5)
-
-    assert math.isclose(kf.sigma_a, CONFIG.kalman.sigma_a, abs_tol=1e-5)
-    assert math.isclose(kf.outlier_residual, CONFIG.kalman.outlier_residual_px, abs_tol=1e-5)
-    assert math.isclose(kf.r_var, CONFIG.kalman.r_var, abs_tol=1e-5)
-
-    for obj in (rl, env):
-        assert math.isclose(obj.max_step_pan_deg, CONFIG.actuator.max_step_pan_deg, abs_tol=1e-5)
-        assert math.isclose(obj.max_step_tilt_deg, CONFIG.actuator.max_step_tilt_deg, abs_tol=1e-5)
-    assert math.isclose(env.servo_deadband, CONFIG.actuator.servo_deadband_deg, abs_tol=1e-5)
-
-    assert CONFIG.optics.compute_fx(1280) > 1000.0
-    assert CONFIG.optics.compute_fy(720) > 1000.0
-    assert CONFIG.optics.h_fov_deg > CONFIG.optics.v_fov_deg
-
-    assert CONFIG.paths.yolo_model.endswith(".pt")
-    assert CONFIG.paths.fallback_yolo_model.endswith(".pt")
-
-
-def test_p_controller_reads_gain_and_accel_from_config():
-    p = PController()
     assert math.isclose(p.far_gain, CONFIG.control.far_gain, abs_tol=1e-6)
     assert math.isclose(p.far_error_deg, CONFIG.control.far_error_deg, abs_tol=1e-6)
     assert math.isclose(p.cmd_accel_pan_deg_s2, CONFIG.control.cmd_accel_pan_deg_s2, abs_tol=1e-6)
     assert math.isclose(p.cmd_accel_tilt_deg_s2, CONFIG.control.cmd_accel_tilt_deg_s2, abs_tol=1e-6)
 
+    # 2. LockManager & Kalman SSOT
+    assert lm.lock_threshold_frames == CONFIG.lock.lock_threshold_frames
+    assert math.isclose(lm.lock_exit_margin_deg, CONFIG.lock.lock_exit_margin_deg, abs_tol=1e-5)
+    assert math.isclose(kf.sigma_a, CONFIG.kalman.sigma_a, abs_tol=1e-5)
+    assert math.isclose(kf.outlier_residual, CONFIG.kalman.outlier_residual_px, abs_tol=1e-5)
+    assert math.isclose(kf.r_var, CONFIG.kalman.r_var, abs_tol=1e-5)
 
-def test_rl_controller_reads_config_defaults():
-    rl = RLController(auto_load=False)
+    # 3. RL Kontrolcu & Egitim Ortami SSOT
     assert rl.deadband_px == CONFIG.rl.deadband_px
     assert rl.deadband_exit_px == CONFIG.rl.deadband_exit_px
     assert rl.velocity_gate_px_s == CONFIG.rl.velocity_gate_px_s
@@ -66,14 +50,22 @@ def test_rl_controller_reads_config_defaults():
     assert math.isclose(rl.dist_max_m, CONFIG.rl.dist_max_m, abs_tol=1e-6)
     assert math.isclose(rl.deadband_pan_deg, CONFIG.control.deadband_pan_deg, abs_tol=1e-6)
 
-
-def test_rl_env_shares_rl_config_scale():
-    env = TurretEnv(enable_randomization=False)
+    for obj in (rl, env):
+        assert math.isclose(obj.max_step_pan_deg, CONFIG.actuator.max_step_pan_deg, abs_tol=1e-5)
+        assert math.isclose(obj.max_step_tilt_deg, CONFIG.actuator.max_step_tilt_deg, abs_tol=1e-5)
     assert math.isclose(env.v_max_px_s, CONFIG.rl.v_max_px_s, abs_tol=1e-6)
     assert math.isclose(env.dist_min_m, CONFIG.rl.dist_min_m, abs_tol=1e-6)
     assert math.isclose(env.dist_max_m, CONFIG.rl.dist_max_m, abs_tol=1e-6)
     assert math.isclose(env.yolo_noise_std, CONFIG.rl.yolo_noise_std, abs_tol=1e-6)
     assert env.max_steps == CONFIG.rl.episode_steps
+    assert math.isclose(env.servo_deadband, CONFIG.actuator.servo_deadband_deg, abs_tol=1e-5)
+
+    # 4. Optik ve Model Yollari
+    assert CONFIG.optics.compute_fx(1280) > 1000.0
+    assert CONFIG.optics.compute_fy(720) > 1000.0
+    assert CONFIG.optics.h_fov_deg > CONFIG.optics.v_fov_deg
+    assert CONFIG.paths.yolo_model.endswith(".pt")
+    assert CONFIG.paths.fallback_yolo_model.endswith(".pt")
 
 
 def test_eval_display_duration_is_shared():

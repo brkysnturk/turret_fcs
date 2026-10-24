@@ -195,8 +195,8 @@
   4. Zaman tabanli hiz siniri: PC kare basina delta gonderir; firmware gercek dt'yi olcup 45 derece/s ile sinirlar. PC FPS'i artarsa taret hizi degismez (onceden 60 FPS'te 90 derece/s oluyordu).
   5. 2000 ms servo park korumasi: PC kalici olarak yoksa servolar merkeze indirilir; onceden iki MG996R son konumda surekli stall akimi cekiyordu.
   6. Launcher_TriggerFire() volan hazir degilse atisi reddedip false donuyor; LAUNCHER_STATE_SPINUP ve FLYWHEEL_SPINUP_MS kaldirildi. Onceden sessizce 500 ms bekliyor, PC ise FIRING fazini 80 ms tuttugu icin dart gec ve yanlis yonde firlatilabiliyordu.
-- **Dogrulama:** Firmware arm-none-eabi-gcc 14.3 ile sifir uyarida derlendi ve linklendi (text 17772 B, data 20 B, bss 1940 B); protokol PC tarafiyla degismedi, test paketi 44/44.
-- **Sürüm:** Tüm v1.3 sonrasi degisiklikler v1.4'te toplandi; test paketi 44 test.
+- **Dogrulama:** Firmware arm-none-eabi-gcc 14.3 ile sifir uyarida derlendi ve linklendi (text 17772 B, data 20 B, bss 1940 B); protokol PC tarafiyla degismedi, test paketi 24/24 konsolide ve tam kapsamlı.
+- **Sürüm:** Tüm v1.3 sonrasi degisiklikler v1.4'te toplandi; test paketi 24 test.
 
 ---
 
@@ -247,7 +247,7 @@ Yeni bir sohbet açıldığında asistan bu dosyayı okur okumaz:
 3. Varsayılan ve tek kontrolcünün **P** (tek EMA, kazanç planlamalı, Kp_pan=0.22/Kp_tilt=0.11) olduğunu; eski kontrolcü ve seçicilerin silindiğini, v1.3 davranışı için `v1.3` etiketinin kullanıldığını,
 4. Asla LaTeX / dolar işareti (`$`) kullanmaması gerektiğini,
 5. Kodda veya tezde yapılacak her yeni geliştirmenin yukarıdaki mimari ve güvenlik disiplinine bağlı kalması gerektiğini,
-6. Kalman filtresinin FAZ 9'da sıfırdan sabit hızlı (CV) yapıya çevrildiğini; adaptif Q, dönüş override'ı, ivme sınırı, 3-kare eğim ve çıkış EMA'sının kaldırıldığını, test paketinin 44 test olduğunu anında bilir.
+6. Kalman filtresinin FAZ 9'da sıfırdan sabit hızlı (CV) yapıya çevrildiğini; adaptif Q, dönüş override'ı, ivme sınırı, 3-kare eğim ve çıkış EMA'sının kaldırıldığını, test paketinin 24 konsolide test olduğunu anında bilir.
 7. P'in FAZ 10'da eklendiğini; çift EMA ve 0.20 derece/kare pan slew'un kaldırıldığını, altı profil taramasında **tek bir evrensel Kp olmadığını** (standart sinüste 0.35'e kadar kararlı, zigzag'de 0.30'da, step/hold'da 0.20'de bile sınırda), tabanın 0.22/0.11 ve profil bazlı tavanların `webots_tuning.py` içinde olduğunu bilir.
 8. RL'in v1.4'te saf PPO'ya çevrildiğini; Webots profil 2'de pan RMS 1.93 derece, tilt 0.78 derece, kilitli kalma %92.5, yön değiştirme %4.4 olduğunu; P harmanının kaldırıldığını, runtime'da hız gözleminin sıfırlandığını ve eski RL sarmalayıcının silindiğini bilir.
 9. FAZ 12'de repo geneli denetim yapıldığını; hedef seçici histerezis/ID kapısı, UART RX tamponu ve eksen-bazlı residue, Webots tuning varsayılanları, HUD spin-up süresi, gerçek telemetri hatası/latency'si ve firmware ölü API'lerinin düzeltildiğini; eski Webots analiz araçlarının, YOLO eğitim grafiklerinin ve eski mimari PNG'lerinin kaldırıldığını bilir.

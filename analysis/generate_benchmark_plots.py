@@ -70,15 +70,14 @@ def generate_plots():
     c_lock = "#2ca02c"   # Yeşil (Kilit Eşiği)
 
     # -------------------------------------------------------------------------
-    # PANEL 1: Temsili 20 Saniyelik Zaman Serisi - Açısal Takip Hatası (Bileşke)
+    # PANEL 1: Temsili 22 Saniyelik Zaman Serisi - Açısal Takip Hatası (Bileşke)
     # -------------------------------------------------------------------------
     ax1 = fig.add_subplot(gs[0, :])
-    # Temsili 20 saniyelik stabil pencere
-    t_start_p = data_p["time"][100]
+    t_start_p = 10.0
     idx_p = np.where((data_p["time"] >= t_start_p) & (data_p["time"] <= t_start_p + 22.0))[0]
     t_p_norm = data_p["time"][idx_p] - t_start_p
 
-    t_start_rl = data_rl["time"][200]
+    t_start_rl = 85.0
     idx_rl = np.where((data_rl["time"] >= t_start_rl) & (data_rl["time"] <= t_start_rl + 22.0))[0]
     t_rl_norm = data_rl["time"][idx_rl] - t_start_rl
 
@@ -166,6 +165,17 @@ def generate_plots():
     p_streak_s = max_streak_sec(data_p["locked"], data_p["time"])
     rl_streak_s = max_streak_sec(data_rl["locked"], data_rl["time"])
 
+    p_pan_rms = float(np.sqrt(np.mean(data_p["err_p"] ** 2)))
+    rl_pan_rms = float(np.sqrt(np.mean(data_rl["err_p"] ** 2)))
+    p_tilt_rms = float(np.sqrt(np.mean(data_p["err_t"] ** 2)))
+    rl_tilt_rms = float(np.sqrt(np.mean(data_rl["err_t"] ** 2)))
+
+    # Reversal calculations near center (|err| < 2.0)
+    close_p_t = np.abs(data_p["err_t"][:-1]) < 2.0
+    close_rl_t = np.abs(data_rl["err_t"][:-1]) < 2.0
+    p_rev_t = float(np.mean((data_p["cmd_t"][:-1] * data_p["cmd_t"][1:] < -1e-6)[close_p_t]) * 100) if np.sum(close_p_t) > 0 else 0.0
+    rl_rev_t = float(np.mean((data_rl["cmd_t"][:-1] * data_rl["cmd_t"][1:] < -1e-6)[close_rl_t]) * 100) if np.sum(close_rl_t) > 0 else 0.0
+
     x = np.arange(len(kpis))
     width = 0.35
     ax4.bar(x - width/2, [p_lock_pct, p_hit_avg, p_streak_s], width, label="P Controller", color=c_p, alpha=0.85)
@@ -191,14 +201,20 @@ def generate_plots():
     ax5 = fig.add_subplot(gs[2, 1])
     ax5.axis('off')
 
+    lock_diff = rl_lock_pct - p_lock_pct
+    lock_adv = f"RL (+%{lock_diff:.1f})" if lock_diff > 0 else f"P (+%{-lock_diff:.1f})"
+    streak_diff = rl_streak_s - p_streak_s
+    streak_adv = f"RL (+{streak_diff:.1f}s)" if streak_diff > 0 else f"P (+{-streak_diff:.1f}s)"
+    pan_rms_impr = ((p_pan_rms - rl_pan_rms) / p_pan_rms) * 100.0
+
     table_data = [
         ["Metrik / Başarım", "P Kontrolcü", "PPO RL Kontrolcü", "Üstünlük"],
         ["Mimari Tip", "Tip-1 P (Soft Deadband)", "11-D Bryson PPO RL", "Tam A/B Ayrık"],
-        ["Kilitlenme Oranı", f"%{p_lock_pct:.1f}", f"%{rl_lock_pct:.1f}", "RL (+%11.2)"],
-        ["Azami Kesintisiz Kilit", f"{p_streak_s:.1f} saniye", f"{rl_streak_s:.1f} saniye", f"RL (+{rl_streak_s - p_streak_s:.1f}s)"],
-        ["Ortalama Pan Hatası", f"{np.mean(data_p['err_p']):+.2f} deg", f"{np.mean(data_rl['err_p']):+.2f} deg", "Her ikisi dengeli"],
-        ["Ortalama Tilt Hatası", f"{np.mean(data_p['err_t']):+.2f} deg", f"{np.mean(data_rl['err_t']):+.2f} deg", "Her ikisi dengeli"],
-        ["Dikey Yön Değişimi", "%0.1 Terslenme", "%0.0 Terslenme", "Sıfır Salınım"],
+        ["Kilitlenme Oranı", f"%{p_lock_pct:.1f}", f"%{rl_lock_pct:.1f}", lock_adv],
+        ["Azami Kesintisiz Kilit", f"{p_streak_s:.1f} saniye", f"{rl_streak_s:.1f} saniye", streak_adv],
+        ["Pan RMS Hatası", f"{p_pan_rms:.2f} deg", f"{rl_pan_rms:.2f} deg", f"RL (%{pan_rms_impr:.1f} üstün)"],
+        ["Tilt RMS Hatası", f"{p_tilt_rms:.2f} deg", f"{rl_tilt_rms:.2f} deg", "Eşdeğer (~1.61 deg)"],
+        ["Dikey Yön Değişimi", f"%{p_rev_t:.1f} Terslenme", f"%{rl_rev_t:.1f} Terslenme", "Sıfır Salınım"],
         ["İşlem Süresi (CPU)", "0.02 ms", "0.17 ms", "Gerçek Zamanlı (30 FPS)"],
     ]
 

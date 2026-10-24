@@ -24,7 +24,8 @@ def _no_ambient_profile(monkeypatch):
     monkeypatch.delenv("WEBOTS_BALLOON_PROFILE", raising=False)
 
 
-def test_tuning_overrides_production_gains():
+def test_tuning_application_and_clamping(tmp_path, monkeypatch, capsys):
+    # 1. Kontrolcü kazançlarının canlı güncellenmesi
     fcs = FCSManager("P")
     apply_tuning(
         fcs,
@@ -35,14 +36,14 @@ def test_tuning_overrides_production_gains():
     assert fcs.p_controller.max_output == pytest.approx(1.2)
     assert not hasattr(fcs.p_controller, "velocity_ff_gain")
 
-
-def test_tuning_clamps_with_visible_warning(tmp_path, monkeypatch, capsys):
+    # 2. Profil tavanı aşımında otomatik kırpma ve görünür uyarı
     path = _write_tuning(tmp_path, {"kp_pan": 0.35})
     monkeypatch.setenv("WEBOTS_TUNING_JSON", str(path))
     monkeypatch.setenv("WEBOTS_BALLOON_PROFILE", "2")
     assert load_tuning()["kp_pan"] == pytest.approx(0.32)
     assert "TUNE UYARI" in capsys.readouterr().out
 
+    # 3. Global limit tavanı kırpması
     path = _write_tuning(tmp_path, {"kp_pan": 0.90})
     monkeypatch.setenv("WEBOTS_TUNING_JSON", str(path))
     monkeypatch.setenv("WEBOTS_BALLOON_PROFILE", "0")

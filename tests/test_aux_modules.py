@@ -1,4 +1,4 @@
-"""Kilit, LOS, HUD, firmware durum kodu ve telemetri testleri."""
+"""Kilit, LOS, HUD, firmware durum kodu ve telemetri konsolide testleri."""
 import csv
 import sys
 from pathlib import Path
@@ -16,17 +16,20 @@ from turret_fcs.telemetry import TelemetryLogger
 from turret_fcs.turret_hud import TurretHUD
 
 
-def test_lock_hysteresis_and_post_fire_grace():
+def test_lock_hysteresis_and_firmware_states():
+    """Kilit histerezisi, vurus olasiligi, atis sonrasi grace period ve HUD/durum kodlarini dogrular."""
     lm = LockManager()
     assert not lm.is_locked
     assert lm.stability_counter == 0
 
+    # 1. Kilitlenme histerezisi (10+ kare kucuk hata)
     for _ in range(12):
         is_locked, counter, hit_prob = lm.update(angular_error_deg=0.8, target_velocity=[0.0, 0.0])
     assert is_locked
     assert counter >= lm.lock_threshold_frames
     assert hit_prob > 50.0
 
+    # 2. Atis esnasinda ve hemen sonrasinda grace period: kilit dusmemeli
     lm.update(angular_error_deg=5.0, target_velocity=[0.0, 0.0], is_firing=True)
     assert lm.is_locked
 
@@ -34,12 +37,18 @@ def test_lock_hysteresis_and_post_fire_grace():
         is_locked, _, _ = lm.update(angular_error_deg=3.5, target_velocity=[0.0, 0.0])
         assert is_locked, "Grace period esnasinda kilit erken dusmemeli"
 
+    # 3. Grace suresi bitince buyuk hatada kilit dusmeli
     for _ in range(40):
         lm.update(angular_error_deg=4.0, target_velocity=[0.0, 0.0])
     assert not lm.is_locked
 
+    # 4. HUD kutu etiketi ve STM32 protokol durum kodlari
+    assert TurretHUD.get_box_label() == "TARGET"
+    assert (FCSState.TRACKING, FCSState.LOCKED, FCSState.FIRING, FCSState.ESTOP) == (0, 1, 2, 3)
+
 
 def test_los_tracker_rate_estimate():
+    """LOS takipcisi gorus hatti ve acisal hiz kestirimini dogrular."""
     los = LosTracker(alpha=0.4, beta=0.1)
     for _ in range(20):
         _, _, pan_rate, tilt_rate = los.update(10.0, -4.0, 0.033)
@@ -54,12 +63,8 @@ def test_los_tracker_rate_estimate():
     assert pan_rate == pytest.approx(2.0, abs=0.15)
 
 
-def test_hud_label_and_firmware_state_codes():
-    assert TurretHUD.get_box_label() == "TARGET"
-    assert (FCSState.TRACKING, FCSState.LOCKED, FCSState.FIRING, FCSState.ESTOP) == (0, 1, 2, 3)
-
-
 def test_telemetry_writes_los_columns(tmp_path):
+    """Telemetri CSV kaydinda LOS ve durum sutunlarinin dogru yazildigini dogrular."""
     fcs = FCSManager(control_mode="P")
     logger = TelemetryLogger(output_dir=str(tmp_path), filename_prefix="los")
     for i in range(10):

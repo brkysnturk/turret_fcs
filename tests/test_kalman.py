@@ -1,4 +1,4 @@
-"""Kalman filtresi: yakınsama, ego telafisi, sıçrama reddi ve çıkışlar."""
+"""Kalman filtresi: yakinsama, ego telafisi, aykiri deger reddi ve olu bolge konsolide testleri."""
 import math
 import sys
 from pathlib import Path
@@ -18,18 +18,22 @@ def _constant(kf, speed_px_s, frames, dt=0.033, x0=640.0):
         kf.update((x0 + step * i, 360.0), dt=dt)
 
 
-def test_initialization_constant_velocity_and_lead():
+def test_kalman_convergence_lead_and_dt_normalization():
+    """Kalman baslatma, sabit hiz yakinsamasi, onleme kestirimi ve degisken dt normalizasyonunu dogrular."""
     kf = KalmanFilter()
     assert not kf.initialized
 
+    # 1. Ilk olcumle baslatma
     px, py, vx, vy = kf.update((640.0, 360.0), dt=0.033)
     assert kf.initialized
     assert (px, py, vx, vy) == pytest.approx((640.0, 360.0, 0.0, 0.0))
 
+    # 2. Sabit hiz yakinsamasi (100 px/s)
     _constant(kf, 100.0, 61)
     assert kf.raw_vx == pytest.approx(100.0, rel=0.03)
     assert kf.smooth_vx == pytest.approx(100.0, rel=0.03)
 
+    # 3. Kinematik onleme (lead) hesabi
     lead_x, _, lead_vx, _ = kf.predict_next_position(lead_time=0.1)
     assert lead_vx == pytest.approx(kf.smooth_vx)
     assert lead_x > float(kf.x[0, 0])
@@ -38,17 +42,17 @@ def test_initialization_constant_velocity_and_lead():
     assert omega_pan == pytest.approx(math.degrees(0.1), rel=0.03)
     assert omega_tilt == 0.0
 
-
-def test_uneven_dt_is_time_normalized():
-    kf = KalmanFilter()
+    # 4. Duzensiz dt orneklemesinde zaman normalizasyonu (200 px/s)
+    kf_uneven = KalmanFilter()
     elapsed = 0.0
     for dt in [0.02, 0.05, 0.03, 0.06, 0.012, 0.04] * 10:
         elapsed += dt
-        kf.update((640.0 + 200.0 * elapsed, 360.0), dt=dt)
-    assert kf.raw_vx == pytest.approx(200.0, rel=0.03)
+        kf_uneven.update((640.0 + 200.0 * elapsed, 360.0), dt=dt)
+    assert kf_uneven.raw_vx == pytest.approx(200.0, rel=0.03)
 
 
-def test_ego_shift_creates_no_target_velocity():
+def test_kalman_ego_shift_observer():
+    """Tareti dondururken hedefin sahte hiz uretmesini engelleyen 1. derece eyleyici gozlemcisini dogrular."""
     kf = KalmanFilter()
     for i in range(61):
         kf.update((640.0 - 5.0 * i, 360.0), dt=0.033, ego_dx=-5.0)
@@ -56,11 +60,13 @@ def test_ego_shift_creates_no_target_velocity():
     assert kf.smooth_vx == 0.0
 
 
-def test_single_outlier_rejected_persistent_jump_reinitializes():
+def test_kalman_outliers_reversal_and_deadband():
+    """Aykiri deger reddi, kalici sicramada yeniden baslatma, yon degisimi ve hiz olu bolgesini dogrular."""
     kf = KalmanFilter()
     _constant(kf, 100.0, 41)
     velocity_before = kf.smooth_vx
 
+    # 1. Tekil gurultu/sicrama: filtrelenen hiz korunmali
     kf.update((640.0 + 100.0 * 0.033 * 40 + 300.0, 360.0), dt=0.033)
     assert kf.initialized is True
     assert abs(kf.smooth_vx - velocity_before) < 20.0
@@ -69,6 +75,7 @@ def test_single_outlier_rejected_persistent_jump_reinitializes():
         kf.update((640.0 + 100.0 * 0.033 * (41 + i), 360.0), dt=0.033)
     assert kf.smooth_vx == pytest.approx(100.0, abs=20.0)
 
+    # 2. Kalici sicrama: reacquire suresi sonunda filtre kendini sifirlamali
     for _ in range(CONFIG.kalman.reacquire_frames):
         kf.update((1100.0, 360.0), dt=0.033)
     assert kf.initialized is True
@@ -76,16 +83,16 @@ def test_single_outlier_rejected_persistent_jump_reinitializes():
     assert kf.raw_vx == 0.0
     assert kf._outlier_frames == 0
 
-
-def test_reversal_and_soft_deadband():
-    kf = KalmanFilter()
-    _constant(kf, 150.0, 41)
-    assert kf.smooth_vx > 100.0
+    # 3. Ani ters yone hareket (150 px/s -> -150 px/s)
+    kf_rev = KalmanFilter()
+    _constant(kf_rev, 150.0, 41)
+    assert kf_rev.smooth_vx > 100.0
     for i in range(21):
-        kf.update((640.0 - 150.0 * 0.033 * (i + 1), 360.0), dt=0.033)
-    assert kf.raw_vx < -100.0
-    assert kf.smooth_vx < -100.0
+        kf_rev.update((640.0 - 150.0 * 0.033 * (i + 1), 360.0), dt=0.033)
+    assert kf_rev.raw_vx < -100.0
+    assert kf_rev.smooth_vx < -100.0
 
+    # 4. Hiz olu bolgesi (titresim yok etme)
     slow = KalmanFilter()
     for i in range(61):
         slow.update((640.0 + 0.5 * i, 360.0), dt=0.033)

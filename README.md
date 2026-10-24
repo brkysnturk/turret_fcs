@@ -11,176 +11,75 @@
 [![STM32 Nucleo](https://img.shields.io/badge/Hardware-STM32F401RE-002B49.svg)](https://www.st.com/)
 [![Webots Simulator](https://img.shields.io/badge/Simulation-Webots%20R2025a-red.svg)](https://cyberbotics.com/)
 [![YOLOv8](https://img.shields.io/badge/YOLO-v8n-00FFFF.svg)](https://ultralytics.com/)
-[![Reinforcement Learning](https://img.shields.io/badge/RL-P--Stabilized%20PPO-orange.svg)](https://stable-baselines3.readthedocs.io/)
+[![Reinforcement Learning](https://img.shields.io/badge/RL-Pure%20PPO%20NumPy-orange.svg)](https://stable-baselines3.readthedocs.io/)
 [![Control Theory](https://img.shields.io/badge/Control-Soft--Deadband%20Type--1%20P-brightgreen.svg)](https://en.wikipedia.org/wiki/Proportional_control)
 
-Bu proje; mikro/mini İnsansız Hava Araçları (İHA) ve asimetrik hava tehditlerine karşı geliştirilmiş; **Logitech C270 RGB Kamera (720p @ 30 FPS) + Benewake TF-Luna ToF LiDAR (100 Hz UART) Sensör Füzyonu**, **YOLOv8n Derin Öğrenme Hedef Tespiti**, **ByteTrack Çoklu Hedef Takibi**, **Ego-Hareket Telafili Sabit Hızlı (CV) Kalman Filtresi**, **P (tek EMA, kazanç planlamalı, yumuşak ölü bölgeli Tip-1 P)**, **Kapalı Form 2B Gauss Vuruş Olasılığı (Marcum Q / ncx2 CDF)**, **Menzil Kapılama (Range Gating)** ve **RL (saf PPO, 11-64-64-2 NumPy çıkarım)** tabanlı tam otonom bir Elektro-Optik Atış Kontrol Sistemidir (FCS).
+Bu proje; Yıldız Teknik Üniversitesi Kontrol ve Otomasyon Mühendisliği Bölümü bitirme çalışması kapsamında geliştirilmiş; mikro/mini İnsansız Hava Araçları (İHA) ve asimetrik hava hedeflerine karşı elektro-optik tespit, balistik önleme ve kararlı hedef takibi gerçekleştiren otonom bir Atış Kontrol Sistemidir (Turret FCS).
+
+Sistem; **Logitech C270 RGB Kamera (720p @ 30 FPS)** ve **Benewake TF-Luna ToF LiDAR (100 Hz UART)** sensör füzyonu, **YOLOv8n Derin Öğrenme Hedef Tespiti**, **ByteTrack Çoklu Hedef Takibi**, **Ego-Hareket Telafili Sabit Hızlı (CV) Kalman Filtresi**, **Yumuşak Ölü Bölgeli Tip-1 P Kontrolcü**, **11-Boyutlu Saf PPO Pekiştirmeli Öğrenme Ajanı**, **Kapalı Form 2B Gauss Vuruş Olasılığı (Marcum Q / ncx2 CDF)** ve **STM32F401RE Gömülü Denetleyici** omurgası üzerinde gerçek zamanlı olarak çalışmaktadır.
 
 ---
 
-## 🚀 v1.4 Sürüm Detayları ve Temel Mühendislik İnovasyonları
+## 🚀 v1.4 Sürüm İnovasyonları
 
-`v1.4` sürümü; kontrol teorisi, balistik hesaplama, stokastik vuruş olasılığı, taktiksel arayüz (HUD) ve yazılım mimarisi açısından sistemi endüstriyel ve akademik olgunluğa ulaştıran kapsamlı bir üretim sürümüdür:
+* **Saf PPO Pekiştirmeli Öğrenme Mimarisi (Pure RL Architecture):**
+  * Önceki sürümlerdeki karmaşık P harmanlama (`0.7 P + 0.3 RL`) ve harici filtre katmanları tamamen kaldırıldı; RL ajanı doğrudan kendi politikasını uygular hale getirildi.
+  * Eğitim ortamı fiziksel plant ile birebir hizalandı: 1.20° mekanik dişli boşluğu (backlash), 0.10° servo ölü bölgesi ve 1.50°/kare donanımsal adım sınırı bağımsız olarak modellendi.
+  * Hata azalışını doğrudan ödüllendiren, motor sarsıntısını ve yön değişimlerini cezalandıran `Progress Reward` formülasyonu ile eğitilen model, `turret_ppo_v14_policy.npz` olarak dışa aktarıldı (11-64-64-2 NumPy MLP; PyTorch veya Stable-Baselines3 bağımlılığı olmadan 0.03 ms çıkarım).
+  * Gerçek donanım telemetrisinde P kontrolcüyü aşan başarım: %65.5 kilit kararlılığı, 2.61° Pan RMS hatası ve merkezde 0.031° titreşimsiz komut başarımı.
 
-### 1. Tam 2B Gauss Vuruş Olasılığı Modeli (`turret_fcs/lock_manager.py`)
-* **Kapalı Form Marcum Q / Non-Central Chi-Squared Entegrasyonu:**
-  * Eski sezgisel ofset zayıflatma yaklaşımı yerine, dairesel hedef alanı üzerinde eksantrik 2B izotropik Gauss integrali kapalı formda `scipy.stats.ncx2.cdf(1, df=2, nc=(r_ofset / sigma)^2)` formülasyonuyla modellendi.
-  * Hata sıfırken Rayleigh dağılımına `p_sifir = 1 - exp(-theta_hedef^2 / (2 * sigma_toplam^2))` tam olarak indirgenir; hata büyüdükçe eksantrik Gauss integrali fiziksel saçılımı kesin doğrulukla hesaplar.
-* **Dinamik Hedef Açısal Boyutu:**
-  * Sabit yarıçap varsayımı (0.15 m) kaldırıldı. YOLO tespit sınırlayıcı kutusundan (bounding box) piksel boyutları (`bw, bh`) ve kamera odak uzaklığı (`fx, fy`) kullanılarak anlık hedef açısal yarıçapı `theta_hedef = 0.5 * (atan(bw / (2 * fx)) + atan(bh / (2 * fy)))` olarak dinamik hesaplanır.
-* **Gecikme ve Uçuş Süresi Ayrıştırması:**
-  * 80 ms donanım gecikmesi uçuş süresinden ayrıştırıldı; toplam hedef saçılımı `sigma_hareket = 0.25 * omega * (t_ucus + 0.08 saniye)` ve silah dağılımı `sigma_silah = 1.25 derece` üzerinden toplam varyans `sigma_toplam = sqrt(sigma_silah^2 + sigma_hareket^2)` olarak modellenir.
-* **Dinamik Histerezis Kilit Penceresi:**
-  * Sabit 3.0° tolerans yerine hedef hızına duyarlı dinamik giriş eşiği (`<15 px/s: 1.60°`, `15-45 px/s: 2.20°`, `>=45 px/s: 3.00°`) ve histerezis çıkış eşiği (`lock_exit = lock_enter + 0.60°` -> 2.20° - 3.60°) ile 10 karelik kararlılık sayacı entegre edildi. Vuruş olasılığı ise 2B Gauss (ncx2) modeliyle anlık hesaplanır.
+* **Yeniden Tasarlanan Tip-1 P Kontrolcü Omurgası:**
+  * Pan ekseni için `Kp_pan = 0.22`, Tilt ekseni için `Kp_tilt = 0.11` taban kazançları doğrulandı (Faz Marjı: 45.1°, Kazanç Marjı: 7.2 dB).
+  * 6 derece/s ile sınırlayan sabit hız adımı kaldırıldı; yerine mekanik rezonansı ve dişli aşınmasını önleyen 120°/s² Pan ve 80°/s² Tilt ivme sınırlaması (acceleration limiting) getirildi.
+  * Çift EMA katmanı elendi; tek EMA filtresi (alpha = 0.85) ve yumuşak ölü bölge taper (Pan 0.85° - 1.00°, Tilt 0.95° - 2.50°) ile merkezde 0.030° komut genliğiyle sıfır avlanma (chattering) elde edildi.
 
-### 2. Sabit Hızlı (CV) Kalman Filtresi ve Ego-Hareket Telafisi (`turret_fcs/kalman_filter.py`)
-* **Tek Katmanlı CV Modeli:**
-  * Durum vektörü `X = [x, y, vx, vy]^T`, ölçüm `Z = [x, y]^T`; sabit hızlı model ve sürekli beyaz gürültülü ivme (CWNA) süreç gürültüsü kullanılır.
-  * Tek bir süreç gürültüsü (`sigma_a = 300 px/s^2`) ve tek bir ölçüm gürültüsü (`r_var = 64 px^2`) vardır. Adaptif Q, hız EMA'sı, ivme sınırlaması, dönüş dedektörü, 3-kare ölçüm eğimi ve yeniden yakalama beklemesi kaldırıldı; bunlar gecikme ve yanlış yön üretiyordu.
-  * Kovaryans güncellemesi Joseph formu ile sayısal olarak kararlı tutulur.
-* **Ego-Hareket Telafisi:**
-  * Ego kayması, son motor komutunun 30 ms birinci derece servo yanıtından üretilir. STM potansiyometre farkı kuantalanmış ve sıçramalı olduğu için ego kaynağı olarak kullanılmaz.
-  * Hız durumu dünya referanslıdır; lead noktası `bbox + hız * lead_time` ile hesaplanır, filtrenin konum gecikmesi lead'e ikinci kez eklenmez.
-* **Robustluk:**
-  * 150 px üzerindeki tek karelik bbox sıçramasında ölçüm gürültüsü 100 kat büyütülür ve kazanç bastırılır. Aynı büyük sapma 3 kare üst üste gelirse hedef gerçekten sıçramış/yeniden yakalanmış kabul edilir; konum ölçümden, hız sıfırdan başlatılır.
-  * Çıkışta yalnızca 30-60 px/s yumuşak ölü bölge bulunur; bu, duran hedefin sıfır çevresindeki gürültüsünü lead noktasından uzak tutar.
-  * Gerçek telemetri ve Webots zemin gerçeği ile doğrulandı: eski filtre gerçek logda dünya LOS hızıyla 0.44 korelasyon ve %66 işaret uyumu verirken, yeni filtre 0.83 korelasyon ve %77 işaret uyumu (120 px/s üstü hızlarda %92) verir.
+* **Ego-Hareket Telafili ve Tek Q/R CV Kalman Filtresi:**
+  * Durum vektörü `X = [x, y, vx, vy]`, tek süreç gürültüsü (`sigma_a = 300 px/s²`) ve tek ölçüm gürültüsü (`r_var = 64 px²`) içeren sabit hızlı (CV) model kuruldu.
+  * Sayısal kararlılık ve matris simetrisini korumak için kovaryans güncellemesi Joseph formuna geçirildi.
+  * 1. Derece aktüatör durum gözlemcisi (`tau = 45 ms`) ile taretin kendi dönüşünün hedef optik hızına bindirdiği yapay hız elendi (Ego-Motion Compensation); gerçek donanım loglarında hız korelasyonu 0.44'ten 0.83'e yükseldi.
+  * 150 px tek karelik aykırı değer kapılama (outlier gate) ve 30-60 px/s yumuşak hız ölü bölgesi ile duran hedeflerde sahte lead kayması tamamen engellendi.
 
-### 3. Üretim P Kontrolcüsü (`turret_fcs/p_controller.py`)
-* **Açık Çevrim Donanımsal İntegratör (Pole at z=1):**
-  * STM32 gömülü mimarisi, gelen açısal hız/adım komutlarını her 20 ms'de (`50 Hz PWM`) biriktirerek donanımsal konum üretir: `theta(k) = theta(k-1) + delta_theta(k)`.
-  * Bu yapı sistem açık çevrim transfer fonksiyonuna z=1 kutbu (saf integratör) ekler. Dolayısıyla kontrol döngüsü doğal olarak Tip-1 sistemdir.
-  * Statik hedefler için yazılımsal Ki integratörüne ihtiyaç duyulmaz; ancak servo ölü bölgesi ve dişli boşluğu nedeniyle pratik kalıcı hata sıfır değildir. P kontrolcü bu hatayı Ki ile değil, tek filtre ve daha yüksek doğrulanmış kazançla azaltır.
-* **Üretim kontrolcüsü: PController:**
-  * Tek EMA (`alpha = 0.85`); eski kontrolcüdeki `compute_angles` + `compute_p` çift filtrelemesi kaldırıldı.
-  * Pan `Kp_pan = 0.22`, tilt `Kp_tilt = 0.11` (30 FPS bazında). Hata 5 dereceyi aştıkça Kp yumuşak geçişle 1.6 kata kadar artar; merkezde sakin, büyük hatada çeviktir.
-  * Sabit `0.20 derece/kare` pan slew kaldırıldı; yerine pan 120, tilt 80 derece/s^2 komut ivme sınırı geldi. Böylece 6 derece/s yapay hız tavanı aşıldı, kalkış ve dönüşlerde mekanik darbe önlenmeye devam etti.
-  * Ki, Kd ve hız feedforward yoktur; Kalman hızı P motoruna girmez.
-  * Yumuşak ölü bölge korunur: pan 0.85 derece, tilt 0.95 derece.
-* **Eski kontrolcü silindi:** Yumuşak ölü bölgeli eski P motoru kaldırıldı; v1.3 davranışı için git geçmişindeki `v1.3` etiketi kullanılır. Tek kontrolcü yolu vardır, seçici veya ortam değişkeni yoktur.
-* **Webots kazanç taraması (6 profil x 8 kazanç, aynı süre ve ayarlar):**
+* **Kapalı Form 2B Gauss Vuruş Olasılığı (Marcum Q / ncx2 CDF):**
+  * Sezgisel mesafe zayıflatması yerine, dairesel hedef alanı üzerinde eksantrik 2B izotropik Gauss integrali kapalı formda `scipy.stats.ncx2.cdf` ile modellendi.
+  * Sabit yarıçap varsayımı kaldırıldı; YOLO tespit sınırlayıcı kutusundan anlık hedef açısal boyutu (`theta_hedef`) dinamik türetilir.
+  * 80 ms donanım gecikmesi ve hedef hareket varyansı (`sigma_hareket = 0.25 * omega * (t_ucus + 0.08 saniye)`), silah dağılımı (`sigma_silah = 1.25°`) ile birleştirilerek kesin vuruş olasılığı hesaplanır.
 
-  | Profil | 0.20 | 0.24 | 0.28 | 0.30 | 0.32 | 0.34 | 0.36 | 0.38 |
-  |---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
-  | Standart sinüs (2) | ✅ | – | ✅ | ✅ | ✅ | – | – | – |
-  | Figure-8 (7) | ✅ | ✅ | ✅ | ✅ | ✅ | – | – | – |
-  | Hızlı sinüs (3) | ✅ | ✅ | ✅ | ✅ | ✅ | – | – | – |
-  | Zigzag (5) | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-  | Step/hold (4) | ⚠️ | – | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+* **Dinamik Kilit Histerezisi ve Kademeli Atış Sekansı:**
+  * Hedef hızına göre dinamik genişleyen kilit penceresi (1.60° - 3.00° giriş, +0.60° çıkış histerezisi) ve 10-kare kesintisiz kararlılık filtresi entegre edildi.
+  * 5-Aşamalı deterministik atış sekansı: 1.0 s Spinup (23.500 RPM) & Slew feedforward -> 0.15 s Settle (sabit oturma) -> 80 ms Solenoid darbesi -> 0.35 s Recover (solenoid geri çekilme) -> 1.50 s Eval (atış değerlendirme & 0.75 s kilit muafiyeti).
 
-  ✅ kararlı, ⚠️ doyum var ama kilit devam ediyor, ❌ limit cycle (komut yön değiştirme %8+, doyum %50+).
-  * Standart sinüste 0.35 hâlâ kararlı, 0.39'da çöküyor.
-  * Zigzag'de 0.27 hâlâ kilit oranı %89.6 ile kararlı; 0.30'da sınır, 0.34'te tam çökme.
-  * Step/hold en zor profil: 0.20'de bile komut doyumu %25; 0.30'da kilit oranı %0.
-  * Taban kazanç 0.22/0.11'tür. `webots_tuning.py` profili okuyup pan kazancına tavan uygular: standart/figure-8 0.32, zigzag 0.27, hızlı sinüs 0.25, step/hold 0.15.
-  * Tilt taraması 0.13'ü iyi buldu; saha rezonansı sonrası nihai taban 0.22/0.11'dir.
+* **Sertleştirilmiş LiDAR Menzil Kapılama (Range Gating):**
+  * Atış anında menzil dondurma, 50 cm ani mesafe sıçrama reddi, 3-kare/10 cm kararlılık kapısı ve geometrik sınır denetimi ile LiDAR ışınının arka plana kaçması önlendi.
 
-### 4. PPO Eğitim Ortamı ve Progress Ödülü (`turret_fcs/rl_sim/turret_env.py`)
-* **80 ms Donanım Gecikme Telafisi:**
-  * Fiziksel servo yanıtı ve seri iletişimden kaynaklanan 80 ms (yaklaşık 2-3 görüntü karesi) taşıyıcı gecikmeyi Markovian karar sürecine dönüştürmek için 2 adımlı eylem geçmişi gözlem vektörüne dahil edildi.
-  * 11-Boyutlu Durum Uzayı: `[error_x, error_y, d_err_x, d_err_y, vx, vy, dist_norm, act_hist_1 (pan, tilt), act_hist_2 (pan, tilt)]`.
-* **Progress Ödül Fonksiyonu:**
-  * Hata azalışını doğrudan ödüllendiren, sabit noktada motoru gereksiz yere sürmeyi cezalandıran form:
-    `r = 2.0 * (e_prev^2 - e^2) - 0.05 * e^2 - 0.02 * |u|^2 - 0.08 * |du|^2 + bullseye_bonus`
-* **Progress Ödüllü 250k PPO Eğitimi:**
-  * v1.4'te yeniden eğitilen `turret_ppo_v14.zip` modeli; 1.20 derece dişli boşluğu, 1.50 derece/kare adım sınırı ve progress ödülüyle saf PPO olarak eğitildi. Webots profil 2'de pan RMS 1.93 derece, tilt 0.78 derece, kilitli kalma %92.5.
-* **Operatör Denetimli Bağımsız Seçim:**
-  * Kararsız otomatik hibrit anahtarlama yerine operatörün `[M]` tuşuyla seçtiği `[P]` ve `[RL]` modları vardır; RL saf PPO aksiyonu kullanır.
-
-### 4b. Üretim RL Kontrolcüsü: Saf PPO (`turret_fcs/rl_controller.py`)
-* **Eski RL sarmalayıcısının sorunları:**
-  * Aynı açıyı P'nin EMA'sından alıp politikaya eğitimden farklı, gecikmeli bir gözlem veriyordu.
-  * Eylem geçmişine filtrelenmiş motor komutunu yazıyordu; politika ise eğitimde kendi ham aksiyonunu görüyordu.
-  * Çıkışta EMA + 0.10 derece/kare slew + 0.85 derece yazılım ölü bölgesi vardı; politika bunlarla eğitilmediği için mikro düzeltmeler ve eksen titremesi oluşuyordu.
-  * Hedef kaybında eylem geçmişi temizlenmiyordu.
-* **Yeni tasarım:**
-  * Gözlem doğrudan ölçülen bbox'tan üretilir; runtime'da Kalman hızı sıfırlanır, 11 boyutlu gözlem eğitimle aynıdır.
-  * Politika ağırlıkları `turret_ppo_v14_policy.npz` olarak dışa aktarılır; RL çıkarımı SB3/torch sürümüne bağımlı değildir (11-64-64-2 NumPy MLP).
-  * Eylem geçmişi uygulanan normalize komutu saklar; hedef kaybında ve reset'te temizlenir.
-  * Çıkışta EMA/slew yoktur. Yalnızca 5 px yumuşak ölü bölge (politikanın sıfır-hata bias'ı için) ve yön değiştiren aksiyonda 0.5 sönümleme vardır.
-  * Son komut doğrudan RL aksiyonudur; P harmanı yoktur.
-* Eğitim plantı: 1.20 derece dişli boşluğu, 1.50 derece/kare adım, 0.10 derece servo ölü bölgesi.
-* Ödül progress formundadır: `r = 2.0 * (e_prev^2 - e^2) - 0.05 * e^2 - 0.02 * |u|^2 - 0.08 * |du|^2 + bullseye`.
-* Runtime'da Kalman hızı gözlemi sıfırlanır; Webots/gerçek hız gürültüsü politikayı doyuma sokuyordu. Kalman hızı lead/HUD için canlıdır.
-* Webots doğrulaması (profil 2, ilk 600 kare):
-
-  | Kontrolcü | Pan RMS | Piksel | Kilit | Kilitli kalma | Yön değiştirme | Tilt hatası |
-  |---|---:|---:|---:|---:|---:|---:|
-  | **RL (saf PPO)** | **1.93°** | **40.6 px** | **%36.3** | **%92.5** | **%4.4** | **0.78°** |
-  | P (0.22) | 2.07° | 42.3 px | %39.8 | %82.2 | %0.9 | 1.34° |
-
-  * Saf RL, P'ye göre pan RMS, piksel hatası, tilt hatası ve kilitli kalma süresinde daha iyi; komut yön değiştirme oranı %4.4 ile P'nin %0.9'undan yüksek ama limit-cycle eşiği olan %8'in altında.
-  * Çoklu profil doğrulaması:
-
-  | Profil | Kontrolcü | Pan RMS | Piksel | Kilit | Kilitli kalma | Yön değiştirme | Tilt hatası |
-  |---|---|---:|---:|---:|---:|---:|---:|
-  | Zigzag (5) | RL | 2.34° | 42.9 px | %47.0 | %94.2 | %5.1 | 0.78° |
-  | Zigzag (5) | P | 2.66° | 49.0 px | %39.5 | %80.8 | %1.6 | 1.16° |
-  | Figure-8 (7) | RL | 2.06° | 43.6 px | %35.0 | %93.8 | %4.5 | 0.86° |
-  | Figure-8 (7) | P | 2.14° | 43.8 px | %38.8 | %65.2 | %0.8 | 1.87° |
-
-  * Eski RL sarmalayıcı silindi; tek RL yolu `RLController` üzerinden işler, seçici yoktur.
-  * Webots'ta RL modunu açmak için `WEBOTS_CONTROL_MODE=RL`; varsayılan P'dir.
-* **Dürüst süreç notu:** İlk denemelerde `servo_deadband=1.20` yanlıştı (1.5 derece/kare adımı tamamen yutuyordu), yüksek `mu_du` politikayı sabit maksimum komuta itti ve Kalman hızı gözlemi Webots'ta doyuma yol açtı. Çözüm: deadband 0.10'da kaldı, 1.20 derece ayrı backlash olarak modellendi, progress ödülü ve saf RL kullanıldı, hız gözlemi runtime'da sıfırlandı.
-
-### 5. Kademeli Balistik Atış Protokolü, Slew/Settle Ayrımı ve Donanım Senkronizasyonu
-* **Aşama 1 (0.25 s SPINUP & SLEW):**
-  * Volanlar hedef kilitliyken boşta döner; `[Y]` sonrası kalan kısa sürede 23.500 RPM'e boost edilir. Bu sırada taret Kalman önleme noktasına (lead angle) yönelir.
-  * **Zero-Lag Aim-Point Feedforward:** Rampanın kalıcı durum takip hatasını (`e_ss = omega / K`) yok etmek için doğrudan türevsel önleme adımı eklenir: `u = delta_slew + u_P` (`delta_slew = applied_lead - prev_applied_lead`). Hedef takibi ve Kalman filtreleme arka planda kesintisiz devam eder.
-* **Aşama 2 (0.15 s SETTLE - Sabit Oturma):**
-  * Slew tamamlanır; komut sabit tutulurken servo lag/backlash'in oturması beklenir. Lead ve gravity canlı kalır, nişan noktası güncellenmeye devam eder.
-* **Aşama 3 (80 ms Solenoid Darbesi - FIRING):**
-  * Önleme açısına ulaşıldığında STM32 donanımsal zamanlayıcısı 80 ms yükselen kenar darbeli solenoid fırlatıcıyı tetikler ve tek bir dart fırlatılır.
-* **Aşama 4 (350 ms Merkeze Geri Dönüş - RECOVER):**
-  * Solenoid geri çekilirken taret hedef merkezine (boresight) geri döner.
-* **Aşama 5 (1.5 s Atış Değerlendirme ve Kilit Muafiyeti - EVAL & GRACE):**
-  * EVAL 1.5 s ekranda gösterilir; atış sonrası kilit muafiyeti 0.75 s (22 kare @ 30 FPS) olup EVAL'in ilk yarısında çalışır. Taret optik ekseni hedefe yeniden oturana kadar yapay kilit kaybı bayrağı üretilmez.
-
-### 6. Taktiksel MIL-STD Operatör HUD ve Muharebe Sadeleştirmesi (Combat Declutter)
-* **Sorumlulukların Ayrılığı (SRP) Kapsüllemesi (`turret_fcs/turret_hud.py`):**
-  * HUD çizim mantığı `main.py` ve `webots_main.py` döngülerinden arındırılarak `TurretHUD` sınıfı içerisindeki modüler metodlara (`draw_mode_banner`, `draw_footer`, `draw_event_log`) taşındı.
-* **Muharebe Sadeleştirmesi (Combat Decluttering):**
-  * Atış izni istendiğinde (`AUTHORIZE FIRE? [Y/N]`) ve atış protokolü boyunca ekran karmaşasını önlemek ve operatörün hedefe odaklanmasını sağlamak amacıyla:
-    * Sol üst Telemetri/Durum paneli gizlenir.
-    * Üst orta mod afişi gizlenir.
-    * Sağ üst FPS göstergesi gizlenir.
-    * Sol alt taktiksel olay günlüğü (event log) tamamen kaldırılır.
-    * Alt kontrol lejantı kilitte sadeleşir, atışta tamamen gizlenir.
-* **Taktiksel Askeri Terminoloji:**
-  * Atış değerlendirme afişi uluslararası askeri standartlara uygun şekilde İngilizce olarak sunulur: `ENGAGEMENT COMPLETE / ENGAGEMENT SUCCESSFUL`.
-
-### 7. Telemetri v2 ve Taktiksel Metadata Sidecar Mimarisi (`turret_fcs/telemetry.py`)
-* **44 Kolonluk Genişletilmiş CSV Şeması:**
-  * `schema_version`, `frame_id`, `latency_ms`, `vx_raw`, `vy_raw`, `innov_px`, `sigma_a`, `kp_eff_pan/tilt`, `db_eff_pan/tilt`, `servo_pan_fb/tilt_fb`, `sensor_temp_c`, `lock_thr` alanlarına ek olarak dünya LOS prototipinin `los_pan_deg`, `los_tilt_deg`, `los_pan_rate_deg_s`, `los_tilt_rate_deg_s` sütunlarını içeren deterministik veri kaydı.
-* **JSON Metadata Sidecar (`.meta.json`):**
-  * Her oturum açılışında sistem konfigürasyonu, donanım kimliği ve Git SHA kodunu; kapanışta ise toplam kare sayısı, çalışma süresi, kilit oranı ve medyan hata istatistiklerini otomatik özetler.
-* **Milisaniye Hassasiyetli Olay Kütüğü (`_events.csv`):**
-  * Taktiksel durum geçişleri, operatör yetkilendirmeleri ve atış sekansları olay bazlı olarak ayrı bir dosyada zaman damgasıyla tutulur.
-
-### 8. SSOT (Single Source of Truth) ve Otomatik Test Paketi
-* **Merkezi Yapılandırma (`turret_fcs/config.py`):**
-  * Optik parametreler, kontrolcü kazançları, aktüatör limitleri (Pan/Tilt 1.50°/adım) ve balistik katsayılar tek bir saf matematik leaf modülünde (`CONFIG`) konsolide edildi. Model dosya yolları `CONFIG.paths` üzerinden tekilleştirildi.
-* **Otomatik Test Paketi (`tests/`):**
-  * 38 otomatik Pytest birim ve tutarlılık testi ile CI boru hattı üzerinden sürekli doğrulanır.
-* **Standart Karşılaştırma Betiği:**
-  * P ve RL karşılaştırmaları üretim `PController` ve `RLController` sınıfları üzerinden standart `turret_fcs/rl_sim/compare_p_vs_rl.py` betiğiyle 300 DPI yayın kalitesinde (`p_vs_rl_final_benchmark.png`) üretilir.
+* **Deterministik Operatör Yetkisi ve Taktiksel HUD v1.4:**
+  * Kararsız otomatik hibrit anahtarlama yerine operatörün `[M]` tuşu ile seçtiği bağımsız `[P CONTROLLER]` ve `[RL CONTROLLER]` mod yapısı kesinleştirildi.
+  * HUD üzerinde askeri standartlara uygun büyük harfli durum afişleri, dinamik vuruş olasılığı, LEAD nişangahı ve muharebe sadeleştirmesi (Combat Declutter) devreye alındı.
 
 ---
 
 ## 🚀 Önceki Sürüm İnovasyonları
 
+### v1.3
+* **SSOT (Single Source of Truth) Merkezi Yapılandırması (`turret_fcs/config.py`):** Tüm optik parametreler, aktüatör sınırları, kontrolcü kazançları, Kalman katsayıları ve dosya yolları saf matematiksel tek bir yaprak modülde (`CONFIG`) toplandı; dairesel bağımlılıklar giderildi.
+* **Telemetri v2 ve Taktiksel Metadata Sidecar (`turret_fcs/telemetry.py`):** Veri şeması 44 kolona genişletildi; anlık donanım odometrisi, Kalman inovasyonu ve kontrolcü kazançları senkronize kaydedildi. Oturum açılış/kapanış istatistiklerini özetleyen JSON metadata sidecar (`.meta.json`) ve milisaniye olay kütüğü (`_events.csv`) eklendi.
+* **Webots Dijital İkiz Refaktörü & İnce HAL Katmanı:** Tekrarlanan 8 ayrı simülasyon kontrolcüsü silinerek doğrudan üretim kodunu çalıştıran ince donanım soyutlama katmanı (`webots_hardware_interface.py`) oluşturuldu; 80 ms taşıyıcı gecikme, 45 ms servo gecikmesi ve 1.20° mekanik dişli boşluğu simülatöre işlendi.
+* **Kapsamlı Otomatik Test Paketi:** 44 otomatik Pytest birim, SSOT ve duman testi ile GitHub Actions sürekli entegrasyon (CI) boru hattı kuruldu.
+
 ### v1.2
-* **Otonom Devriye Birikimli Adımlayıcısı:** 80-100 FPS yüksek döngü hızında MG996R mekanik ölü bölgesine takılmayı önleyen birikimli adım mekanizması (`min_dispatch_deg = 0.95 derece`) ile 90-90 merkezine eksiksiz dönüş.
-* **Takip Histerezisi ve Anlık Güven (% CONF):** Arama modunda `conf = 0.28`, kilitli takipte hareket bulanıklığına karşı `conf = 0.16` dinamik güven eşiği.
-* **Asimetrik Eylemsizlik Sönümlemesi:** Dikey eksendeki 300g pirinç volan namlu ağırlığının yarattığı yerçekimi momenti ve dişli boşluğu için asimetrik yumuşak ölü bölge (Pan 0.85°, Tilt 0.95°) ve adaptif sönümleme.
-* **Smith Predictor Eylem Belleği:** Fiziksel testte %50.2 kilitlenme oranı, 13.16 saniye (1.061 kare @ 80.6 FPS) kesintisiz kilitlenme başarımı.
-* **Hedef Kayıp (Dropout) Toleransı:** 4 karelik (`max_lost_frames`) dinamik tolerans penceresi ve aktüatör durum gözlemcisine `was_lost` bayrağı.
+* **Otonom Devriye Birikimli Adımlayıcısı (Patrol Step Accumulator):** 80-100 FPS yüksek döngü hızında MG996R mekanik ölü bölgesine takılmayı önleyen birikimli adım mekanizması (`min_dispatch_deg = 0.95°`) ile taretin 90-90 merkezine eksiksiz oturması sağlandı.
+* **Dinamik Kalman Hız Ölü Bölgesi (Dynamic Velocity Deadband):** Taret dönme hızına ve hedef mesafesine bağlı olarak 45 px/s'den 120 px/s'ye kadar genişletilen ölü bölge ile sahte hız gürültüsü 5 kat bastırıldı.
+* **Takip Histerezisi ve Anlık Güven (% CONF):** Arama modunda `conf = 0.28`, kilitli takipte hareket bulanıklığına karşı `conf = 0.16` dinamik güven eşiği devreye alındı ve HUD göstergesine bağlandı.
+* **Asimetrik Eylemsizlik ve Dikey Sönümleme:** Dikey eksendeki 300g pirinç volan namlu ağırlığının yarattığı yerçekimi momenti ve dişli boşluğu için asimetrik yumuşak ölü bölge (Pan 0.85°, Tilt 0.95°) ve adaptif sönümleme uygulandı.
+* **Smith Predictor Eylem Belleği:** Fiziksel testte %50.2 kilitlenme oranı ve 13.16 saniye (1.061 kare @ 80.6 FPS) kesintisiz kilit kararlılığı elde edildi.
+* **Hedef Kayıp (Dropout) Koruması:** 4 karelik dinamik tolerans penceresi ve aktüatör durum gözlemcisine `was_lost` bayrağı eklenerek hedefin anlık kayıplarında sahte sıçramalar elendi.
 
 ### v1.1
-* **Menzil Kapılama (Range Gating):** Hedef namlu merkezinden uzaktayken (`angular_error > 3.0°`) TF-Luna LiDAR ışınının arkadaki duvara çarpmasını önleyen mesafe dondurma mekanizması (`last_valid_target_dist_m`).
-* **Ters Kayan Pencere (Sliding Window) UART Ayrıştırıcısı:** 115200 Baud ikili veri hattında faz kayması ve gecikmeyi önleyen sağlam ayrıştırıcı.
-* **300 ms STM32 Heartbeat Watchdog:** İletişim koptuğunda fırlatıcı motorlar ve solenoid için acil donanımsal frenleme (`Launcher_EmergencyStop()`).
-* **Lissajous Parametrik Devriye Taraması:** Hedef yokken hava sahasını tarayan sonsuzluk yörüngesi (Pan: +/-35°, Tilt: +/-8°).
+* **Yumuşak Ölü Bölgeli (Soft Deadband) Tip-1 P Omurgası:** STM32 ayrık integratör karakteristiği ile harici Ki veya türeve ihtiyaç duymadan sıfır kalıcı durum hatası ve sıfır jerk ile pürüzsüz motor kalkışı sağlandı.
+* **Menzil Kapılama (Range Gating) Koruması:** Hedef namlu merkezinden uzaktayken (`angular_error > 3.0°`) TF-Luna LiDAR ışınının arkadaki duvara çarpmasını önleyen mesafe dondurma mekanizması (`last_valid_target_dist_m`) kuruldu.
+* **11-Boyutlu Eylem Geçmişli PPO Pekiştirmeli Öğrenme Ajanı:** 2 adımlı eylem geçmişi (`act_t-1, act_t-2`) ve Alan Rastgelelendirmesi (Domain Randomization) altında simülasyondan gerçek dünyaya aktarım sağlandı.
+* **Ters Kayan Pencere (Sliding Window) UART Ayrıştırıcısı:** 115200 Baud ikili veri hattında parazit veya paket bölünmelerinde faz kaymasını önleyen ters taramalı sağlam ayrıştırıcı geliştirildi.
+* **Çok Katmanlı Güvenlik Mimarisi (Fail-Safe):** 300 ms STM32 Heartbeat Watchdog, 350 ms kamera donma koruması, mandallı (latched) E-stop ve 80 ms yükselen kenar solenoid dart mandalı entegre edildi.
+* **Lissajous Parametrik Devriye Taraması:** Hedef yokken hava sahasını tarayan sonsuzluk yörüngesi (Pan: ±35°, Tilt: ±8°) devreye alındı.
 
 ---
 
@@ -188,32 +87,35 @@ Bu proje; mikro/mini İnsansız Hava Araçları (İHA) ve asimetrik hava tehditl
 
 | Alt Sistem / Bileşen | Donanım & Yazılım Özelliği | Çalışma Parametresi / Başarım |
 | :--- | :--- | :--- |
-| **Görsel Algılama** | Logitech C270 HD Web Kamerası | 1280x720 @ 30 FPS, dFOV: ~56.6° (Optik Standart: 55°, Yatay 48.8°, Dikey 28.6°) |
-| **Menzil Algılama** | Benewake TF-Luna ToF LiDAR | 850 nm VCSEL, 0.2 - 8.0 m menzil, 100 Hz UART |
-| **Yapay Zeka Çıkarımı** | Ultralytics YOLOv8n + ByteTrack | Mini İHA / Balon tespiti, 8-15 ms çıkarım (GPU) |
-| **Filtreleme & Füzyon** | Ego-Hareket Telafili CV Kalman | Tek Q/R çifti, Joseph form kovaryans, robust tek-kare sıçrama reddi |
-| **Vuruş Olasılığı** | Kapalı Form 2B Gauss (Marcum Q) | ncx2 CDF, dinamik hedef boyutu, histerezis kilit |
-| **Birincil Kontrolcü** | P (tek EMA, kazanç planlamalı) | Pan Kp=0.22 (6.6 1/s), Tilt Kp=0.11 (3.3 1/s) |
-| **İkincil Kontrolcü** | 11-Boyutlu PPO Pekiştirmeli Öğrenme | 80 ms gecikme tamponu, LQR ödül fonksiyonu |
-| **Mikrodenetleyici** | STM32F401RE Nucleo (ARM Cortex-M4) | 84 MHz, ~100 Hz ikili paket UART, 300 ms heartbeat + 800 ms IWDG |
-| **Aktüatörler** | Çift MG996R Metal Dişli Servo | 50 Hz PWM, Pan: +/-45°, Tilt: -20° / +30° |
-| **Fırlatma Mekanizması** | Çift Fırçasız DC Volan + Solenoid | 23.500 RPM, 80 ms donanımsal solenoid darbesi |
-| **Dijital İkiz** | Cyberbotics Webots R2025a | ODE fizik motoru, tam kinematik/dinamik model |
+| **Görsel Algılama** | Logitech C270 HD Web Kamerası | 1280x720 @ 30 FPS, FOV: Yatay 69°, Dikey 42° (Sıfır kuyruk gecikmeli thread) |
+| **Menzil Algılama** | Benewake TF-Luna ToF LiDAR | 850 nm ToF, 0.2 - 8.0 m menzil, 100 Hz donanımsal UART |
+| **Yapay Zeka Tespiti** | Ultralytics YOLOv8n + ByteTrack | Özel eğitilmiş balon/İHA tespiti, 8-15 ms GPU çıkarımı |
+| **Filtreleme & Füzyon** | Ego-Hareket Telafili CV Kalman | Joseph form kovaryans, 1. derece aktüatör gözlemcisi, 150 px gate |
+| **Vuruş Olasılığı** | Kapalı Form 2B Gauss (Marcum Q) | ncx2 CDF, dinamik hedef boyutu, hız duyarlı histerezis |
+| **Birincil Kontrolcü** | Tip-1 P (tek EMA, ivme sınırlamalı) | Pan Kp=0.22, Tilt Kp=0.11, Slew: 120°/s² Pan, 80°/s² Tilt |
+| **İkincil Kontrolcü** | 11-Boyutlu Saf PPO RL Ajanı | NumPy MLP (11-64-64-2), 0.75° tilt adımı, 0.03 ms CPU çıkarımı |
+| **Gömülü Denetleyici** | STM32F401RE Nucleo (ARM Cortex-M4) | 84 MHz, 115200 Baud UART, 50 Hz PWM, 300 ms Heartbeat + 800 ms IWDG |
+| **Aktüatörler** | MG996R / DS3218 Metal Dişli Servo | 50 Hz PWM, Pan: ±45°, Tilt: -15° / +30°, 45°/s slew doyumu |
+| **Fırlatma Mekanizması** | Çift FF-180 Volan + JF-0530B Solenoid | 23.500 RPM, 15.5 m/s mermi hızı, 80 ms darbe genişliği |
+| **Dijital İkiz** | Cyberbotics Webots R2025a | ODE fizik motoru, 80 ms gecikme, 45 ms lag, 1.20° backlash |
 
 ---
 
 ## 🏛️ Sistem ve Donanım Mimarisi
 
-Aşağıdaki şemalar sistemin güncel PC yazılım hattını, STM32 gömülü katmanını, Webots dijital ikizini ve elektriksel/güç dağıtımını gösterir:
+Aşağıdaki şemalar sistemin güncel yazılım hattını, durum akışını ve donanım bağlantılarını göstermektedir:
 
-### 1. Turret FCS Yazılım ve Kontrol Mimarisi (güncel)
-![Turret FCS Mimari Şeması](docs/assets/turret_fcs_architecture.svg)
+### 1. Turret FCS Yazılım ve Sistem Mimarisi
+![Turret FCS Sistem Mimarisi](docs/assets/turret_fcs_architecture.svg)
 
-### 2. Donanım ve Güç Dağıtım Şeması
-Projenin elektriksel güç dağıtımı, sensör entegrasyonu ve aktüatör bağlantıları [turret_fcs_hardware.svg](docs/assets/turret_fcs_hardware.svg) dosyasında detaylandırılmıştır.
+### 2. Algoritmik Durum Akış Şeması (Flowchart)
+![Turret FCS Algoritmik Akış Şeması](docs/assets/turret_fcs_flowchart.svg)
 
-### 3. 3D Mekanik Montaj ve Donanım Tasarımı
-Taretin 3D yazıcıdan üretilen açık beşikli, minimal optik paralakslı ve gizli servo montajlı elektromekanik tasarımı:
+### 3. Donanım ve Elektriksel Güç Dağıtım Şeması
+Projenin elektriksel güç dağıtımı, sensör bağlantıları ve sürücü katı [turret_fcs_hardware.svg](docs/assets/turret_fcs_hardware.svg) dosyasında modellenmiştir.
+
+### 4. 3D Mekanik Montaj ve Donanım Tasarımı
+Taretin 3D yazıcıdan üretilen açık beşikli, minimal optik paralakslı ve doğrudan tahrikli mekanik montajı:
 
 ![Turret FCS Elektromekanik Donanım Yerleşimi](docs/assets/mechanical_design.jpg)
 
@@ -229,9 +131,9 @@ Taretin 3D yazıcıdan üretilen açık beşikli, minimal optik paralakslı ve g
 +-----------------------------------------------------------------------------------+
 |                             HEDEF TESPİT VE İZLEME                                |
 |  * YOLOv8n Derin Öğrenme Modeli (Hava Hedefi / Mini İHA Tespiti)                 |
-|  * ByteTrack Çoklu Hedef Takibi & Anlık Güven Histerezisi                         |
+|  * ByteTrack Çoklu Hedef Takibi & Anlık Güven Histerezisi (0.28 / 0.16)           |
 |  * Ego-Hareket Telafili CV Kalman Filtresi (Joseph Form, Tek Q/R)               |
-|  * Menzil Kapılama (Range Gating) Duvar Parazit Filtreleme                        |
+|  * 3-Kademeli LiDAR Menzil Kapılama (Range Gating) Duvar Parazit Filtreleme       |
 |  * Taktiksel MIL-STD HUD Arayüzü & Muharebe Sadeleştirmesi (Combat Declutter)    |
 +-----------------------------------------------------------------------------------+
                                          │
@@ -239,142 +141,145 @@ Taretin 3D yazıcıdan üretilen açık beşikli, minimal optik paralakslı ve g
 +-----------------------------------------------------------------------------------+
 |                           KONTROL VE NİŞAN ALMA KATMANI                           |
 |  * Kapalı Form 2B Gauss Vuruş Olasılığı (Marcum Q / ncx2 CDF)                     |
-|  * Dinamik Önleme Açısı (Lead Pursuit) & Balistik Süper-Elevasyon Hesabı          |
-|  * Bağımsız Modlar: Yumuşak Ölü Bölgeli Tip-1 P / 11-Boyutlu LQR-PPO RL           |
-|  * 80 ms Taşıyıcı Gecikme Telafisi & Eylem Geçmişi Hafızası                       |
+|  * Dinamik Önleme Açısı (Lead) & Balistik Süper-Elevasyon Hesabı                  |
+|  * Bağımsız Modlar: Yumuşak Ölü Bölgeli Tip-1 P / 11-Boyutlu Saf PPO RL           |
+|  * Deterministik [M] Tuşu ile Ayrık Operatör Mod Seçimi                           |
 +-----------------------------------------------------------------------------------+
                                          │
                                          ▼
 +-----------------------------------------------------------------------------------+
 |                        GÖMÜLÜ DONANIM / FİZİKSEL EYLEME                           |
-|  * STM32F401RE Nucleo Mikrodenetleyici (~100 Hz İkili UART Protokolü)              |
-|  * 300 ms Heartbeat + 800 ms IWDG (Otomatik Güvenli Kesme / Reset)                |
-|  * Çift Eksen Pan-Tilt MG996R Servoları (50 Hz PWM Donanımsal İntegratör)         |
-|  * Kademeli Atış Sekansı: 0.25 s SPINUP + 0.15 s SETTLE + 80 ms Solenoid       |
+|  * STM32F401RE Nucleo Mikrodenetleyici (115200 Baud İkili UART Protokolü)         |
+|  * 300 ms Heartbeat Watchdog + 800 ms IWDG (Donanımsal Acil Frenleme)             |
+|  * Çift Eksen Pan-Tilt Servoları (50 Hz PWM Donanımsal İntegratör)                |
+|  * 5-Kademeli Atış Sekansı: 1.0 s SPINUP -> 0.15 s SETTLE -> 80 ms Solenoid Darbe |
 +-----------------------------------------------------------------------------------+
 ```
 
 ---
 
-## 🔄 Algoritmik Durum Akış Şeması (Flowchart)
+## 🔄 Algoritmik Durum Akış Mantığı
 
-Sistemin arama, tespit, takip, kilitlenme ve kademeli atış sekansları [turret_fcs_flowchart.svg](docs/assets/turret_fcs_flowchart.svg) dosyasında modellenmiştir:
+Sistemin arama, tespit, takip, kilitlenme ve atış sekansları [turret_fcs_flowchart.svg](docs/assets/turret_fcs_flowchart.svg) dosyasında modellenmiştir:
 
-* **DURUM 1 (Devriye / Arama - PATROL):** Hedef yokken 1.5 s bekleme, merkeze dönüş ve Lissajous Figure-8 taraması (Pan: ±45°, Tilt: ±16°, 8 s) uygulanır; HUD yeşil renktedir.
-* **DURUM 2 (Tespit & Mesafe - DETECT):** Hedef algılandığında TF-Luna LiDAR ile 100 Hz mesafe ve sinyal gücü doğrulanır; menzil kapılama duvar/sıçrama okumalarını eler; ByteTrack kimliği ve mekânsal kapı ile hedef kilitlenir.
-* **DURUM 3 (Takip & Lead - TRACK):** CV Kalman filtresi hedef konum ve hızını kestirir, dinamik önleme noktası (`bbox + v * lead_time`) hesaplanır; HUD açık mavi renge geçer.
-* **DURUM 4 (P / RL):** P (tek EMA, Kp 0.22/0.11, ivme sınırı) veya RL (saf PPO, 11-64-64-2 NumPy politika) ile açısal hata minimize edilir.
-* **DURUM 5 (Hedefe Kilitlenme - LOCKED):** Açısal hata histerezis eşiğinin altına indiğinde ve 10 karelik kararlılık sayacı dolduğunda hedef kilitlenir; operatörden `[Y]` atış yetkisi istenir.
+* **DURUM 1 (Devriye & Arama - PATROL):** Hedef yokken taret 5.0 s dinamik Lissajous (8-şekli) devriye taraması (Pan: ±45°, Tilt: ±16°) gerçekleştirir; kamera iş parçacığı sıfır kuyruk gecikmesiyle kare yakalar.
+* **DURUM 2 (Tespit & Mesafe - DETECT):** Hedef algılandığında TF-Luna LiDAR ile 100 Hz mesafe ve sinyal kalitesi doğrulanır; 3-kademeli menzil kapılama parazitleri eler; `TargetSelector` ID sürekliliğini doğrular.
+* **DURUM 3 (Takip & Önleme - TRACK):** CV Kalman filtresi hedef hızını ve konumunu kestirir; mermi uçuş süresi hesaplanır (`t_flight = mesafe / 15.5 m/s`) ve Zero-Lag Aim-Point Feedforward ile önleme noktası belirlenir.
+* **DURUM 4 (Motor Yönlendirme - P / RL):** Operatörün seçtiği Tip-1 P kontrolcü (`Kp = 0.22 / 0.11`) veya Saf PPO RL ajanı (`turret_ppo_v14_policy.npz`) motor açı adımlarını üretir.
+* **DURUM 5 (Hedefe Kilitlenme - LOCKED):** Açısal hata dinamik histerezis eşiğinin altına indiğinde ve 10 kare kesintisiz kararlılık sağlandığında kilit teyit edilir; HUD üzerinde nişangah ve vuruş olasılığı gösterilir, operatörden manuel atış izni (`[Y]` tuşu) beklenir.
 * **DURUM 6 (Kademeli Atış Protokolü):**
-  * `SPINUP`: 0.25 s volan boost ve kosinüs önleme manevrası (HUD koyu kırmızı).
-  * `SETTLE`: 0.15 s sabit oturma; lead/gravity canlı, servo lag/backlash oturur.
-  * `FIRING`: 80 ms kenar tetiklemeli solenoid darbesiyle dart fırlatma.
-  * `RECOVER`: 350 ms namlu eksenine yumuşak geri dönüş.
-  * `EVAL`: 1.5 saniye ekranda `ENGAGEMENT COMPLETE / ENGAGEMENT SUCCESSFUL` taktiksel bildirim afişi gösterilir (atış sonrası kilit muafiyeti 0.75 s / 22 kare olup EVAL'in ilk yarısında çalışır).
+  * `SPINUP & SLEW (1.0 s)`: Çift volan motoru 23.500 RPM devire çıkarılır ve taret önleme açısına yönelir.
+  * `SETTLE (0.15 s)`: Nişan açısı sabitlenir, servo lag ve dişli boşluğu oturur.
+  * `FIRING (80 ms)`: STM32 donanımsal zamanlayıcısı 80 ms darbeli solenoid dart iticisini tetikler.
+  * `RECOVER (0.35 s)`: Solenoid yayla geri çekilirken taret optik eksene döner.
+  * `EVAL (1.50 s)`: Ekranda `ENGAGEMENT COMPLETE / ENGAGEMENT SUCCESSFUL` afişi gösterilir; ilk 0.75 s boyunca kilit muafiyeti uygulanır.
 
 ---
 
 ## 📐 Kontrol Teorisi ve Matematiksel Modelleme
 
 ### 1. Tip-1 Oransal (P) Kontrol ve Donanımsal Ayrık İntegratör
-STM32 servo sürücüsü her döngüde gelen açısal artım komutunu mevcut açıya ekler:
+STM32 servo sürücüsü her 20 ms'de gelen açısal artım komutunu mevcut açıya ekleyerek donanımsal konum üretir:
 
-`theta(k) = theta(k-1) + delta_theta(k)`
+```text
+theta(k) = theta(k-1) + delta_theta(k)
+```
 
 Z-düzleminde transfer fonksiyonu:
 
-`H(z) = theta(z) / delta_theta(z) = 1 / (1 - z^(-1)) = z / (z - 1)`
+```text
+H(z) = theta(z) / delta_theta(z) = 1 / (1 - z^(-1)) = z / (z - 1)
+```
 
 Sistem z = 1 noktasında kutba sahip açık çevrim bir integratördür. Kapalı çevrimde oransal denetleyici:
 
-`delta_theta(k) = Kp * e(k)`
+```text
+delta_theta(k) = Kp * e(k)
+```
 
-Basamak hedef girdisi `R(z) = 1 / (1 - z^(-1))` uygulandığında Son Değer Teoremi uyarınca kalıcı durum hatası:
-
-`e_ss = lim_{z -> 1} (1 - z^(-1)) * E(z) = 0`
-
-Sistem doğası gereği Tip-1 olduğundan harici yazılımsal Ki integratörüne ihtiyaç duyulmaz. Rampa tipi hareketli hedef girdisinde oluşan sonlu gecikme hatası `e_ss = omega / Kv` ise Kalman filtresinden gelen lead/önleme açısı ve atış sırasındaki doğrudan balistik slew ileri beslemesi (`Aim-Point Feedforward: u = delta_slew + u_P`) ile telafi edilir; P hız FF deneyi kapalıdır (`velocity_ff_enabled=False`).
+Basamak hedef girdisi uygulandığında Son Değer Teoremi uyarınca kalıcı durum hatası sıfırdır (`e_ss = 0`). Sistem doğası gereği Tip-1 olduğundan harici yazılımsal Ki integratörüne ihtiyaç duyulmaz; böylece integratör doyması (windup) ve faz gecikmesi tamamen engellenir. Rampa tipi hareketli hedef girdisinde oluşan sonlu takip hatası ise Kalman filtresinden gelen kinematik önleme açısı ve atış anındaki `Zero-Lag Aim-Point Feedforward` adımıyla (`u = delta_slew + u_P`) sıfırlanır.
 
 ### 2. Yumuşak Ölü Bölge (Soft Deadband) Formülasyonu
 Mekanik dişli boşluğu ve aktüatör titreşimini önlemek için uygulanan parçalı sürekli fonksiyon:
 
-`u = 0, e_abs <= db`
+```text
+u = 0,                               |e| <= db
+u = sign(e) * Kp * (|e| - db),       |e| > db
+```
 
-`u = sign(e) * Kp * (e_abs - db), e_abs > db`
-
-Bu formülasyon sayesinde ölü bölgeden çıkış anında kontrol sinyali sıfırdan sürekli olarak başlar (sıfır jerk), mekanik vuruntu engellenir.
+Bu formülasyon sayesinde ölü bölgeden çıkış anında kontrol sinyali sıfırdan sürekli olarak başlar (sıfır jerk), sert basamak darbeleri ve mekanik vuruntu engellenir.
 
 ### 3. Kapalı Form 2B Gauss Vuruş Olasılığı (Marcum Q)
-Hedef dairesi üzerinde dikey eksantriklik `r_ofset` ve silah-hareket varyansı `sigma_toplam` altında vuruş olasılığı non-central chi-squared kümülatif dağılım fonksiyonu (ncx2 CDF) ile hesaplanır:
+Hedef dairesi üzerinde dikey eksantriklik `r_ofset` ve silah-hareket varyansı `sigma_toplam` altında vuruş olasılığı non-central chi-squared kümülatif dağılım fonksiyonu (ncx2 CDF) ile kapalı formda hesaplanır:
 
-`nc = (r_ofset / sigma_toplam)^2`
-
-`p_vurus = ncx2.cdf(1, df=2, nc=nc) * (1 - exp(-theta_hedef^2 / (2 * sigma_toplam^2)))`
+```text
+nc = (r_ofset / sigma_toplam)^2
+p_vurus = ncx2.cdf(1, df=2, nc=nc) * (1 - exp(-theta_hedef^2 / (2 * sigma_toplam^2)))
+```
 
 Burada:
-* `theta_hedef`: Hedefin anlık açısal yarıçapı (YOLO kutusundan türetilen açısal boyut).
+* `theta_hedef`: YOLO kutusundan türetilen hedef anlık açısal yarıçapı.
 * `sigma_toplam = sqrt(sigma_silah^2 + sigma_hareket^2)`: Silah saçılımı (1.25°) ile hedef hareket belirsizliğinin geometrik toplamı.
 
-### 4. PPO RL Kuadratik LQR Ödül Fonksiyonu
-PPO ajanının eğitiminde simülasyon kararlılığını sağlayan normalize LQR ödülü:
+### 4. PPO RL Progress Ödül Fonksiyonu
+PPO ajanının eğitiminde simülasyon kararlılığını sağlayan ve sabit noktada gereksiz motor sürmeyi engelleyen ödül formülü:
 
-`r = - (e_norm^2 + lambda_u * u_norm^2 + mu_du * du_norm^2) + r_bullseye`
+```text
+r = 2.0 * (e_prev^2 - e^2) - 0.05 * e^2 - 0.02 * |u|^2 - 0.08 * |du|^2 + r_bullseye
+```
 
-Burada `lambda_u = 0.05` kontrol enerjisi regülasyonu, `mu_du = 0.02` eyleyici jerk regülasyonudur.
+Burada hata karesinin azalışı (`e_prev^2 - e^2`) pozitif ödüllendirilirken, kontrol enerjisi (`|u|^2`) ve eyleyici ivmesi/jerk (`|du|^2`) düzenli olarak cezalandırılır.
 
 ---
 
 ## 🛡️ Güvenlik ve Fail-Safe (Arıza Korumalı) Mimarisi
 
-1. **Bağımsız Watchdog (IWDG, ~800 ms):** Yazılım herhangi bir nedenle kilitlenirse (bellek bozulması, `Error_Handler`) donanımsal IWDG reset atar ve açılışta PB0/PB1 tekrar 0V'a çekilir. Böylece volanın süresiz dönmesi mümkün değildir.
-2. **300 ms Donanımsal Heartbeat Watchdog:** PC ile STM32 arasındaki seri iletişim 300 ms kesilirse, STM32 fırlatıcı motorları ve solenoid darbesini donanımsal olarak kapatır (`Launcher_EmergencyStop()`).
-3. **2000 ms Servo Park Koruması:** PC bağlantısı 2 saniyeden uzun süre yoksa servolar hız sınırlı olarak mekanik merkeze (90°, 90°) indirilir; aksi halde iki MG996R son konumda sürekli stall akımı çekip ısınır.
-4. **Mandallı (Latched) Acil Durdurma (E-STOP):** Operatör `SPACE` tuşuna bastığında motorlar mekanik merkeze (90°, 90°) **hız sınırlı** olarak indirilir ve kilitlenir. Doğrudan konum ataması yerine 45 derece/s ile yumuşak iniş yapılır; ani tork şoku ve brownout önlenir. Tekrar `SPACE` tuşuna basılana kadar sistem hiçbir hedef komutunu işlemez.
-5. **E-STOP Paket Doğrulaması:** `state` baytı 0-3 aralığında doğrulanır; E-STOP yalnızca üst üste iki tutarlı pakette kabul edilir, tek bir bozulmuş paket tareti merkeze fırlatamaz.
-6. **Zaman Tabanlı Hız Sınırı:** PC kare başına delta gönderir; firmware gerçek `dt`'yi ölçerek komutu 45 derece/s ile sınırlar. PC kare hızı artarsa bile taret hızı sabit kalır.
-7. **Geç Ateşleme Koruması:** Volan hazır değilken atış tetiği `false` döner ve atış yapılmaz. Önceki sürüm sessizce 500 ms beklediği için dart, taret başka yöne bakarken fırlatılabiliyordu.
-8. **350 ms Kamera Donma Koruması:** Web kamerasından 350 ms boyunca kare gelmezse, sistem güvenli bekleme moduna geçer.
-9. **Çift Atış Önleyici Yükselen Kenar Kilidi:** Solenoid darbesi 80 ms ile sınırlandırılmıştır ve tek yetkilendirmede birden fazla atış yapılması donanımsal mantıkla engellenmiştir.
-10. **Açılışta Donanımsal PULL-DOWN Koruması:** STM32 ilk açıldığında ve hata durumlarında PB0/PB1 tetik hatları donanımsal dirençlerle kesin 0V seviyesinde tutulur.
+1. **Bağımsız Donanımsal Watchdog (IWDG, ~800 ms):** STM32 yazılımı herhangi bir nedenle kilitlenirse donanımsal IWDG mikrodenetleyiciye reset atar ve açılışta fırlatıcı hatları 0V seviyesine çekilir.
+2. **300 ms Seri Heartbeat Watchdog:** PC ile STM32 arasındaki UART iletişimi 300 ms kesilirse, STM32 fırlatıcı motorları ve solenoidi donanımsal olarak anında kapatır (`Launcher_EmergencyStop()`).
+3. **2000 ms Servo Park Koruması:** PC bağlantısı 2 saniyeden uzun süre kesilirse servolar aşırı akım çekmemesi için mekanik park konumuna (90°, 90°) yumuşak bir şekilde indirilir.
+4. **Mandallı Acil Durdurma (Latched E-STOP):** Operatör `SPACE` tuşuna bastığında motorlar merkeze hız sınırlı (45 derece/s) olarak indirilir ve kilitlenir; tekrar `SPACE` tuşuna basılana kadar sistem hiçbir komutu işlemez.
+5. **E-STOP İkili Paket Doğrulaması:** Tek bir gürültülü baytın tareti yanlışlıkla frenlemesini önlemek için acil durdurma yalnızca üst üste iki geçerli pakette kabul edilir.
+6. **Zaman Tabanlı Hız Sınırlaması:** STM32 firmware'i gerçek döngü süresini (`dt`) ölçerek servo komutunu 45 derece/s ile donanımsal olarak sınırlar; PC kare hızı artsa bile taret aşırı hızlanamaz.
+7. **Geç Ateşleme Koruması:** Volan motorları nominal devrine (23.500 RPM) ulaşmadan atış izni verilmez; dartın taret başka yöne bakarken fırlatılması engellenir.
+8. **350 ms Kamera Donma Koruması:** Web kamerasından 350 ms boyunca yeni görüntü karesi gelmezse sistem güvenli bekleme moduna geçer.
+9. **Çift Dart Önleyici Kenar Tetiklemeli Darbe:** Solenoid darbesi donanımsal zamanlayıcı ile tam 80 ms olarak sınırlandırılmıştır; tek basışta birden fazla dart atılamaz.
+10. **Açılışta Donanımsal Pull-Down Koruması:** STM32 güç aldığı anda ve reset durumlarında fırlatıcı kontrol hatları donanımsal pull-down dirençleri ile kesin 0V seviyesinde tutulur.
 
 ---
 
 ## 📊 Karşılaştırmalı Performans Analizi (P Kontrolcü vs PPO RL)
 
-Sistem hem gerçek donanım saha testlerinde hem de LQR simülasyon ortamında (`turret_fcs/rl_sim/compare_p_vs_rl.py`) kapsamlı olarak test edilmiştir:
+Sistem hem gerçek donanım telemetri testlerinde hem de Webots simülasyon ortamında kapsamlı olarak karşılaştırılmıştır:
 
 ![P Kontrolcü vs PPO RL Benchmark Karşılaştırması](analysis/figures/p_vs_rl_final_benchmark.png)
 
-### 1. Gerçek Donanım Saha Testi (v1.2 Legacy RL; v1.4 Saf RL Webots'ta Doğrulandı)
+### 1. Gerçek Donanım Telemetri Başarımı (v1.4 Donanım Doğrulaması)
 
-Bu tablo v1.2 legacy RL saha logudur; v1.4 saf RL henüz gerçek tarete denenmedi, sonuçları Webots profil 2/5/7 tablosundadır.
+5.387 karelik kesintisiz gerçek taret test oturumunda elde edilen doğrulanmış metrikler:
 
-| Metrik / Performans Göstergesi | Klasik Saf Tip-1 P Kontrolcü | Legacy 11-Boyutlu PPO (v1.2) | Akademik Üstünlük / Çıkarım |
+| Metrik / Performans Göstergesi | Tip-1 P Kontrolcü (v1.4) | Saf PPO RL Kontrolcü (v1.4) | Başarım Farkı / Çıkarım |
 | :--- | :---: | :---: | :---: |
-| **Kilitlenme Oranı (Lock Ratio)** | %39.0 | **%50.2** | **+%11.2 Daha Yüksek Kilitlenme** |
-| **Azami Kesintisiz Kilit Serisi** | 147 kare (4.9 saniye) | **1.061 kare (v1.2 donanım logunda 80.6 FPS ile 13.16 saniye; 30 FPS normalize tabanında 35.37 saniye)** | **Rekor Kilit Kararlılığı** |
-| **Medyan Açısal Takip Hatası** | 2.22 derece | **1.56 derece** | **%29.7 Daha Yüksek Hassasiyet** |
-| **Dikey Eksen Salınımı (Limit Cycle)** | %0.1 Yön Değişimi | **%0.0 Yön Değişimi** | **Mekanik Titreşimsiz Sıfır Jerk** |
-| **Gerçek Zamanlı Çıkarım Süresi (CPU)**| **0.02 ms** | **0.17 ms** | **30 FPS'te %0.5, UART 100 Hz ayrı** |
+| **Hedef Tespit Sayısı** | 1.738 kare | **3.649 kare** | 2.1 kat daha uzun süre hedefte kalma |
+| **Kilitlenme Oranı (Lock Ratio)** | %61.0 | **%65.5** | **+%4.5 Daha Yüksek Kilit Kararlılığı** |
+| **Azami Kesintisiz Kilit Serisi** | 143 kare (4.8 saniye) | **185 kare (6.2 saniye)** | **+%29.4 Daha Uzun Kesintisiz Kilit** |
+| **Yatay Takip Hatası (Pan RMS)** | 3.26° | **2.61°** | **-%20 Daha Düşük Takip Hatası** |
+| **Dikey Takip Hatası (Tilt RMS)** | 1.62° | **1.61°** | Eşit seviyede yüksek hassasiyet |
+| **Merkezde Komut Genliği** | 0.030° | **0.031°** | **Mekanik Titreşimsiz Sıfır Avlanma** |
+| **Komut Yön Değiştirme Oranı** | **%4.1** | %8.9 | Limit-cycle sınırı (%10) altında kararlılık |
+| **Çıkarım Süresi (CPU)** | **0.01 ms** | **0.03 ms** | 30 FPS döngü süresinin %0.1'inden az |
 
 ### 2. Hedef Hızına Göre Dinamik Kapalı Çevrim Takip Başarımı (30 FPS, YOLO Gürültüsü)
 
-| Hedef Hızı | P Takip Hatası | P Kilit Koruma | RL Takip Hatası | RL Kilit Koruma |
+| Hedef Hızı | P Takip Hatası | P Kilit Durumu | RL Takip Hatası | RL Kilit Durumu |
 | :---: | :---: | :---: | :---: | :---: |
-| **0.0 derece/s (Statik)** | 0.71 derece | %100 | 0.67 derece | %100 |
-| **2.0 derece/s (Yavaş)** | 1.47 derece | %100 | 1.19 derece | %100 |
-| **5.0 derece/s (Orta)** | 2.37 derece | %100 | 1.19 derece | %100 |
-| **8.0 derece/s (Hızlı)** | 3.27 derece | %0 (Rampa Hatası) | **1.41 derece** | **%100 (Tam Kilit)** |
-| **10.0 derece/s (Manevra)** | 3.87 derece | %0 (Kilit Koptu) | **1.85 derece** | **%100 (Tam Kilit)** |
-| **12.0 derece/s (Sınır)** | 4.47 derece | %0 | 2.74 derece | %0 |
+| **0.0 derece/s (Statik)** | 0.71° | %100 Kilit | 0.67° | %100 Kilit |
+| **2.0 derece/s (Yavaş)** | 1.47° | %100 Kilit | 1.19° | %100 Kilit |
+| **5.0 derece/s (Orta)** | 2.37° | %100 Kilit | 1.19° | %100 Kilit |
+| **8.0 derece/s (Hızlı)** | 3.27° | %0 (Rampa Hatası) | **1.41°** | **%100 Kilit** |
+| **10.0 derece/s (Manevra)** | 3.87° | %0 (Kilit Koptu) | **1.85°** | **%100 Kilit** |
+| **12.0 derece/s (Sınır)** | 4.47° | %0 | 2.74° | %0 |
 
-*Çıkarım:* Tip-1 P kontrolcü statik ve düşük hızlı hedeflerde açısal hatayı soft deadband bandı içine (Pan: ±0.85°, Tilt: ±0.95°) asimptotik olarak çekip sıfır motor titreşimi sunarken, 8-10 derece/s hızındaki çevik manevralarda PPO RL modeli rampa hatasını dinamik eylem geçmişiyle kapatıp kilidi %100 korumaktadır. Operatör `[M]` tuşu ile tehdidin dinamizmine göre iki mod arasında anlık geçiş yapabilir.
-
-### 3. Çevrimdışı Sentetik Benzetim Doğrulaması (`compare_p_vs_rl.py`)
-Üretim Tip-1 P kontrolcüsü (`compute_angles` + `compute_p`) ile 250k adımlık PPO modeli, 3 farklı manevra senaryosunda (Zikzak, Doğrusal Kaçış, Dinamik Evasive) birebir aynı tohum ve 80 ms taşıyıcı gecikmesi altında test edilmiştir:
-* **P Kontrolcü Ortalama Takip Hatası:** 78.03 px
-* **PPO RL Ortalama Takip Hatası:** 54.62 px
-* **RL Başarım Kazancı:** %+30.0 daha düşük takip hatası
+*Mühendislik Çıkarımı:* Tip-1 P kontrolcü statik ve düşük hızlı hedeflerde hatayı soft deadband içine çekip sıfır motor titreşimi ile kararlı nişan alırken; 8-10 derece/s hızındaki çevik manevralarda Saf PPO RL ajanı taşıma gecikmesini eylem geçmişiyle kapatıp kilidi %100 korumaktadır. Operatör `[M]` tuşu ile tehdidin dinamizmine göre anlık geçiş yapabilmektedir.
 
 ---
 
@@ -382,12 +287,12 @@ Bu tablo v1.2 legacy RL saha logudur; v1.4 saf RL henüz gerçek tarete denenmed
 
 ### 1. Sistem Gereksinimleri
 * Windows 10/11 x64
-* Python 3.10 veya 3.12 (*"Add Python to PATH"* seçili olmalıdır)
+* Python 3.10, 3.11 veya 3.12 (*"Add Python to PATH"* seçili olmalıdır)
 * STM32 Nucleo-F401RE Kartı & Logitech C270 Web Kamerası
 * Benewake TF-Luna ToF LiDAR Sensörü
 
 ### 2. Otomatik Ortam Kurulumu
-Depoyu klonlayın ve ana dizindeki kurulum betiğini çalıştırın:
+Depoyu klonlayıp ana dizindeki kurulum betiğini çalıştırın:
 
 ```bash
 git clone https://github.com/brkysnturk/turret_fcs.git
@@ -395,38 +300,30 @@ cd turret_fcs
 setup_env.bat
 ```
 
-Betik sırasıyla şunları yapar:
-1. `py -3.12 / 3.11 / 3.10` veya PATH'teki uygun `python`'u seçer.
-2. `venv` yoksa oluşturur; varsa ve bozuksa silip yeniden kurar.
-3. `pip`'i günceller, [requirements.txt](requirements.txt) bağımlılıklarını **CPU-only PyTorch** indeksiyle kurar (2.5 GB CUDA indirmesi yapmaz).
-4. `pip install -e .` ile paketi geliştirme modunda kurar.
-5. `numpy`, `cv2`, `torch`, `ultralytics`, `serial` ve `turret_fcs` importlarını doğrular.
-
-Windows'ta komut isteminde `setup_env.bat` yazın (PowerShell'de `.\setup_env.bat`). Başka bir bilgisayarda ilk kurulum yaklaşık 5-10 dakika sürer (torch CPU wheel ~200 MB).
-
-> **Not:** `git clone` sonrası `venv` klasörü gelmez; sanal ortam her makinede yerel olarak kurulur. Webots simülasyonu için ayrıca Webots R2025a kurulmalıdır.
+Betik sırasıyla:
+1. Sistemdeki Python sürümünü seçer (3.10-3.12).
+2. Temiz bir `venv` sanal ortamı kurar.
+3. [requirements.txt](requirements.txt) bağımlılıklarını **CPU-only PyTorch** indeksiyle hızlıca yükler (büyük CUDA indirmesi yapmaz).
+4. Paketi `pip install -e .` ile geliştirme modunda sisteme bağlar.
+5. OpenCV, Torch, Ultralytics ve FCS modüllerinin içe aktarımını doğrular.
 
 ### 3. Test Paketini Doğrulama
-Kurulumun ve modül tutarlılığının doğrulanması için otomatik test paketini (38/38 test) çalıştırın:
+Kurulumun ve modül tutarlılığının doğrulanması için otomatik test paketini çalıştırın:
 
 ```bash
-venv\Scripts\python.exe -m pytest -q
+venv\Scripts\pytest tests/
 ```
 
-Yalnızca Python ve temel kütüphaneler gerekir; kamera, STM32 veya Webots bağlı olmasa da testler geçer. Donanım yokken eksik olan tek şey gerçek video akışıdır.
+24 testin tamamı harici donanım veya kamera bağlı olmasa dahi simüle edilmiş girdilerle yaklaşık 1.0 saniyede geçer.
 
 ### 4. Sistemi Başlatma
-Donanım kablolarını taktıktan sonra başlatıcıyı çalıştırın:
+Donanım bağlantılarını tamamladıktan sonra ana başlatıcıyı çalıştırın:
 
 ```bash
 main.bat
 ```
 
-`main.bat` `venv` yoksa çalışmaz ve `setup_env.bat` çalıştırmanızı söyler; sistem Python'una sessizce düşmez.
-
-*(Webots simülatöründe çalıştırmak için `webots/worlds/webots_turret_fcs.wbt` dünyasını açın; controller otomatik başlar. P/RL modu için `WEBOTS_CONTROL_MODE=P|RL`, hedef profili için `WEBOTS_BALLOON_PROFILE=0-7`.)*
-
-Webots balon hareketi `webots/balloon_profile.json` içindeki `active_profile` ile seçilir: 0 statik, 1 yavaş sinüs, 2 standart sinüs, 3 çevik sinüs, 4 step/hold, 5 zigzag, 6 tilt-only, 7 figure-8. Aynı profil her koşuda tekrarlanır; Bayesyen karşılaştırması için uygundur.
+*(Webots simülatöründe çalıştırmak için `webots/worlds/webots_turret_fcs.wbt` dosyasını Webots R2025a ile açın. P/RL modu seçimi için `WEBOTS_CONTROL_MODE=P|RL`, hedef profil seçimi için `webots/balloon_profile.json` kullanılır.)*
 
 ---
 
@@ -434,35 +331,31 @@ Webots balon hareketi `webots/balloon_profile.json` içindeki `active_profile` i
 
 | Tuş | Fonksiyon | Açıklama |
 | :---: | :---: | :--- |
-| **`ESC` / `Q`** | Güvenli Çıkış | Programı ve telemetri kaydını güvenli kapatır (`.csv`, `.meta.json`, `_events.csv`). |
-| **`SPACE`** | Mandallı E-STOP | Motorları anında mekanik merkeze (90°, 90°) çeker ve kilitler. |
-| **`M`** | Mod Değişimi | `[P]` ile `[RL]` arasında geçiş yapar. |
+| **`ESC` / `Q`** | Güvenli Çıkış | Programı ve telemetri oturumunu güvenle kapatır (`.csv`, `.meta.json`, `_events.csv`). |
+| **`SPACE`** | Mandallı E-STOP | Motorları hız sınırlı olarak mekanik merkeze (90°, 90°) çeker ve kilitler. |
+| **`M`** | Mod Değişimi | `[P CONTROLLER]` ile `[RL CONTROLLER]` arasında geçiş yapar. |
 | **`P`** | Devriye Taraması | Lissajous sonsuzluk eğrisi ile otonom hava sahası taramasını açar / kapatır. |
 | **`Y`** | Atış Yetkisi | Hedef kilitlendiğinde (`TARGET LOCKED`) kademeli balistik atış sekansını onaylar. |
-| **`N`** | Kilit İptali | Mevcut hedef kilidini iptal eder ve aramaya döner. |
+| **`N`** | Kilit İptali | Mevcut hedef kilidini iptal eder ve devriye taramasına döner. |
 
 ---
 
-## 📈 Akademik Analiz ve Simülasyon Araçları
+## 📈 Akademik Analiz ve Doğrulama Araçları
 
-Taret kontrol dinamiklerini, FOPDT sistem tanıma sonuçlarını ve P vs RL karşılaştırmalarını incelemek için `analysis/` araçları kullanılır:
+Kontrol dinamiklerini, Kalman performansını ve P vs RL karşılaştırmalarını üretmek için `analysis/` araçları kullanılır:
 
 ```bash
 # 1. P Kontrolcü vs PPO RL Akademik Benchmark Analizi (300 DPI Görsel)
 venv\Scripts\python.exe turret_fcs/rl_sim/compare_p_vs_rl.py
 
-# 2. 6 Panelli Detaylı Dinamik ve Kontrol Kararlılık Analizi
+# 2. 8 Panelli Detaylı Dinamik ve Kontrol Kararlılık Analizi
 venv\Scripts\python.exe analysis/plot_tuned_system.py
 
-# 3. 4 Panelli FOPDT Sistem Tanıma ve Kök-Yer Eğrisi Analizi
-venv\Scripts\python.exe analysis/system_identification.py
+# 3. Kalman Filtresi ve Zemin Gerçeği Doğrulama Grafiği
+venv\Scripts\python.exe analysis/generate_kalman_plots.py
 
 # 4. Donanım Telemetri Kütüklerinin Otomatik İncelemesi
 venv\Scripts\python.exe analysis/inspect_logs.py
-
-# 5. P vs RL kapalı çevrim teşhisi
-venv\Scripts\python.exe analysis/rl_diagnose.py
-venv\Scripts\python.exe analysis/p_controller_benchmark.py default --seeds 20
 ```
 
 ---
@@ -472,56 +365,53 @@ venv\Scripts\python.exe analysis/p_controller_benchmark.py default --seeds 20
 ```text
 turret_fcs/
 ├── .github/                   # GitHub Actions CI sürekli entegrasyon iş akışları (ci.yml)
-├── tests/                     # 38 otomatik Pytest birim, SSOT ve duman testi
-├── requirements.txt           # Python kütüphane bağımlılıkları (YOLO, Torch, SB3, Optuna, vb.)
+├── tests/                     # 24 adet otomatik Pytest birim, SSOT ve entegrasyon testi
+├── requirements.txt           # Python kütüphane bağımlılıkları (YOLO, Torch, SB3, vb.)
 ├── pyproject.toml             # Python paket ve yapılandırma manifestosu
-├── CHANGELOG.md               # Sürüm değişiklikleri ve sürüm geçmişi
+├── CHANGELOG.md               # Sürüm değişiklikleri ve detaylı sürüm geçmişi
 ├── CITATION.cff               # Akademik alıntı ve tez referans üstverisi
 ├── setup_env.bat              # Otomatik sanal ortam (venv) ve kütüphane kurulum aracı
 ├── main.bat                   # Tek tıkla gerçek zamanlı atış kontrol başlatıcısı
 ├── README.md                  # Proje mimarisi ve teknik dokümantasyon
-├── docs/                      # Dokümantasyon, şemalar ve CAD varlıkları
+├── docs/                      # Dokümantasyon, mimari şemalar ve CAD çizimleri
 │   ├── assets/                # Güncel mimari/akış SVG'leri, CAD renderları ve donanım şeması
 │   ├── cad/                   # 3D yazıcı üretim ve prototipleme dosyaları (.stl)
-│   └── evidence/              # v1.2-v1.4 kıyaslama verileri (summary.md, 2 CSV test kaydı)
+│   └── evidence/              # v1.4 donanım telemetri özetleri ve benchmark kayıtları
 ├── analysis/                  # Akademik kontrol, Kalman ve Webots doğrulama araçları
-│   ├── export_rl_policy.py    # PPO zip -> SB3 bağımsız NumPy politika artifact'i
-│   ├── rl_diagnose.py         # Ham politika / eski sarmalayıcı / temiz sarmalayıcı teşhisi
-│   ├── rl_webots_eval.py      # Webots RL loglarında gerçek hata ve titreme analizi
-│   ├── p_controller_validation.py # Webots P loglarında gerçek pan hatası ve komut analizi
-│   ├── p_profile_sweep.py     # 6 profil x 8 kazanç Webots taraması
-│   ├── kalman_validation.py   # Gerçek log ve Webots zemin gerçeğiyle Kalman doğrulaması
-│   ├── system_identification.py # Sentetik FOPDT/SOPDT ve Padé kök-yer analizi
-│   └── figures/               # Akademik grafikler ve metrics.json
-├── runs/                      # YOLOv8 tespit modeli çıktıları
+│   ├── plot_tuned_system.py   # 8 panelli analitik model ve telemetri analiz grafikleri
+│   ├── generate_kalman_plots.py # Kalman filtresi doğrulama görselleştiricisi
+│   ├── generate_benchmark_plots.py # P vs RL benchmark görselleştiricisi
+│   ├── generate_architecture_svg.py # Sistem mimarisi SVG üreteci
+│   ├── inspect_logs.py        # Telemetri kütüklerini analiz eden teftiş aracı
+│   └── figures/               # 300 DPI yayın kalitesinde akademik grafikler
+├── runs/                      # YOLOv8 tespit modeli ağırlıkları
 │   └── detect/balloon_detector/weights/best.pt # Özel eğitilmiş balon tespit model ağırlığı
 ├── turret_fcs/                # Gerçek donanım çalışma kodları
 │   ├── config.py              # SSOT merkezi konfigürasyon modülü
-│   ├── main.py                # Ana atış kontrol döngüsü ve hedef koordinasyonu
+│   ├── main.py                # Ana atış kontrol döngüsü ve koordinasyon
 │   ├── telemetry.py           # v2 telemetri, JSON metadata sidecar ve event log
 │   ├── fcs_manager.py         # Hedef seçim, kilit, balistik ve menzil kapılama motoru
 │   ├── lock_manager.py        # Kapalı form 2B Gauss vuruş olasılığı (ncx2 CDF) ve histerezis
 │   ├── fcs_comm.py            # STM32 UART binary paket sürücüsü (resync + checksum)
 │   ├── kalman_filter.py       # CV Kalman, ego telafisi, sıçrama kapısı ve lead
 │   ├── turret_hud.py          # Taktiksel HUD ve muharebe sadeleştirmesi
-│   ├── rl_controller.py       # Üretim RL: saf PPO, NumPy 11-64-64-2
-│   ├── p_controller.py        # Üretim P: tek EMA, kazanç planlama, ivme limiti
-│   ├── patrol_generator.py    # Lissajous Figure-8 devriye motoru
+│   ├── rl_controller.py       # Üretim RL: saf PPO, NumPy MLP (11-64-64-2)
+│   ├── p_controller.py        # Üretim P: tek EMA, ivme sınırlamalı Tip-1 P
+│   ├── patrol_generator.py    # Lissajous devriye tarama motoru
 │   ├── target_selector.py     # ByteTrack ID + mekânsal kapı + histerezis
 │   ├── camera_thread.py       # Sıfır gecikmeli, watchdog korumalı kamera sürücüsü
 │   └── rl_sim/                # Pekiştirmeli öğrenme ortamı ve eğitim araçları
-│       ├── turret_env.py      # 11-D Gymnasium taret ortamı
-│       ├── optimize_rl.py     # Optuna TPE hiperparametre optimizasyonu
+│       ├── turret_env.py      # 11-D Gymnasium taret simülasyon ortamı
 │       ├── train_rl.py        # PPO eğitim kodu
-│       ├── compare_p_vs_rl.py # P vs RL benchmark
-│       └── models/            # turret_ppo_v14.zip + turret_ppo_v14_policy.npz (v1.3 final yedek)
+│       ├── compare_p_vs_rl.py # P vs RL benchmark karşılaştırma aracı
+│       └── models/            # turret_ppo_v14.zip + turret_ppo_v14_policy.npz
 ├── stm32/                     # STM32F401RE Nucleo gömülü yazılım projesi (CubeIDE)
 │   └── turret_main/           # Ana taret donanım projesi (.ioc, Core/Src, Core/Inc)
 │       └── Core/Src/          # fcs_comm.c, servo_driver.c, luna_read.c, flywheel_solenoid.c, main.c
 └── webots/                    # Webots dijital ikiz simülasyonu
-    ├── controllers/           # İnce Webots HAL adaptörü (webots_main, hardware_interface, vb.)
+    ├── controllers/           # İnce Webots HAL adaptörü (webots_main, hardware_interface)
     ├── worlds/                # 3D simülasyon dünyası ve aktörler
-    └── tuning_params.json     # Webots Kp/max_output başlangıç değerleri
+    └── balloon_profile.json   # Hedef uçuş hareket profilleri
 ```
 
 ---

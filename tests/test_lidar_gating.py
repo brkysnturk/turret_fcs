@@ -16,29 +16,33 @@ def _stable():
     return fcs
 
 
-def test_lidar_rejects_wall_jump_and_geometry_mismatch():
+def test_lidar_range_gating_and_freeze():
+    # 1. Kararlı menzil başlatma
     fcs = _stable()
+
+    # 2. Ani duvar sıçraması reddi
     fcs._update_lidar_range(408, False, None, 1000.0, 1000.0)
     assert fcs.range_jump is True
     assert fcs.range_valid is False
     assert fcs.last_valid_target_dist_m == 2.0
 
-    fcs = FCSManager(control_mode="P")
+    # 3. Geometrik tutarsızlık reddi (kamera kutusu ile LiDAR menzili uyuşmazlığı)
+    fcs_geom = FCSManager(control_mode="P")
     for _ in range(3):
-        fcs._update_lidar_range(200, False, (211, 211), 1410.0, 1412.0)
-    fcs._update_lidar_range(408, False, (211, 211), 1410.0, 1412.0)
-    assert fcs.range_geom_mismatch is True
-    assert fcs.range_valid is False
-    assert fcs.last_valid_target_dist_m == 2.0
+        fcs_geom._update_lidar_range(200, False, (211, 211), 1410.0, 1412.0)
+    fcs_geom._update_lidar_range(408, False, (211, 211), 1410.0, 1412.0)
+    assert fcs_geom.range_geom_mismatch is True
+    assert fcs_geom.range_valid is False
+    assert fcs_geom.last_valid_target_dist_m == 2.0
 
+    # 4. Atış esnasında LiDAR dondurma (flaş/duman gürültüsünden korunma)
+    fcs_fire = _stable()
+    fcs_fire._update_lidar_range(408, True, None, 1000.0, 1000.0)
+    assert fcs_fire.last_valid_target_dist_m == 2.0
+    assert fcs_fire.range_valid is True
 
-def test_lidar_frozen_during_firing_and_reacquires_new_distance():
-    fcs = _stable()
-    fcs._update_lidar_range(408, True, None, 1000.0, 1000.0)
-    assert fcs.last_valid_target_dist_m == 2.0
-    assert fcs.range_valid is True
-
+    # 5. Atış bittikten sonra yeni mesafeyi kararlı yakalama
     for _ in range(5):
-        fcs._update_lidar_range(300, False, None, 1000.0, 1000.0)
-    assert fcs.last_valid_target_dist_m == 3.0
-    assert fcs.range_valid is True
+        fcs_fire._update_lidar_range(300, False, None, 1000.0, 1000.0)
+    assert fcs_fire.last_valid_target_dist_m == 3.0
+    assert fcs_fire.range_valid is True
