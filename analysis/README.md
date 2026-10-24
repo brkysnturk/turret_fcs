@@ -19,7 +19,7 @@ Tüm grafikler `analysis/figures/` dizinine 300 DPI çözünürlükte kaydedilir
 | **Kalman** | `generate_kalman_plots.py` | CV Kalman filtresi hız kestirimi ile yer gerçeği (ground truth) karşılaştırma grafiği (`kalman_tracking_performance.png`). | `python analysis/generate_kalman_plots.py` |
 | **Kalman** | `kalman_validation.py` | Telemetri loglarında dünya LOS hızıyla Kalman hız kestiriminin kovaryans ve işaret doğrulaması. | `python analysis/kalman_validation.py` |
 | **Optik & Donanım** | `calibrate_camera_fov.py` | Logitech C270 kamera optik FOV açılarının (69° HFOV / 42° VFOV) ve odak uzaklığının piksel ölçümleriyle kalibrasyonu. | `python analysis/calibrate_camera_fov.py` |
-| **Mimari** | `generate_architecture_svg.py` | Sistem mimarisini temsil eden güncel SVG şemasını (`docs/assets/turret_fcs_architecture.svg`) üretir. | `python analysis/generate_architecture_svg.py` |
+| **Mimari ve Diyagramlar** | `generate_readme_diagrams.py` | Güncel CONFIG değerleriyle mimari, akış ve donanım SVG şemalarını (`docs/assets/turret_fcs_*.svg`) üretir. | `python analysis/generate_readme_diagrams.py` |
 | **Telemetri & Doğrulama** | `inspect_logs.py` | En son telemetri CSV kütüğünü otomatik okur; kilit süresi, açısal hata, salınım ve rezonansı raporlar. | `python analysis/inspect_logs.py` |
 | **Telemetri & Doğrulama** | `p_controller_validation.py` | Webots telemetrisinden balonun yer gerçeği konumuna göre fiziksel nişan hatası ve kilit analizi. | `python analysis/p_controller_validation.py` |
 | **Telemetri & Doğrulama** | `p_profile_sweep.py` | 6 farklı hedef uçuş profiline karşı Webots üzerinde P kazanç matrisi doğrulaması. | `python analysis/p_profile_sweep.py` |

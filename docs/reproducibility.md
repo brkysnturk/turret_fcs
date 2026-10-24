@@ -103,6 +103,6 @@ python analysis/generate_kalman_plots.py
 # 4. P vs RL Benchmark Görseli
 python analysis/generate_benchmark_plots.py
 
-# 5. Sistem Mimarisi SVG Şeması
-python analysis/generate_architecture_svg.py
+# 5. Mimari, Akış ve Donanım SVG Şemaları
+python analysis/generate_readme_diagrams.py
 ```
