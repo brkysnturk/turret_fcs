@@ -26,8 +26,9 @@ PROJECT_ROOT = BASE_DIR.parent
 FIG_DIR = BASE_DIR / "figures"
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 
-P_LOG_PATH = PROJECT_ROOT / "logs" / "telemetry_test_20261020_005108.csv"
-RL_LOG_PATH = PROJECT_ROOT / "logs" / "telemetry_test_20261020_015555.csv"
+LATEST_LOG = PROJECT_ROOT / "logs" / "telemetry_test_20261024_150820.csv"
+P_LOG_PATH = LATEST_LOG
+RL_LOG_PATH = LATEST_LOG
 
 
 def load_log(filepath, target_mode=None):
@@ -53,7 +54,7 @@ def load_log(filepath, target_mode=None):
 
 
 def generate_plots():
-    print("[1/3] Log verileri yukleniyor...")
+    print("[1/3] Log verileri yukleniyor (v1.4 Nihai Donanim Telemetrisi)...")
     data_p = load_log(P_LOG_PATH, target_mode="P")
     data_rl = load_log(RL_LOG_PATH, target_mode="RL")
 
