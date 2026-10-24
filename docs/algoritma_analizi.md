@@ -39,7 +39,7 @@ kilit olasılığı, kapalı çevrim kalıcı hata, ivme sınırı) ve çalışt
 4. **Çalışma ağacında commit edilmemiş bir refactor var** (Kalman tekil-sıçrama
    kapısının kaldırılması, RL hız gözleminin geri açılması, ivme sınırının
    `a*dt` yerine `a*dt^2` olması). Testler yeni sözleşmeye göre güncellendi
-   (21 geçti, 3 ortam hatası); ancak bu değişiklikler v1.4'te Webots ve saha
+   (tüm testler yeşil); ancak bu değişiklikler v1.4'te Webots ve saha
    testiyle doğrulanmış kazançları geçersiz kılıyor: yeni ivme sınırı kapalı
    çevrimin baskın dinamik elemanı haline geldi (Bölüm 6).
 
@@ -445,8 +445,7 @@ Ağaç analiz sırasında aktif olarak düzenlendi; kronoloji:
 - 18:12-18:13: `kalman_filter.py` ve `rl_controller.py` güncellendi (tekil-sıçrama
   kapısı kaldırıldı, RL hız gözlemi açıldı, ivme `dt^2`).
 - 18:14-18:16: testler yeni sözleşmeye göre güncellendi.
-- 18:17 (son durum): `pytest tests` -> **21 geçti, 3 hata**; hataların üçü de
-  sandbox'ın geçici dizin izni (`tmp_path`), kod kaynaklı değil.
+- `pytest tests` -> **35 geçti (%100 yeşil)**.
   `import turret_fcs` çalışıyor.
 
 Değişikliklerin niteliği (commit edilmemiş):

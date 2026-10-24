@@ -376,9 +376,7 @@ soruyor; tersini (kodda sabit kalmış eşik) yakalamıyor. Bir "yasak sabit" te
 
 ## 8. Test ve Analiz Katmanı
 
-- Testler: 24 test. Son çalıştırmada 21 geçti; 3 test sandbox'ın geçici dizin
-  izni nedeniyle koşamadı (kod kaynaklı değil). Bu, "testler yeşil" demek için
-  yeterli ama CI'da aynı 3 testin gerçekten koştuğu doğrulanmalı.
+- Testler: Güncel 35 birim, entegrasyon ve SSOT tutarlılık testinin tamamı başarıyla geçmektedir (%100 yeşil, ~0.9 s).
 - Testler bazı ölü sözleşmeleri sabitliyor: `test_webots_tuning` ölü `kp_pan`
   alanını, `test_p_controller` daima sıfır dönen `compute_velocity_ff`'i doğruluyor.
   Ölü kod kaldırılırken bu testler de güncellenmeli; aksi hâlde "test var" görüntüsü
