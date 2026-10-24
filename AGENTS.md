@@ -113,7 +113,7 @@
 - **Webots kazanç taraması (6 profil x 8 kazanç, `analysis/p_profile_sweep.py`):**
 
   | Profil | 0.20 | 0.24 | 0.28 | 0.30 | 0.32 | 0.34 | 0.36 | 0.38 |
-  | --- | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: |
+  |---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
   | Standart sinüs (2) | ✅ | – | ✅ | ✅ | ✅ | – | – | – |
   | Figure-8 (7) | ✅ | ✅ | ✅ | ✅ | ✅ | – | – | – |
   | Hızlı sinüs (3) | ✅ | ✅ | ✅ | ✅ | ✅ | – | – | – |
@@ -149,7 +149,7 @@
 - **Webots doğrulaması (profil 2, ilk 600 kare):**
 
   | Kontrolcü | Pan RMS | Piksel | Kilit | Kilitli kalma | Yön değiştirme | Tilt hatası |
-  | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+  |---|---:|---:|---:|---:|---:|---:|
   | Saf RL (filtresiz) | 3.26° | 65.4 px | %29.0 | %13.0 | %6.0 | 2.05° |
   | **RL (v1.3 P harmanı)** | **2.04°** | **42.7 px** | **%37.7** | **%95.0** | **%1.9** | **0.67°** |
   | P (0.22) | 2.07° | 42.3 px | %39.8 | %82.2 | %0.9 | 1.34° |
@@ -189,7 +189,7 @@
 - **Webots sonuçları (ilk 600 kare):**
 
   | Profil | Kontrolcü | Pan RMS | Piksel | Kilit | Kilitli kalma | Yön değiştirme | Tilt hatası |
-  | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+  |---|---|---:|---:|---:|---:|---:|---:|
   | 2 standart | RL saf PPO | 1.93° | 40.6 px | %36.3 | %92.5 | %4.4 | 0.78° |
   | 2 standart | P 0.22 | 2.07° | 42.3 px | %39.8 | %82.2 | %0.9 | 1.34° |
   | 5 zigzag | RL saf PPO | 2.34° | 42.9 px | %47.0 | %94.2 | %5.1 | 0.78° |
@@ -231,7 +231,7 @@
 ## 3. "Neden Böyle Yaptık?" Arşivi (Jürinin Sorabileceği Kritik Savunmalar)
 
 | Soru / Konu | Verilecek Bilimsel ve Mühendislik Cevabı |
-| --- | --- |
+|---|---|
 | **Neden türev (D-termi) kullanmadınız?** | Kamera ve YOLO tespit gürültüsünün türevi servolarda yüksek frekanslı mekanik titreşime (chattering) ve dişli aşınmasına yol açar. STM32 pozisyon biriktiricisi ayrık zamanda saf integratör olduğu için yumuşak ölü bölgeli saf Tip-1 P kontrolcü statik hedeflerde hatayı ölü bölge sınırları içerisine (Pan ±0.85°, Tilt ±0.95°) asimptotik olarak çekip sıfır motor titreşimi sunar. Hareketli hedeflerdeki sonlu rampa hatası ise Kalman filtreli lead/önleme terimiyle (P hız FF deneyi kapalı) bertaraf edilir; hızlı manevra gerektiren durumlarda ise yapay zeka (RL) devreye girerek çevik takibi üstlenir. |
 | **Neden integral (Ki) kullanmadınız?** | STM32 gömülü yazılımındaki pozisyon biriktiricisi (`theta_k = theta_{k-1} + delta`) ayrık zamanda saf integratördür (z/(z-1)). Harici Ki integrali sistemi Tip-2 yaparak çift kutuplu rezonans faz çökmesine ve kontrolsüz salınıma (limit cycle) sürükler. |
 | **Neden ölü bölgeye yumuşak geçiş (Soft Deadband) koydunuz?** | Sert eşikli ölü bölge, eşik sınırında anlık basamak darbesi üreterek dişli boşluğuyla (backlash) birleştiğinde yüksek frekanslı mekanik titreşime yol açar. Yumuşak ölü bölge hatayı sıfırdan başlatarak sıfır jerk ile kalkış sağlar. |
