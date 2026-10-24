@@ -11,7 +11,6 @@ sys.path.insert(0, str(ROOT))
 from turret_fcs.config import FCSState
 from turret_fcs.fcs_manager import FCSManager
 from turret_fcs.lock_manager import LockManager
-from turret_fcs.los_tracker import LosTracker
 from turret_fcs.telemetry import TelemetryLogger
 from turret_fcs.turret_hud import TurretHUD
 
@@ -45,22 +44,6 @@ def test_lock_hysteresis_and_firmware_states():
     # 4. HUD kutu etiketi ve STM32 protokol durum kodlari
     assert TurretHUD.get_box_label() == "TARGET"
     assert (FCSState.TRACKING, FCSState.LOCKED, FCSState.FIRING, FCSState.ESTOP) == (0, 1, 2, 3)
-
-
-def test_los_tracker_rate_estimate():
-    """LOS takipcisi gorus hatti ve acisal hiz kestirimini dogrular."""
-    los = LosTracker(alpha=0.4, beta=0.1)
-    for _ in range(20):
-        _, _, pan_rate, tilt_rate = los.update(10.0, -4.0, 0.033)
-    assert pan_rate == pytest.approx(0.0)
-    assert tilt_rate == pytest.approx(0.0)
-
-    los = LosTracker(alpha=0.4, beta=0.1)
-    angle = 0.0
-    for _ in range(60):
-        angle += 2.0 * 0.033
-        _, _, pan_rate, _ = los.update(angle, 0.0, 0.033)
-    assert pan_rate == pytest.approx(2.0, abs=0.15)
 
 
 def test_telemetry_writes_columns(tmp_path):

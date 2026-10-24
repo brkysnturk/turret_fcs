@@ -27,7 +27,6 @@ from .kalman_filter import KalmanFilter
 from .lock_manager import LockManager
 from .p_controller import PController
 from .patrol_generator import PatrolGenerator
-from .los_tracker import LosTracker
 from .config import CONFIG
 
 
@@ -43,8 +42,6 @@ class FCSManager:
         self.lock_mgr = LockManager()
         self.p_controller = PController()
         self.patrol = PatrolGenerator()
-        self.los_tracker = LosTracker()
-
         self.control_mode = "RL" if control_mode == "RL" else "P"  # "P" (Precision) veya "RL" (Agile)
         self.rl_controller = None
         if self.control_mode == "RL":
@@ -279,11 +276,6 @@ class FCSManager:
             self._last_fx = float(fx)
             self._last_fy = float(fy)
             angular_err = float(np.hypot(pan_deg, tilt_deg))
-            self.los_tracker.update(
-                self.turret_pan_deg + pan_deg,
-                self.turret_tilt_deg + tilt_deg,
-                dt,
-            )
 
             # 2. Menzil Kapilama (Range Gating):
             # Ates sirasinda dondur; 50 cm sicramayi reddet; 3 kare kararlilik ve
@@ -400,7 +392,6 @@ class FCSManager:
                 self.rl_controller.on_target_lost()
             if self.frames_since_lost >= self.max_lost_frames:
                 self.tracker.reset()
-                self.los_tracker.reset()
                 self.lock_mgr.reset()
                 self.target_velocity = np.array([0.0, 0.0], dtype=float)
                 self.firing_lead_offset = np.array([0.0, 0.0], dtype=float)
@@ -456,7 +447,6 @@ class FCSManager:
         self.ego_step_pan_deg = 0.0
         self.ego_step_tilt_deg = 0.0
         self.tracker.reset()
-        self.los_tracker.reset()
         self.lock_mgr.reset()
         self.p_controller.reset()
         if self.rl_controller is not None:
