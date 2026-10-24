@@ -27,6 +27,7 @@
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
+IWDG_HandleTypeDef hiwdg;
 
 /*
  * Zaman Asimlari (ms)
@@ -39,45 +40,19 @@ UART_HandleTypeDef huart2;
 
 /*
  * Bagimsiz Watchdog (IWDG)
- * LSI ~32 kHz, prescaler /64 -> 500 Hz (2 ms/sayac). 800 ms nominal.
- * LSI toleransi (~17-47 kHz) nedeniyle gercek pencere ~540-1900 ms arasi
+ * LSI ~32 kHz, prescaler /64 -> 500 Hz (2 ms/sayac), reload 400 -> 800 ms.
+ * LSI toleransi (~17-47 kHz) nedeniyle gercek pencere ~540-1900 ms arasinda
  * degisir; bu, ~11 ms'lik dongu periyoduna karsi bolca marj birakir.
- * HAL_IWDG surucusu kullanilmaz: CubeIDE Debug makefile'ina yeni kaynak
- * eklemek gerekmesin diye dogrudan register erisimi tercih edildi.
  */
-#define IWDG_GUARD_TIMEOUT_MS 800u
-
-static void IWDG_Guard_Init(uint32_t timeout_ms)
-{
-  uint32_t reload = timeout_ms / 2u;   /* 2 ms/sayac */
-  if (reload > 0xFFFu) reload = 0xFFFu;
-  if (reload < 1u) reload = 1u;
-
-  IWDG->KR = 0x5555u;                  /* PR/RLR yazma kilidini ac */
-  IWDG->PR = 0x4u;                     /* LSI / 64 */
-  IWDG->RLR = reload;
-  while (IWDG->SR & (IWDG_SR_PVU | IWDG_SR_RVU)) { }  /* guncellemeyi bekle */
-  IWDG->KR = 0xAAAAu;                  /* ilk reload */
-  IWDG->KR = 0xCCCCu;                  /* sayaci baslat (artik durdurulamaz) */
-
-#if defined(DEBUG)
-  /* Hata ayiklama kolayligi: cekirdek breakpoint'te durduruldugunda IWDG
-     saymasin; aksi halde her adimda reset yenir. DBGMCU her zaman erisilebilir
-     (APB1 uzerinde ayri bir saat kapisi yok), bu yuzden RCC makrosu gerekmez. */
-  DBGMCU->APB1FZ |= DBGMCU_APB1_FZ_DBG_IWDG_STOP;
-#endif
-}
-
-static inline void IWDG_Guard_Feed(void)
-{
-  IWDG->KR = 0xAAAAu;
-}
+#define IWDG_PRESCALER        IWDG_PRESCALER_64
+#define IWDG_RELOAD_COUNTS    400u
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_IWDG_Init(void);
 
 /**
   * @brief  The application entry point.
@@ -89,7 +64,7 @@ int main(void)
 
   /* Watchdog'u mumkun olan en erken anda baslat: sonraki herhangi bir
      kilitlenme (saat yapilandirmasi dahil) artik reset ile kurtarilir. */
-  IWDG_Guard_Init(IWDG_GUARD_TIMEOUT_MS);
+  MX_IWDG_Init();
 
   SystemClock_Config();
 
@@ -116,7 +91,7 @@ int main(void)
   {
     // 0. Watchdog beslemesi: dongu saglikliysa IWDG sayaci sifirlanir.
     //    Herhangi bir kilitlenmede IWDG reset atar ve pinler tekrar LOW'a cekilir.
-    IWDG_Guard_Feed();
+    HAL_IWDG_Refresh(&hiwdg);
 
     // 1. Sabit ~100 Hz Periyodik Telemetri: LiDAR'dan bagimsiz periyodik gonderim
     // (LiDAR kopuk veya gecikmeli olsa bile servo geri bildirimi ve odometri asla kesilmez)
@@ -292,6 +267,29 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief IWDG Initialization Function (Bagimsiz Watchdog, ~800 ms)
+  *
+  * HAL_IWDG_Init sayaci baslatir; bu andan itibaren durdurulamaz, bu yuzden
+  * ana dongude dongu basina HAL_IWDG_Refresh() ile beslenmelidir.
+  */
+static void MX_IWDG_Init(void)
+{
+  hiwdg.Instance = IWDG;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER;
+  hiwdg.Init.Reload = IWDG_RELOAD_COUNTS;
+  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+#if defined(DEBUG)
+  /* Hata ayiklama kolayligi: cekirdek breakpoint'te durduruldugunda IWDG
+     saymasin; aksi halde her adimda reset yenir. */
+  __HAL_DBGMCU_FREEZE_IWDG();
+#endif
 }
 
 /**
