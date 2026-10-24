@@ -522,7 +522,7 @@ Aşağıdaki değerler, aynı oturumda operatörün P ve RL modları arasında g
 | En uzun kesintisiz kilit | 143 kare (4.76 s) | 185 kare (6.13 s) |
 | Pan komut yön değişimi | %0.0 | %2.4 |
 
-> Bu tablo aynı saha oturumunun P ve RL bölümlerini gösterir; farklı hedef profilleri, operatör müdahaleleri ve angajman anları da bu dilimlerin içindedir. Laboratuvar koşullarında birebir kontrollü karşılaştırma için `analysis/generate_benchmark_plots.py` ve `turret_fcs/rl_sim/compare_p_vs_rl.py` kullanılmalıdır.
+> Bu tablo aynı saha oturumunun P ve RL bölümlerini gösterir; farklı hedef profilleri, operatör müdahaleleri ve angajman anları da bu dilimlerin içindedir. Laboratuvar koşullarında birebir kontrollü karşılaştırma için `analysis/generate_benchmark_plots.py` kullanılmalıdır.
 
 ### 9.3 P ve PPO RL benzetim karşılaştırması
 

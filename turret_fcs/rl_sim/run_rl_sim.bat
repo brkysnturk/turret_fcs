@@ -33,7 +33,7 @@ if "%choice%"=="1" (
 ) else if "%choice%"=="3" (
     echo.
     echo [INFO] P vs RL Karsilastirma Testi Calistiriliyor...
-    "%PY%" turret_fcs\rl_sim\compare_p_vs_rl.py
+    "%PY%" analysis\generate_benchmark_plots.py
     pause
 ) else (
     exit /b
