@@ -65,7 +65,7 @@ Sistem, tek bir operatörün hava sahasını izlemesine ve yalnızca güvenli ki
 
 Sistem dört katmandan oluşur. Üst katmanlar karar üretir, alt katmanlar bu kararı fiziksel eyleme dönüştürür.
 
-![Turret FCS Sistem Mimarisi](docs/assets/turret_fcs_architecture.svg)
+![Turret FCS Sistem Mimarisi](docs/assets/turret_fcs_architecture.svg?v=2)
 
 *Şema, katmanların ve veri akışının görsel özetidir; sayısal parametrelerde tek kaynak `turret_fcs/config.py` içindeki `CONFIG`'dir.*
 
@@ -75,20 +75,6 @@ Sistem dört katmandan oluşur. Üst katmanlar karar üretir, alt katmanlar bu k
 2. **FCS çekirdeği:** Hedef seçici, Kalman filtresi, balistik/lead hesabı, kilit yöneticisi ve devriye üreteci bu katmanda çalışır. Kararın tek kaynağı `turret_fcs/config.py` içindeki `CONFIG` nesnesidir.
 3. **Kontrol katmanı:** Operatörün seçtiği P veya RL kontrolcüsü, hedef hatasından pan/tilt adımı üretir. İki mod aynı anda çalışmaz; `[M]` tuşuyla geçiş yapılır.
 4. **Gömülü denetleyici, eyleme ve arayüz:** STM32 komutu servo PWM'ine, volan enable hattına ve solenoid darbesine çevirir; HUD ve telemetri aynı anda operatöre ve kayda sunulur.
-
-### Veri akışı
-
-```text
-Kamera (30 FPS) ──> YOLOv8n + ByteTrack ──> TargetSelector ──┐
-                                                             ├─> CV Kalman + ego ──> Lead / gravity ──> P veya RL
-TF-Luna (100 Hz) ──> Menzil kapılama ────────────────────────┘                                      │
-                                                                                                     v
-Operatör HUD <── Telemetri v2 <── STM32F401RE <── 7 baytlık ikili komut <─────────────────────────────┘
-                                      │
-                                      ├─> Pan / tilt servo PWM
-                                      ├─> Çift volan enable
-                                      └─> 80 ms solenoid darbe
-```
 
 ---
 
