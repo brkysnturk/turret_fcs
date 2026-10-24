@@ -33,6 +33,7 @@ class EngagementState:
     is_active: bool
     status_text: str
     status_color: Tuple[int, int, int]
+    spinup_duration: float = 0.25
 
 
 class EngagementManager:
@@ -108,15 +109,17 @@ class EngagementManager:
         if t_fire < t_spinup:
             progress = float(np.clip(t_fire / max(1e-3, t_spinup), 0.0, 1.0))
             ms_left = max(0, int((1.0 - progress) * t_spinup * 1000))
+            slew_factor = float(0.5 * (1.0 - np.cos(np.pi * progress)))
             return EngagementState(
                 phase="SPINUP",
-                slew_factor=progress,
+                slew_factor=slew_factor,
                 spinup_progress=progress,
                 fcs_fire_cmd_state=FCSState.LOCKED if is_locked else FCSState.TRACKING,
                 is_physical_firing=True,
                 is_active=True,
                 status_text=f"STATUS: SPIN-UP & SLEW ({ms_left:3d}ms)",
                 status_color=(0, 215, 255),
+                spinup_duration=self.spinup_duration,
             )
         elif t_fire < t_settle:
             return EngagementState(
@@ -128,6 +131,7 @@ class EngagementManager:
                 is_active=True,
                 status_text="STATUS: SETTLING AIM",
                 status_color=(0, 215, 255),
+                spinup_duration=self.spinup_duration,
             )
         elif t_fire < t_pulse:
             return EngagementState(
@@ -139,6 +143,7 @@ class EngagementManager:
                 is_active=True,
                 status_text="STATUS: ENGAGING (SOLENOID RELEASE)",
                 status_color=(0, 0, 255),
+                spinup_duration=self.spinup_duration,
             )
         elif t_fire < t_recover:
             rec_p = float((t_fire - t_pulse) / max(1e-3, self.recovery_time_s))
@@ -152,6 +157,7 @@ class EngagementManager:
                 is_active=True,
                 status_text="STATUS: RECOVERING BORESIGHT",
                 status_color=(0, 255, 128),
+                spinup_duration=self.spinup_duration,
             )
         elif t_fire < t_total:
             return EngagementState(
@@ -163,6 +169,7 @@ class EngagementManager:
                 is_active=True,
                 status_text="STATUS: ENGAGEMENT COMPLETED",
                 status_color=(0, 255, 0),
+                spinup_duration=self.spinup_duration,
             )
         else:
             self.abort()

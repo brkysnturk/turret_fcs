@@ -40,6 +40,9 @@ from ultralytics import YOLO
 from turret_fcs.config import CONFIG, FCSState
 from turret_fcs.fcs_manager import FCSManager
 from turret_fcs.turret_hud import TurretHUD
+from turret_fcs.engagement import EngagementManager
+from turret_fcs.presenter import HUDPresenter
+from turret_fcs.keymap import process_key_event
 
 from webots_hardware_interface import WebotsHardwareInterface
 from webots_flywheel_launcher import WebotsFlywheelLauncher
@@ -55,8 +58,17 @@ def main():
     hw = WebotsHardwareInterface()
     launcher = WebotsFlywheelLauncher(hw.robot)
     hud = TurretHUD()
+    presenter = HUDPresenter(hud)
     start_mode = os.environ.get("WEBOTS_CONTROL_MODE", "P").strip().upper()
     fcs = FCSManager(control_mode=start_mode if start_mode in ("P", "RL") else "P", patrol_enabled=False)
+    engagement = EngagementManager(
+        idle_spinup_time_s=CONFIG.flywheel.idle_spinup_time_s,
+        cold_spinup_time_s=CONFIG.flywheel.cold_spinup_time_s,
+        settle_time_s=CONFIG.ballistics.settle_time_s,
+        firing_pulse_s=CONFIG.ballistics.firing_pulse_s,
+        recovery_time_s=CONFIG.ballistics.recovery_time_s,
+        eval_display_time_s=CONFIG.ballistics.eval_display_time_s,
+    )
     tuning = load_tuning()
     apply_tuning(fcs, tuning)
     ballistics = VirtualBallisticsEvaluator(bullet_speed=CONFIG.ballistics.projectile_speed_mps, supervisor=hw.robot)
@@ -76,19 +88,9 @@ def main():
     fy = CONFIG.optics.compute_fy(hw.h_cam)
     center_x, center_y = hw.w_cam // 2, hw.h_cam // 2
 
-    # 4. Atis ve Zamanlama Yonetimi (Saf sim_t uzerinden)
-    fire_start_sim_t = 0.0
-    COLD_SPINUP_DURATION = CONFIG.flywheel.cold_spinup_time_s   # Bosta degilse 1.00 s
-    spinup_duration = COLD_SPINUP_DURATION
-    SETTLE_DURATION = CONFIG.ballistics.settle_time_s          # 0.15 s sabit oturma
-    GUN_FIRE_DURATION = CONFIG.ballistics.firing_pulse_s        # 0.08 s
-    RECOVER_DURATION = CONFIG.ballistics.recovery_time_s        # 0.35 s
-    BALLISTIC_DISPLAY_DURATION = CONFIG.ballistics.eval_display_time_s  # EVAL afis suresi
-
+    # 4. Durum Bayraklari
     is_estop = False
-    fire_stage = None
-    spinup_progress = None
-    slew_factor = 0.0
+    prev_phase = None
     frame_id = 0
 
     hud.log_event("[SYS] WEBOTS TURRET FCS DIGITAL TWIN ONLINE", color=(0, 255, 128))
@@ -103,8 +105,8 @@ def main():
     try:
         while hw.step() != -1:
             frame_id += 1
-
             sim_t = hw.get_time()
+
             # 80 ms gecikmeli gozlem: goruntu + servo pozu + LiDAR ayni karede
             frame, curr_pan_deg, curr_tilt_deg, dist_cm, strength = hw.get_observation()
             if frame is None:
@@ -118,64 +120,26 @@ def main():
             results = model.track(frame, imgsz=640, conf=conf_val, persist=True, tracker="bytetrack.yaml", verbose=False)
             boxes = results[0].boxes if len(results) > 0 else []
 
-            # Kademeli balistik firlatma durum makinesi: SPINUP/SLEW -> SETTLE -> FIRING
-            t_fire = (sim_t - fire_start_sim_t) if fire_start_sim_t > 0 else 999.0
-            is_hud_firing = False
-            total_fire_cycle = spinup_duration + SETTLE_DURATION + GUN_FIRE_DURATION + RECOVER_DURATION + BALLISTIC_DISPLAY_DURATION
+            # 2 Asamali Balistik Angajman Yonetimi (SSOT FSM)
+            eng_state = engagement.update(sim_t, fcs.is_locked)
 
-            if fire_start_sim_t > 0 and t_fire < total_fire_cycle:
-                is_hud_firing = True
-                if t_fire < spinup_duration:
-                    fire_stage = "SPINUP"
+            # Volan ve Solenoid Kenar Tetik Gecisleri
+            if prev_phase != eng_state.phase:
+                if eng_state.phase == "SPINUP":
                     launcher.start_spinup()
-                    spinup_progress = float(t_fire / spinup_duration)
-                    # Kosinus yumusatma ile aim-point super-elevasyonuna suzulme
-                    slew_factor = float(0.5 * (1.0 - np.cos(np.pi * spinup_progress)))
-                elif t_fire < (spinup_duration + SETTLE_DURATION):
-                    # Slew bitti; komut sabit, servo oturuyor. Lead/gravity canli kalir.
-                    fire_stage = "SETTLE"
-                    spinup_progress = 1.0
-                    slew_factor = 1.0
-                elif t_fire < (spinup_duration + SETTLE_DURATION + GUN_FIRE_DURATION):
-                    if fire_stage != "FIRING":
-                        # Solenoid tahrigi ve mermi firlatma (Tek kenar tetik)
-                        launcher.trigger()
-                        # LiDAR'in ham (spin-up'ta duvara sicrayan) degerini degil,
-                        # FCS'nin ates icin dondurdugu son gecerli hedef mesafesini kullan.
-                        ballistics.fire_shot(dist_m=fcs.last_valid_target_dist_m, sim_time=sim_t)
-                    fire_stage = "FIRING"
-                    spinup_progress = 1.0
-                    slew_factor = 1.0
-                elif t_fire < (spinup_duration + SETTLE_DURATION + GUN_FIRE_DURATION + RECOVER_DURATION):
-                    fire_stage = "RECOVER"
-                    spinup_progress = 1.0
-                    rec_p = float((t_fire - spinup_duration - SETTLE_DURATION - GUN_FIRE_DURATION) / RECOVER_DURATION)
-                    slew_factor = float(0.5 * (1.0 + np.cos(np.pi * rec_p)))
-                else:
-                    fire_stage = "EVAL"
+                elif eng_state.phase == "FIRING":
+                    launcher.trigger()
+                    ballistics.fire_shot(dist_m=fcs.last_valid_target_dist_m, sim_time=sim_t)
+                elif eng_state.phase in ("EVAL", None):
                     launcher.stop_flywheels()
-                    spinup_progress = 1.0
-                    slew_factor = 0.0
-            else:
-                fire_stage = None
-                spinup_progress = None
-                slew_factor = 0.0
-                is_hud_firing = False
-                if fire_start_sim_t > 0:
-                    launcher.stop_flywheels()
-                    fire_start_sim_t = 0.0
-                    spinup_duration = COLD_SPINUP_DURATION
-
-            # Fiziksel atis yalnizca SPINUP, FIRING ve RECOVER sirasinda etkindir
-            is_physical_firing = fire_stage in ("SPINUP", "SETTLE", "FIRING", "RECOVER")
+                prev_phase = eng_state.phase
 
             # Hakem ve Firlatici Simulasyon Guncellemeleri
             launcher.update(sim_time=sim_t)
             ballistics.update(sim_time=sim_t)
 
-            # Uretim FCSManager Karar ve Kontrol Dongusu
+            # Hedef Secimi ve Algilama Titremesi (Gercek kameraya yakin simulasyon)
             best_box = fcs.select_best_target(boxes, center_x, center_y)
-            # Gercek YOLO kutu titremesine yakin deterministik algilama gurultusu.
             if best_box is not None:
                 jitter_px = float(os.environ.get("WEBOTS_BBOX_JITTER", "3.0"))
                 if jitter_px > 0.0:
@@ -187,170 +151,96 @@ def main():
                     b[2] = max(b[0] + 2.0, b[2] + jx)
                     b[3] = max(b[1] + 2.0, b[3] + jy)
                     best_box = b
+
+            # FCS Karar ve Kontrol Dongusu
             pan_cmd, tilt_cmd = fcs.update(
                 best_box, center_x, center_y, fx, fy, hw.dt,
-                is_firing=is_physical_firing,
+                is_firing=eng_state.is_physical_firing,
                 dist_cm=dist_cm,
-                slew_factor=slew_factor
+                slew_factor=eng_state.slew_factor,
             )
 
-            target_detected = best_box is not None
-            target_centered = False
-
-            # FF devre disi: P ve RL hiz feedforward kullanmaz.
-            # Flywheel idle: hedef kilitliyken volanlari bosta dondur, atista boost et.
-            if not is_hud_firing and not is_estop:
+            # Flywheel idle: hedef kilitliyken bosta dondur, atista boost et
+            if not eng_state.is_active and not is_estop:
                 if fcs.is_locked:
                     launcher.start_idle()
                 else:
                     launcher.stop_flywheels()
 
-            # FCS Durum Bayragi (uretim main.py ile ayni: RECOVER/EVAL kilit durumunu yansitir)
+            # FCS Durum Bayragi
             if is_estop:
                 fcs_state = FCSState.ESTOP
-            elif fire_stage == "FIRING":
+            elif eng_state.phase == "FIRING":
                 fcs_state = FCSState.FIRING
             elif fcs.is_locked:
                 fcs_state = FCSState.LOCKED
             else:
                 fcs_state = FCSState.TRACKING
 
-            # E-STOP veya Normal Inkremental Motor Surusu
+            # E-STOP veya Normal Motor Surusu
             if is_estop:
                 hw.set_neutral()
-                status_text = "STATUS: EMERGENCY STOP (LATCHED)"
-                status_color = (0, 0, 255)
-                angle_err_text = "ANGULAR ERR:   [HALTED] deg"
-                if target_detected:
-                    x1, y1, x2, y2 = best_box
-                    hud.draw_corner_box(frame, x1, y1, x2, y2, color=(100, 100, 100), length=25, thickness=1, label=hud.get_box_label())
             else:
                 hw.apply_delta_commands(pan_cmd, tilt_cmd)
 
-                if target_detected:
-                    x1, y1, x2, y2 = best_box
-                    bx, by = (x1 + x2) // 2, (y1 + y2) // 2
-                    target_centered = hud.is_target_centered(center_x, center_y, x1, y1, x2, y2)
-
-                    if fire_stage == "SPINUP":
-                        ms_left = max(0, int((1.0 - spinup_progress) * spinup_duration * 1000))
-                        status_text = f"STATUS: SPIN-UP & SLEW ({ms_left:3d}ms)"
-                        status_color = (0, 215, 255)
-                    elif fire_stage == "SETTLE":
-                        status_text = "STATUS: SETTLING AIM"
-                        status_color = (0, 215, 255)
-                    elif fire_stage == "FIRING":
-                        status_text = "STATUS: ENGAGING (SOLENOID RELEASE)"
-                        status_color = (0, 0, 255)
-                    elif fire_stage == "RECOVER":
-                        status_text = "STATUS: RECOVERING BORESIGHT"
-                        status_color = (0, 255, 128)
-                    elif fire_stage == "EVAL":
-                        status_text = "STATUS: ENGAGEMENT EVALUATION"
-                        status_color = (0, 215, 255)
-                    elif is_hud_firing:
-                        status_text = "STATUS: ENGAGING TARGET"
-                        status_color = (0, 0, 255)
-                    elif fcs.is_locked:
-                        status_text = "STATUS: TARGET LOCKED"
-                        status_color = (0, 0, 255)
-                    else:
-                        status_text = "STATUS: TRACKING"
-                        status_color = (0, 191, 255)
-
-                    box_color = (0, 0, 255) if (fcs.is_locked or is_hud_firing) else status_color
-                    hud.draw_corner_box(frame, x1, y1, x2, y2, color=box_color, length=30, thickness=2, label=hud.get_box_label())
-
-                    if not is_hud_firing:
-                        if not fcs.is_locked:
-                            hud.draw_tracking_line(frame, center_x, center_y, bx, by, status_color)
-                        hud.draw_lead_indicator(
-                            frame, bx, by, int(fcs.pred_center[0]), int(fcs.pred_center[1]),
-                        )
-
-                    angle_err_text = f"ANGULAR ERR:   [{fcs.actual_pan:+.1f} , {fcs.actual_tilt:+.1f}] deg"
-                else:
-                    if fcs.patrol_enabled:
-                        status_text = f"PATROL: {fcs.patrol_status}"
-                        status_color = (0, 255, 0)
-                        angle_err_text = f"TURRET POSE:   [{fcs.turret_pan_deg:+.1f} , {fcs.turret_tilt_deg:+.1f}] deg"
-                    else:
-                        status_text = "STATUS: STANDBY"
-                        status_color = (180, 180, 180)
-                        angle_err_text = "ANGULAR ERR:   [--, --] deg"
-
-            # Merkez nisangah her karede tek kez (uretim main.py ile ayni)
-            reticle_color = (0, 0, 255) if (fcs.is_locked or is_hud_firing) else status_color
-            hud.draw_grid_and_reticle(frame, center_x, center_y, reticle_color=reticle_color)
-
-            # Telemetri Kaydi (Schema v2) - Gercek fiziksel atis bayragi iletilir
+            # Telemetri Kaydi (Schema v2)
             if telemetry:
-                telemetry.log(frame_id, sim_t, hw.dt, fps, fcs, hw, best_box, is_firing=is_physical_firing, fire_stage=fire_stage, fcs_state=fcs_state, ballistics=ballistics, tuning=tuning)
+                telemetry.log(
+                    frame_id, sim_t, hw.dt, fps, fcs, hw, best_box,
+                    is_firing=eng_state.is_physical_firing,
+                    fire_stage=eng_state.phase,
+                    fcs_state=fcs_state,
+                    ballistics=ballistics,
+                    tuning=tuning,
+                )
 
-            # Atis degerlendirme afisi: uretimdeki sabit "SUCCESSFUL" yerine
-            # Webots analitik hakeminin GERCEK HIT/MISS sonucunu goster.
+            # Atis Hakem Geri Bildirimi (Webots Sanal Balistik Sonucu)
             ballistic_hud_data = None
-            if is_hud_firing:
+            if eng_state.is_active:
                 res_txt, res_col = ballistics.get_hud_result(sim_t)
                 if res_txt:
                     ballistic_hud_data = (res_txt, res_col)
-                else:
-                    elapsed_fire = sim_t - fire_start_sim_t
-                    if elapsed_fire >= (spinup_duration + SETTLE_DURATION + GUN_FIRE_DURATION):
-                        ballistic_hud_data = ("AWAITING IMPACT", (0, 215, 255))
+                elif eng_state.phase in ("FIRING", "RECOVER", "EVAL"):
+                    ballistic_hud_data = ("AWAITING IMPACT", (0, 215, 255))
 
-            # Askeri Standartta Taktiksel HUD
-            hud.draw_telemetry(
-                frame,
-                fps,
-                status_text,
-                status_color,
-                angle_err_text,
-                status_color,
-                dist_cm,
-                strength,
-                target_detected=target_detected,
-                target_centered=target_centered,
-                is_locked=fcs.is_locked,
-                firing=is_hud_firing,
+            # Standart Askeri HUD Sunumu
+            presenter.render(
+                frame=frame,
+                fcs=fcs,
+                engagement_state=eng_state,
+                target_box=best_box,
                 center_x=center_x,
                 center_y=center_y,
-                ballistic_result=ballistic_hud_data,
-                fire_stage=fire_stage,
-                spinup_progress=spinup_progress,
-                spinup_duration_s=spinup_duration,
+                fps=fps,
+                latency_ms=hw.dt * 1000.0,
+                dist_cm=dist_cm,
+                strength=strength,
+                temp_c=0.0,
+                is_estop=is_estop,
+                hit_feedback=ballistic_hud_data,
             )
-
-            if target_detected and not is_hud_firing:
-                hud.draw_lock_bar(frame, center_x, center_y, fcs.lock_counter, fcs.LOCK_THRESHOLD_FRAMES, fcs.is_locked)
-                hud.draw_lock_quality(frame, center_x, center_y, fcs.lock_quality)
-
-            hud.draw_mode_banner(frame, fcs.control_mode, fcs.patrol_enabled, is_locked=fcs.is_locked, firing=is_hud_firing)
-            hud.draw_footer(frame, is_locked=fcs.is_locked, firing=is_hud_firing)
-            hud.draw_event_log(frame, is_locked=fcs.is_locked, firing=is_hud_firing)
 
             cv2.imshow(WINDOW_NAME, frame)
             key = cv2.waitKey(1) & 0xFF
 
-            # Operator Etkilesim ve Klavye Matrisi
-            if key in [27, ord('q'), ord('Q')]:
+            # Operator Klavye ve Etkilesim Haritasi
+            action = process_key_event(key, is_estop=is_estop)
+            if action.action == "QUIT":
                 hud.log_event("[SYS] WEBOTS SESSION TERMINATED", color=(180, 180, 180))
                 break
-            elif key in [ord('m'), ord('M')]:
-                # Yalnizca P ve RL arasinda ayrik gecis (HYBRID yok)
-                mode_cycle = {"P": "RL", "RL": "P"}
-                fcs.control_mode = mode_cycle.get(fcs.control_mode, "P")
+            elif action.action == "CYCLE_MODE":
+                fcs.control_mode = "RL" if fcs.control_mode == "P" else "P"
                 mode_names = {"P": "P (PRECISION LOCK)", "RL": "RL (SAF PPO)"}
                 hud.log_event(f"[MODE] {mode_names.get(fcs.control_mode, fcs.control_mode)}", color=(0, 215, 255))
-            elif key in [ord('p'), ord('P')]:
+            elif action.action == "TOGGLE_PATROL":
                 fcs.patrol_enabled = not fcs.patrol_enabled
                 p_text = "FIGURE-8 SCAN ENGAGED" if fcs.patrol_enabled else "STANDBY (DISABLED)"
                 p_color = (0, 255, 0) if fcs.patrol_enabled else (180, 180, 180)
                 hud.log_event(f"[PATROL] {p_text}", color=p_color)
-            elif key == 32:  # SPACE - Mandalli E-STOP
+            elif action.action == "TOGGLE_ESTOP":
                 is_estop = not is_estop
                 fcs.reset()
-                fire_start_sim_t = 0.0
+                engagement.abort()
                 if is_estop:
                     fcs.patrol_enabled = False
                     launcher.stop_flywheels()
@@ -358,22 +248,20 @@ def main():
                     hud.log_event("[E-STOP] MOTORS HALTED & ZEROED (LATCHED)", color=(0, 0, 255))
                 else:
                     hud.log_event("[E-STOP] DISENGAGED - RESUMING FCS", color=(0, 255, 128))
-            elif key in [ord('y'), ord('Y')]:
-                # Guvenlik Kurali: Yalnizca KILITLI ve atis sekansi bosta iken tetiklenir!
-                if fcs.is_locked and fire_stage is None and not is_estop and fcs.range_valid and fcs.range_stable:
-                    spinup_duration = (CONFIG.flywheel.idle_spinup_time_s
-                                       if launcher.is_idle_ready()
-                                       else COLD_SPINUP_DURATION)
-                    fire_start_sim_t = sim_t
-                    hud.log_event("[FIRE] 2-STAGE ENGAGEMENT: SPIN-UP & SLEW ENGAGED", color=(0, 215, 255))
-                else:
-                    if not fcs.is_locked:
-                        hud.log_event("[FIRE INHIBIT] TARGET NOT LOCKED!", color=(0, 0, 255))
-                    elif not (fcs.range_valid and fcs.range_stable):
-                        hud.log_event("[FIRE INHIBIT] LIDAR RANGE NOT STABLE/VALID", color=(0, 0, 255))
-            elif key in [ord('n'), ord('N')]:
+            elif action.action == "FIRE_REQUEST":
+                success, msg = engagement.trigger(
+                    now=sim_t,
+                    is_locked=fcs.is_locked,
+                    is_range_valid=(fcs.range_valid and fcs.range_stable),
+                    is_flywheel_idle=launcher.is_idle_ready(),
+                )
+                hud.log_event(
+                    f"[{'FIRE' if success else 'FIRE INHIBIT'}] {msg}",
+                    color=(0, 215, 255) if success else (0, 0, 255),
+                )
+            elif action.action == "ABORT_LOCK":
                 fcs.reset()
-                fire_start_sim_t = 0.0
+                engagement.abort()
                 launcher.stop_flywheels()
                 hud.log_event("[LOCK] TARGET DISENGAGED BY OPERATOR", color=(180, 180, 180))
 

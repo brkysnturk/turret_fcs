@@ -99,7 +99,12 @@ class HUDPresenter:
             x1, y1, x2, y2 = target_box
             target_centered = self.hud.is_target_centered(center_x, center_y, x1, y1, x2, y2)
 
-        ballistic_hud_data = (hit_feedback, (0, 255, 0)) if hit_feedback else None
+        if isinstance(hit_feedback, tuple):
+            ballistic_hud_data = hit_feedback
+        elif hit_feedback:
+            ballistic_hud_data = (str(hit_feedback), (0, 255, 0))
+        else:
+            ballistic_hud_data = None
 
         self.hud.draw_telemetry(
             frame,
