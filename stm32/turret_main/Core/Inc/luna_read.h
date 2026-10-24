@@ -1,7 +1,16 @@
+/*
+ * ==============================================================================
+ * MODUL: TF-LUNA LiDAR BASLIGI (USART1)
+ * ==============================================================================
+ * 9 baytlik cerceveyi ayristirir; mesafe ve sinyal gucu son gecerli deger
+ * olarak tutulur. Sicaklik baytlari henuz kullanilmaz. Ayrinti: luna_read.c.
+ * ==============================================================================
+ */
 #ifndef __LUNA_READ_H
 #define __LUNA_READ_H
 
 #include "main.h"
+#include "protocol.h"
 #include <stdint.h>
 #include <stdbool.h>
 

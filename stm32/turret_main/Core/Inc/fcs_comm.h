@@ -1,12 +1,19 @@
+/*
+ * ==============================================================================
+ * MODUL: PC <-> STM32 IKILI PROTOKOL BASLIGI (USART2)
+ * ==============================================================================
+ * Cerceve boylari, header baytlari ve state kodlari fcs_comm.c ile birebir
+ * aynidir. Protokol degisirse iki taraf (PC fcs_comm.py + bu baslik) birlikte
+ * guncellenmelidir; aksi halde checksum dogru olsa bile alanlar kayar.
+ * ==============================================================================
+ */
 #ifndef __FCS_COMM_H
 #define __FCS_COMM_H
 
 #include "main.h"
+#include "protocol.h"
 #include <stdint.h>
 #include <stdbool.h>
-
-#define FCS_HEADER_RX   0xAA  // PC -> STM32
-#define FCS_HEADER_TX   0x55  // STM32 -> PC
 
 void FCS_Comm_Init(UART_HandleTypeDef *huart);
 void FCS_Comm_RxCallback(UART_HandleTypeDef *huart);

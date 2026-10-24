@@ -1,10 +1,12 @@
 """Hedef secici histerezisi, UART paket iletisimi ve simulasyon algoritmalari konsolide testleri."""
+import struct
 import threading
 
 import numpy as np
 import pytest
 
 from turret_fcs.fcs_comm import FCSCommunicator
+from turret_fcs.protocol import ANGLE_SCALE, STM_TO_PC_HEADER, TLM_FORMAT
 from turret_fcs.rl_sim.turret_env import TurretEnv
 from turret_fcs.target_selector import TargetSelector
 
@@ -28,9 +30,10 @@ class _Box:
 
 
 def _packet(distance_cm, strength, pan_deg, tilt_deg):
-    p = int(pan_deg * 10)
-    t = int(tilt_deg * 10)
-    payload = bytes([0x55]) + np.array([distance_cm, strength, p, t], dtype="<i2").tobytes()
+    p = int(pan_deg * ANGLE_SCALE)
+    t = int(tilt_deg * ANGLE_SCALE)
+    payload = struct.pack(TLM_FORMAT, distance_cm, strength, p, t)
+    payload = bytes([STM_TO_PC_HEADER]) + payload
     checksum = sum(payload) & 0xFF
     return payload + bytes([checksum])
 

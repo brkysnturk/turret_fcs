@@ -5,11 +5,11 @@ MODUL: DONANIM HABERLESME VE SERI PORT PROTOKOLU (FCS COMMUNICATOR / UART)
 Bu modul, PC (Python) ile gomulu sistem (STM32 mikrodenetleyici) arasindaki
 tam cift yonlu (Full-Duplex), asenkron ve binary paketli iletisim katmanidir.
 
-PROTOKOL VE PAKET YAPISI (115200 Baud):
-1. TX Paketi (PC -> STM32) [7 Bayt]:
-   [0xAA (Header)] [Pan Delta * 10: int16 (2B, 0.1 deg)] [Tilt Delta * 10: int16 (2B, 0.1 deg)] [State/Fire: uint8 (1B)] [Checksum: uint8 (1B)]
-2. RX Paketi (STM32 -> PC) [10 Bayt]:
-   [0x55 (Header)] [TF-Luna Mesafe: uint16 (2B)] [Sinyal Gucu: uint16 (2B)] [Pan Acisi * 10: int16 (2B, 0.1 deg)] [Tilt Acisi * 10: int16 (2B, 0.1 deg)] [Checksum: uint8 (1B)]
+PROTOKOL VE PAKET YAPISI (115200 Baud, sabitler: turret_fcs/protocol.py):
+1. Komut Paketi (PC -> STM32) [7 Bayt]:
+   [PC_TO_STM_HEADER] [Pan Delta * 10: int16 (2B, 0.1 deg)] [Tilt Delta * 10: int16 (2B, 0.1 deg)] [State/Fire: uint8 (1B)] [Checksum: uint8 (1B)]
+2. Telemetri Paketi (STM32 -> PC) [10 Bayt]:
+   [STM_TO_PC_HEADER] [TF-Luna Mesafe: uint16 (2B)] [Sinyal Gucu: uint16 (2B)] [Pan Acisi * 10: int16 (2B, 0.1 deg)] [Tilt Acisi * 10: int16 (2B, 0.1 deg)] [Checksum: uint8 (1B)]
 
 GELISMIS OZELLIKLER:
 - Otomatik Port Tespiti (Auto Plug-and-Play): Windows COM portlarini tarayarak
@@ -24,6 +24,16 @@ import struct
 import threading
 import time
 
+from .protocol import (
+    ANGLE_OFFSET_DEG,
+    ANGLE_SCALE,
+    CMD_FORMAT,
+    PC_TO_STM_HEADER,
+    STM_TO_PC_HEADER,
+    TLM_FORMAT,
+    TLM_FRAME_LEN,
+)
+
 try:
     import serial
     import serial.tools.list_ports
@@ -36,18 +46,17 @@ class FCSCommunicator:
     STM32 mikrodenetleyicisi ile tek bir seri port uzerinden Full-Duplex
     ve Saf Binary (ikili) paket protokolu ile calisan iletisim sinifi:
 
-      1. TX (PC -> STM32) [7 Bayt]:
-         [0xAA] [Pan: int16 (2B)] [Tilt: int16 (2B)] [State: uint8] [Checksum: uint8]
+      1. PC -> STM32 komut cercevesi (7 bayt):
+         [PC_TO_STM_HEADER] [Pan: int16] [Tilt: int16] [State: uint8] [Checksum: uint8]
 
-      2. RX (STM32 -> PC) [10 Bayt]:
-         [0x55] [Mesafe: uint16 (2B)] [Sinyal: uint16 (2B)] [Pan*10: int16 (2B)] [Tilt*10: int16 (2B)] [Checksum: uint8]
+      2. STM32 -> PC telemetri cercevesi (10 bayt):
+         [STM_TO_PC_HEADER] [Mesafe: uint16] [Sinyal: uint16] [Pan*10: int16] [Tilt*10: int16] [Checksum: uint8]
 
+    Cerceve sabitleri `turret_fcs/protocol.py` ve firmware `protocol.h` ile
+    ortaktir; iki taraf birlikte guncellenmelidir.
     Baglanti: Once acikca verilen port, sonra ST-Link / STM32 USB VID (0483),
     sonra tek USB seri port otomatik secilir.
     """
-
-    HEADER_TX = 0xAA
-    HEADER_RX = 0x55
 
     def __init__(self, port=None, baudrate=115200, reconnect_interval=2.0, stale_timeout=0.3):
         self.port = port
@@ -180,7 +189,7 @@ class FCSCommunicator:
             self.residue_pan = 0.0
             p = 0
         else:
-            total_p = float(pan_angle) * 10.0 + self.residue_pan
+            total_p = float(pan_angle) * ANGLE_SCALE + self.residue_pan
             p_step = int(round(total_p))
             self.residue_pan = total_p - p_step
             p = max(-32000, min(32000, p_step))
@@ -189,14 +198,14 @@ class FCSCommunicator:
             self.residue_tilt = 0.0
             t = 0
         else:
-            total_t = float(tilt_angle) * 10.0 + self.residue_tilt
+            total_t = float(tilt_angle) * ANGLE_SCALE + self.residue_tilt
             t_step = int(round(total_t))
             self.residue_tilt = total_t - t_step
             t = max(-32000, min(32000, t_step))
 
         state = int(fcs_state) & 0xFF
         try:
-            payload = struct.pack("<BhhB", self.HEADER_TX, p, t, state)
+            payload = struct.pack(CMD_FORMAT, PC_TO_STM_HEADER, p, t, state)
             checksum = sum(payload) & 0xFF
             with self._lock:
                 if self.ser and self.ser.is_open:
@@ -206,27 +215,27 @@ class FCSCommunicator:
 
     def _consume_rx_buffer(self):
         """Biriken baytlardan gecerli 10 baytlik telemetri paketlerini ayiklar."""
-        while len(self._rx_buffer) >= 10:
-            header_index = self._rx_buffer.find(bytes([self.HEADER_RX]))
+        while len(self._rx_buffer) >= TLM_FRAME_LEN:
+            header_index = self._rx_buffer.find(bytes([STM_TO_PC_HEADER]))
             if header_index < 0:
                 self._rx_buffer.clear()
                 return
             if header_index > 0:
                 del self._rx_buffer[:header_index]
-            if len(self._rx_buffer) < 10:
+            if len(self._rx_buffer) < TLM_FRAME_LEN:
                 return
 
-            packet = self._rx_buffer[:10]
-            calc_csum = (self.HEADER_RX + sum(packet[1:9])) & 0xFF
+            packet = self._rx_buffer[:TLM_FRAME_LEN]
+            calc_csum = (STM_TO_PC_HEADER + sum(packet[1:9])) & 0xFF
             if calc_csum != packet[9]:
                 del self._rx_buffer[0]
                 continue
 
-            dist, strength, p_raw, t_raw = struct.unpack("<HHhh", bytes(packet[1:9]))
+            dist, strength, p_raw, t_raw = struct.unpack(TLM_FORMAT, bytes(packet[1:9]))
             self.distance = dist
             self.strength = strength
-            self.servo_pan_deg = (p_raw / 10.0) - 90.0
-            self.servo_tilt_deg = (t_raw / 10.0) - 90.0
+            self.servo_pan_deg = (p_raw / ANGLE_SCALE) - ANGLE_OFFSET_DEG
+            self.servo_tilt_deg = (t_raw / ANGLE_SCALE) - ANGLE_OFFSET_DEG
             self.has_servo_telemetry = True
             self.last_valid_time = time.time()
             del self._rx_buffer[:10]
