@@ -58,8 +58,6 @@ class ControlConfig:
     lead_time_min_s: float = 0.03        # Lead sure alt siniri
     lead_time_max_s: float = 0.40        # Lead sure ust siniri (dart ucus suresi olcegi)
     alpha_filter: float = 0.85           # P giris EMA'sinda yeni deger agirligi
-    los_alpha: float = 0.70              # Dunya LOS konum duzeltmesi (log kalibrasyonu)
-    los_beta: float = 0.20               # Dunya LOS hiz duzeltmesi (log kalibrasyonu)
     ego_tau_s: float = 0.045             # Ego icin komut adimi servo zaman sabiti (mount.servo_tau ile eslendi)
 
 
@@ -103,8 +101,8 @@ class RLConfig:
     """RL cikarim ve egitim ortaminin ortak sabitleri (tek kaynak)."""
     deadband_px: float = 5.0             # Merkezde politika bias'ini bastiran olu bolge
     reversal_damping: float = 0.5        # Yon degistiren aksiyonun sonum orani
-    taper_pan_deg: float = 1.0           # Soft deadband gecis genisligi (pan)
-    taper_tilt_deg: float = 2.5          # Soft deadband gecis genisligi (tilt)
+    taper_pan_deg: float = 2.0           # Soft deadband gecis genisligi (pan)
+    taper_tilt_deg: float = 3.0          # Soft deadband gecis genisligi (tilt)
     v_max_px_s: float = 300.0            # Hiz gozlemi Bryson olcegi
     dist_min_m: float = 0.5              # Mesafe gozlemi alt siniri
     dist_max_m: float = 5.0              # Mesafe gozlemi ust siniri
