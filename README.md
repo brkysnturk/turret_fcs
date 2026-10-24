@@ -367,7 +367,7 @@ venv\Scripts\python.exe analysis/inspect_logs.py
 ```text
 turret_fcs/
 ├── .github/                   # GitHub Actions CI sürekli entegrasyon iş akışları (ci.yml)
-├── tests/                     # 24 adet otomatik Pytest birim, SSOT ve entegrasyon testi
+├── tests/                     # 31 adet otomatik Pytest birim, SSOT ve entegrasyon testi
 ├── requirements.txt           # Python kütüphane bağımlılıkları (YOLO, Torch, SB3, vb.)
 ├── pyproject.toml             # Python paket ve yapılandırma manifestosu
 ├── CHANGELOG.md               # Sürüm değişiklikleri ve detaylı sürüm geçmişi
@@ -378,7 +378,8 @@ turret_fcs/
 ├── docs/                      # Dokümantasyon, mimari şemalar ve CAD çizimleri
 │   ├── assets/                # Güncel mimari/akış SVG'leri, CAD renderları ve donanım şeması
 │   ├── cad/                   # 3D yazıcı üretim ve prototipleme dosyaları (.stl)
-│   └── evidence/              # v1.4 donanım telemetri özetleri ve benchmark kayıtları
+│   ├── firmware.md            # Gömülü yazılım derleme, flaşlama ve pinout kılavuzu
+│   └── reproducibility.md     # Tekrar üretilebilirlik ve benzetim doğrulama kılavuzu
 ├── analysis/                  # Akademik kontrol, Kalman ve Webots doğrulama araçları
 │   ├── README.md              # Analiz betikleri ve üretilen figür haritası
 │   ├── plot_tuned_system.py   # 8 panelli analitik model ve telemetri analiz grafikleri
@@ -395,6 +396,9 @@ turret_fcs/
 │   ├── config.py              # SSOT merkezi konfigürasyon modülü
 │   ├── main.py                # Ana atış kontrol döngüsü ve koordinasyon
 │   ├── weights.py             # Otomatik GitHub Releases model ağırlığı indiricisi
+│   ├── engagement.py          # 2 aşamalı balistik atış ve angajman durum makinesi (SSOT)
+│   ├── presenter.py           # MIL-STD taktiksel HUD çizim ve sunum katmanı
+│   ├── keymap.py              # Operatör klavye kontrolleri ve komut dağıtıcısı
 │   ├── telemetry.py           # v2 telemetri, JSON metadata sidecar ve event log
 │   ├── fcs_manager.py         # Hedef seçim, kilit, balistik ve menzil kapılama motoru
 │   ├── lock_manager.py        # Kapalı form 2B Gauss vuruş olasılığı (ncx2 CDF) ve histerezis

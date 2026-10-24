@@ -19,12 +19,10 @@ CALISMA ZAMANI SOZLESMESI:
 """
 
 import sys
-import time
 import math
 import os
 from pathlib import Path
 import cv2
-import numpy as np
 
 # Proje kokunu ve venv site-packages'i sys.path'e ekle (Webots dahili Python korumasi)
 project_root = Path(__file__).resolve().parents[3]
@@ -211,10 +209,8 @@ def main():
                 center_x=center_x,
                 center_y=center_y,
                 fps=fps,
-                latency_ms=hw.dt * 1000.0,
                 dist_cm=dist_cm,
                 strength=strength,
-                temp_c=0.0,
                 is_estop=is_estop,
                 hit_feedback=ballistic_hud_data,
             )
@@ -223,46 +219,24 @@ def main():
             key = cv2.waitKey(1) & 0xFF
 
             # Operator Klavye ve Etkilesim Haritasi
-            action = process_key_event(key, is_estop=is_estop)
-            if action.action == "QUIT":
+            prev_estop = is_estop
+            should_exit, is_estop = process_key_event(
+                key_code=key,
+                fcs=fcs,
+                engagement=engagement,
+                is_estop=is_estop,
+                now=sim_t,
+                is_range_valid=(fcs.range_valid and fcs.range_stable),
+                is_flywheel_idle=launcher.is_idle_ready(),
+                log_event_cb=hud.log_event,
+            )
+            if should_exit:
                 hud.log_event("[SYS] WEBOTS SESSION TERMINATED", color=(180, 180, 180))
                 break
-            elif action.action == "CYCLE_MODE":
-                fcs.control_mode = "RL" if fcs.control_mode == "P" else "P"
-                mode_names = {"P": "P (PRECISION LOCK)", "RL": "RL (SAF PPO)"}
-                hud.log_event(f"[MODE] {mode_names.get(fcs.control_mode, fcs.control_mode)}", color=(0, 215, 255))
-            elif action.action == "TOGGLE_PATROL":
-                fcs.patrol_enabled = not fcs.patrol_enabled
-                p_text = "FIGURE-8 SCAN ENGAGED" if fcs.patrol_enabled else "STANDBY (DISABLED)"
-                p_color = (0, 255, 0) if fcs.patrol_enabled else (180, 180, 180)
-                hud.log_event(f"[PATROL] {p_text}", color=p_color)
-            elif action.action == "TOGGLE_ESTOP":
-                is_estop = not is_estop
-                fcs.reset()
-                engagement.abort()
-                if is_estop:
-                    fcs.patrol_enabled = False
-                    launcher.stop_flywheels()
-                    hw.set_neutral()
-                    hud.log_event("[E-STOP] MOTORS HALTED & ZEROED (LATCHED)", color=(0, 0, 255))
-                else:
-                    hud.log_event("[E-STOP] DISENGAGED - RESUMING FCS", color=(0, 255, 128))
-            elif action.action == "FIRE_REQUEST":
-                success, msg = engagement.trigger(
-                    now=sim_t,
-                    is_locked=fcs.is_locked,
-                    is_range_valid=(fcs.range_valid and fcs.range_stable),
-                    is_flywheel_idle=launcher.is_idle_ready(),
-                )
-                hud.log_event(
-                    f"[{'FIRE' if success else 'FIRE INHIBIT'}] {msg}",
-                    color=(0, 215, 255) if success else (0, 0, 255),
-                )
-            elif action.action == "ABORT_LOCK":
-                fcs.reset()
-                engagement.abort()
+            if is_estop and not prev_estop:
+                fcs.patrol_enabled = False
                 launcher.stop_flywheels()
-                hud.log_event("[LOCK] TARGET DISENGAGED BY OPERATOR", color=(180, 180, 180))
+                hw.set_neutral()
 
     finally:
         if telemetry:

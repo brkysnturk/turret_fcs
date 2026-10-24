@@ -198,7 +198,7 @@
 - **Dogrulama:** Firmware arm-none-eabi-gcc 14.3 ile sifir uyarida derlendi ve linklendi (text 17772 B, data 20 B, bss 1940 B); protokol PC tarafiyla degismedi, test paketi 24/24 konsolide ve tam kapsamlı.
 - **Sürüm:** Tüm v1.3 sonrasi degisiklikler v1.4'te toplandi; test paketi 24 test.
 
-### FAZ 14: Algoritmik Kararlılık, Ki-Kare İnovasyon Kapısı ve Dinamik İvme İyileştirmesi
+### FAZ 14: Algoritmik Kararlılık, 150 px Robust Tekil-Sıçrama Kapısı ve Dinamik İvme İyileştirmesi
 - **Kapsam:** P Kontrolcü, Kalman Filtresi, RL Kontrolcü ve Sistem Entegrasyonu.
 - **Yapılan İyileştirmeler:**
   1. **P Kontrolcü Kazanç Planlaması Kaldırıldı:** Büyük açılarda Kp'yi 1.6 katına çıkaran yapay kazanç planlaması (`far_gain`, `far_error_deg`) tamamen kaldırıldı; sistem saf, öngörülebilir ve doğrusal Tip-1 P mimarisine kavuştu (`Kp_pan = 0.22`, `Kp_tilt = 0.11`).

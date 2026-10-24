@@ -27,20 +27,18 @@ class HUDPresenter:
         center_x: int,
         center_y: int,
         fps: float,
-        latency_ms: float,
         dist_cm: int,
         strength: int,
-        temp_c: float,
         is_estop: bool,
         hit_feedback: Optional[str] = None,
     ):
         """HUD katmanlarini askeri hiyerarsiye gore kare uzerine cizer."""
         target_detected = target_box is not None
+        hud_firing = engagement_state.is_active
 
         # 1. Hedef Belirleme ve Nisangah Renk Secimi
         if is_estop:
             reticle_color = (100, 100, 100)
-            box_color = (100, 100, 100)
             status_text = "STATUS: EMERGENCY STOP (LATCHED)"
             status_color = (0, 0, 255)
             angle_err_text = "ANGULAR ERR:   [HALTED] deg"
@@ -57,7 +55,7 @@ class HUDPresenter:
             status_color = engagement_state.status_color
             angle_err_text = f"ANGULAR ERR:   [{fcs.actual_pan:+.1f} , {fcs.actual_tilt:+.1f}] deg"
 
-            is_red = fcs.is_locked or engagement_state.is_physical_firing
+            is_red = fcs.is_locked or hud_firing
             box_color = (0, 0, 255) if is_red else (0, 191, 255)
             reticle_color = box_color
 
@@ -67,28 +65,29 @@ class HUDPresenter:
                 label=self.hud.get_box_label()
             )
 
-            # 2. Balistik Onleme Ibresi ve Oku (Lead Indicator Vector)
+            # 2. Takip Cizgisi (Kilit oncesi optik merkezden hedefe yonlendirme hatti)
+            bx, by = (x1 + x2) // 2, (y1 + y2) // 2
+            if not hud_firing and not fcs.is_locked:
+                self.hud.draw_tracking_line(frame, center_x, center_y, bx, by, status_color)
+
+            # 3. Balistik Onleme Ibresi ve Oku (Lead Indicator Vector)
             lead_ox, lead_oy = fcs.firing_lead_offset
             if abs(lead_ox) > 1.0 or abs(lead_oy) > 1.0:
-                bx, by = (x1 + x2) // 2, (y1 + y2) // 2
                 self.hud.draw_lead_indicator(
                     frame, bx, by, int(fcs.pred_center[0]), int(fcs.pred_center[1])
                 )
 
         else:
             # Hedef yok: Arama / Devriye durumlari
-            angle_err_text = "ANGULAR ERR:   [--.- , --.-] deg"
             reticle_color = (0, 191, 255)
             if getattr(fcs, "patrol_enabled", False):
-                if getattr(fcs, "patrol_status", "STANDBY") == "PATROLLING":
-                    status_text = "STATUS: PATROL - LISSAJOUS SCAN"
-                    status_color = (0, 215, 255)
-                else:
-                    status_text = "STATUS: SEARCHING / PATROL STANDBY"
-                    status_color = (100, 100, 100)
+                status_text = f"PATROL: {getattr(fcs, 'patrol_status', 'STANDBY')}"
+                status_color = (0, 255, 0)
+                angle_err_text = f"TURRET POSE:   [{getattr(fcs, 'turret_pan_deg', 0.0):+.1f} , {getattr(fcs, 'turret_tilt_deg', 0.0):+.1f}] deg"
             else:
                 status_text = "STATUS: SEARCHING AIRSPACE"
                 status_color = (0, 191, 255)
+                angle_err_text = "ANGULAR ERR:   [--.- , --.-] deg"
 
         # 4. Merkez Taktik Nisangahi
         self.hud.draw_grid_and_reticle(frame, center_x, center_y, reticle_color=reticle_color)
@@ -118,7 +117,7 @@ class HUDPresenter:
             target_detected=target_detected,
             target_centered=target_centered,
             is_locked=fcs.is_locked,
-            firing=engagement_state.is_physical_firing,
+            firing=hud_firing,
             center_x=center_x,
             center_y=center_y,
             ballistic_result=ballistic_hud_data,
@@ -128,7 +127,7 @@ class HUDPresenter:
         )
 
         # 6. Atis sirasinda kilit bari ve isabet olasiligi gizlenir
-        if target_detected and not engagement_state.is_physical_firing:
+        if target_detected and not hud_firing:
             max_lock_frames = getattr(fcs, "LOCK_THRESHOLD_FRAMES", 10)
             self.hud.draw_lock_bar(frame, center_x, center_y, fcs.lock_counter, max_lock_frames, fcs.is_locked)
             self.hud.draw_lock_quality(frame, center_x, center_y, getattr(fcs, "lock_quality", 0.0))
@@ -136,7 +135,7 @@ class HUDPresenter:
         # 7. Taktik Banner, Footer ve Olay Gunlugu
         self.hud.draw_mode_banner(
             frame, fcs.control_mode, getattr(fcs, "patrol_enabled", False),
-            is_locked=fcs.is_locked, firing=engagement_state.is_physical_firing
+            is_locked=fcs.is_locked, firing=hud_firing
         )
-        self.hud.draw_footer(frame, is_locked=fcs.is_locked, firing=engagement_state.is_physical_firing)
-        self.hud.draw_event_log(frame, is_locked=fcs.is_locked, firing=engagement_state.is_physical_firing)
+        self.hud.draw_footer(frame, is_locked=fcs.is_locked, firing=hud_firing)
+        self.hud.draw_event_log(frame, is_locked=fcs.is_locked, firing=hud_firing)

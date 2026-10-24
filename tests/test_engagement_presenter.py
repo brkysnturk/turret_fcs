@@ -112,15 +112,13 @@ def test_hud_presenter_render():
         center_x=640,
         center_y=360,
         fps=30.0,
-        latency_ms=12.5,
         dist_cm=250,
         strength=1200,
-        temp_c=24.0,
         is_estop=False,
     )
     assert frame.shape == (720, 1280, 3)
 
-    # Hedef varken render
+    # Hedef varken render (kilitli degilken takip cizgisi cizilir)
     presenter.render(
         frame=frame,
         fcs=fcs,
@@ -129,10 +127,61 @@ def test_hud_presenter_render():
         center_x=640,
         center_y=360,
         fps=30.0,
-        latency_ms=12.5,
         dist_cm=250,
         strength=1200,
-        temp_c=24.0,
         is_estop=False,
     )
     assert frame.shape == (720, 1280, 3)
+
+
+def test_entrypoint_contracts():
+    """main.py ve webots_main.py giris noktalarinin keymap ve presenter sozlesmelerini dogrular."""
+    hud = TurretHUD()
+    presenter = HUDPresenter(hud)
+    fcs = FCSManager(control_mode="P")
+    engagement = EngagementManager()
+    frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+    sim_t = 12.34
+
+    # 1. webots_main.py cagri imzasi testi
+    should_exit, is_estop = process_key_event(
+        key_code=-1,
+        fcs=fcs,
+        engagement=engagement,
+        is_estop=False,
+        now=sim_t,
+        is_range_valid=True,
+        is_flywheel_idle=False,
+        log_event_cb=hud.log_event,
+    )
+    assert should_exit is False
+    assert is_estop is False
+
+    # 2. main.py cagri imzasi testi
+    should_exit, is_estop = process_key_event(
+        key_code=ord("y"),
+        fcs=fcs,
+        engagement=engagement,
+        is_estop=False,
+        now=sim_t,
+        is_range_valid=True,
+        is_flywheel_idle=False,
+        log_event_cb=lambda msg, col: None,
+    )
+    assert should_exit is False
+
+    # 3. Presenter render sozlesmesi
+    eng_state = engagement.update(sim_t, fcs.is_locked)
+    presenter.render(
+        frame=frame,
+        fcs=fcs,
+        engagement_state=eng_state,
+        target_box=(600, 340, 680, 420),
+        center_x=640,
+        center_y=360,
+        fps=30.0,
+        dist_cm=200,
+        strength=1000,
+        is_estop=False,
+        hit_feedback=None,
+    )

@@ -10,7 +10,7 @@ TEMEL GOREVLER VE AKIS:
 1. Donanim Baslatma: Logitech C270 kamera (DirectShow) ve STM32 (USB VID 0483) otomatik algilama.
 2. Derin Ogrenme Cikarimi: Egitilmis YOLOv8 modeli ile balon tespiti (best.pt).
 3. Kontrol Modlari (Klavyeden 'M' ile gecis):
-   - "P": P (tek EMA, kazanc planlamali, yumusak olu bolgeli oransal kontrol).
+   - "P": P (tek EMA, ivme sinirli, yumusak olu bolgeli Tip-1 P).
    - "RL": RL (11 boyutlu saf PPO, NumPy cikarim).
 4. Akilli Devriye (Klavyeden 'P' ile gecis):
    - Hedef kayboldugunda 1.5 sn bekleme, merkeze donus ve 2 eksenli figure-8 tarama.
@@ -21,7 +21,6 @@ TEMEL GOREVLER VE AKIS:
 import time
 from pathlib import Path
 import cv2
-import numpy as np
 from ultralytics import YOLO
 
 from .camera_thread import CameraThread
@@ -211,7 +210,7 @@ def main():
                 )
 
             # 5. Bas-Ustu Gosterge (HUD) render
-            hit_feedback = "ENGAGEMENT SUCCESSFUL" if eng_state.phase == "EVAL" else None
+            hit_feedback = "ENGAGEMENT COMPLETED" if eng_state.phase == "EVAL" else None
             presenter.render(
                 frame=frame,
                 fcs=fcs,
@@ -220,10 +219,8 @@ def main():
                 center_x=center_x,
                 center_y=center_y,
                 fps=fps,
-                latency_ms=(time.perf_counter() - loop_started) * 1000.0,
                 dist_cm=dist_cm,
                 strength=strength,
-                temp_c=temp_c,
                 is_estop=is_estop,
                 hit_feedback=hit_feedback,
             )

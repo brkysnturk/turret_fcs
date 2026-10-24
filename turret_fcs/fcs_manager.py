@@ -405,7 +405,7 @@ class FCSManager:
                 self.prev_applied_lead_pan = 0.0
                 self.prev_applied_lead_tilt = 0.0
 
-            # Hedef yokken: Devriye modu aciksa sakin dairesel tarama (odometri ile merkeze donus)
+            # Hedef yokken: Devriye modu aciksa Figure-8 (Lissajous) tarama (odometri ile merkeze donus)
             if self.patrol_enabled:
                 d_p, d_t, self.patrol_status = self.patrol.update(
                     dt, current_pan=self.turret_pan_deg, current_tilt=self.turret_tilt_deg
