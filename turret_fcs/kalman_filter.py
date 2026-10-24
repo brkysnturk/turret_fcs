@@ -39,8 +39,6 @@ class KalmanFilter:
     Olcum: Z = [x, y]^T          (piksel)
     """
 
-    DEFAULT_LEAD_TIME = 0.18  # saniye
-
     def __init__(
         self,
         dt=0.033,
@@ -184,7 +182,7 @@ class KalmanFilter:
 
         return float(self.x[0, 0]), float(self.x[1, 0]), self.smooth_vx, self.smooth_vy
 
-    def predict_next_position(self, lead_time=DEFAULT_LEAD_TIME):
+    def predict_next_position(self, lead_time):
         """lead_time saniye sonraki hedef konumunu ve hizini dondurur.
 
         Hiz dunya referansli oldugu icin lead, kameranin gelecekteki donusunu

@@ -111,7 +111,7 @@ class FCSManager:
         if theta <= 1e-4:
             return None
         d_geom = float(CONFIG.lock.target_radius_m / np.tan(theta))
-        return d_geom if np.isfinite(d_geom) and d_geom > 0.2 else None
+        return d_geom if np.isfinite(d_geom) and d_geom > CONFIG.lidar.min_distance_m else None
 
     def _update_lidar_range(self, dist_cm, is_firing, box_dim, fx, fy):
         """
@@ -205,10 +205,7 @@ class FCSManager:
         """PPO politika agirligini yalnizca RL modu secildiginde tembel (lazy) yukler."""
         if self.rl_controller is None:
             from .rl_controller import RLController
-            self.rl_controller = RLController(
-                cmd_accel_pan_deg_s2=120.0,
-                cmd_accel_tilt_deg_s2=80.0,
-            )
+            self.rl_controller = RLController()
         return self.rl_controller
 
     @property
@@ -292,7 +289,11 @@ class FCSManager:
 
             d_m = self.last_valid_target_dist_m
             effective_dist_cm = float(d_m * 100.0)
-            lead_time = float(np.clip((d_m / self.p_controller.PROJECTILE_SPEED_MPS) + 0.015, 0.03, 0.25))
+            lead_time = float(np.clip(
+                (d_m / self.p_controller.PROJECTILE_SPEED_MPS) + CONFIG.control.lead_time_offset_s,
+                CONFIG.control.lead_time_min_s,
+                CONFIG.control.lead_time_max_s,
+            ))
 
             # Taretin bir onceki karedeki donusunden kaynaklanan optik akis kaymasi (Ego-Motion).
             # Tek kaynak: son motor komutunun 1. derece servo yaniti. Konum geri beslemesi
@@ -483,3 +484,4 @@ class FCSManager:
             self.rl_controller.reset()
         self.patrol.reset()
         self.selector.reset()
+

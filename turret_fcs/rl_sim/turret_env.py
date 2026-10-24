@@ -95,12 +95,12 @@ class TurretEnv(gym.Env):
         self.max_step_deg = self.max_step_pan_deg
         self.servo_deadband = CONFIG.actuator.servo_deadband_deg
         self.servo_tau = CONFIG.mount.servo_tau
-        self.yolo_noise_std = 3.5        # YOLO merkez gurultusu (piksel)
+        self.yolo_noise_std = CONFIG.rl.yolo_noise_std
 
-        # 3. Bryson Kurali ile Normalizasyon Olcekleri
-        self.v_max_px_s = 300.0          # Maksimum hedef piksel hizi (px/s)
-        self.dist_min_m = 0.5            # TF-Luna minimum menzil (m)
-        self.dist_max_m = 5.0            # TF-Luna maksimum calisma menzili (m)
+        # 3. Bryson Kurali ile Normalizasyon Olcekleri (RL cikarimi ile ayni kaynak)
+        self.v_max_px_s = CONFIG.rl.v_max_px_s
+        self.dist_min_m = CONFIG.rl.dist_min_m
+        self.dist_max_m = CONFIG.rl.dist_max_m
 
         # Eylem Uzayı: [-1.0, 1.0] araliginda normalize motor adimi
         self.action_space = spaces.Box(
@@ -138,7 +138,7 @@ class TurretEnv(gym.Env):
         self.last_pixel_pos = (self.center_x, self.center_y)
         self.trajectory_type = "linear"
         self.step_count = 0
-        self.max_steps = 300
+        self.max_steps = CONFIG.rl.episode_steps
         self.dt = self.base_dt
 
     def _get_sensor_obs(self):
@@ -241,10 +241,10 @@ class TurretEnv(gym.Env):
         if self.enable_randomization:
             self.latency_steps = int(np.random.choice([1, 2, 3]))  # 33 ms - 100 ms degisken donanim gecikmesi
             self.obs_queue = deque(maxlen=self.latency_steps + 1)
-            self.servo_tau = float(np.random.uniform(0.035, 0.065))  # Servo gecikmesi (35 - 65 ms)
+            self.servo_tau = float(np.random.uniform(CONFIG.rl.servo_tau_min_s, CONFIG.rl.servo_tau_max_s))
             self.servo_deadband = float(np.random.uniform(0.08, 0.14)) # STM32 0.1 deg kuantalamasi
             self.dt = float(np.random.uniform(0.025, 0.045))         # 22 - 40 FPS dalgalanmasi
-            self.yolo_noise_std = float(np.random.uniform(2.0, 5.0))  # YOLO kutu titremesi (piksel)
+            self.yolo_noise_std = float(np.random.uniform(CONFIG.rl.yolo_noise_std_min, CONFIG.rl.yolo_noise_std_max))
         else:
             self.latency_steps = self.base_latency_steps
             self.obs_queue = deque(maxlen=self.latency_steps + 1)
@@ -397,3 +397,4 @@ class TurretEnv(gym.Env):
             reward -= 2.0
 
         return obs, reward, terminated, truncated, {"pixel_dist": current_dist}
+

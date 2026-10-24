@@ -65,6 +65,10 @@ class PController:
     ALPHA_FILTER = CONFIG.control.alpha_filter
     KP_PAN_FRAME = CONFIG.control.kp_pan
     KP_TILT_FRAME = CONFIG.control.kp_tilt
+    FAR_GAIN = CONFIG.control.far_gain
+    FAR_ERROR_DEG = CONFIG.control.far_error_deg
+    CMD_ACCEL_PAN = CONFIG.control.cmd_accel_pan_deg_s2
+    CMD_ACCEL_TILT = CONFIG.control.cmd_accel_tilt_deg_s2
 
     def __init__(
         self,
@@ -74,10 +78,10 @@ class PController:
         max_output=MAX_OUTPUT_DEG,
         deadband_pan=DEADBAND_PAN_DEG,
         deadband_tilt=DEADBAND_TILT_DEG,
-        far_gain=1.6,
-        far_error_deg=5.0,
-        cmd_accel_pan_deg_s2=120.0,
-        cmd_accel_tilt_deg_s2=80.0,
+        far_gain=FAR_GAIN,
+        far_error_deg=FAR_ERROR_DEG,
+        cmd_accel_pan_deg_s2=CMD_ACCEL_PAN,
+        cmd_accel_tilt_deg_s2=CMD_ACCEL_TILT,
     ):
         self.kp_frame_pan = float(kp_pan)
         self.kp_frame_tilt = float(kp_tilt)

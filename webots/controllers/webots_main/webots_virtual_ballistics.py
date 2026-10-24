@@ -49,7 +49,7 @@ class VirtualBallisticsEvaluator:
         self.last_result_text = ""
         self.last_result_color = (0, 255, 0)
         self.last_result_sim_time = -999.0
-        self.DISPLAY_DURATION = 1.50  # 1.50 saniye EVAL afis suresi
+        self.DISPLAY_DURATION = CONFIG.ballistics.eval_display_time_s
 
         self.total_shots = 0
         self.total_hits = 0

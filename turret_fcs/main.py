@@ -62,7 +62,7 @@ def main():
     SETTLE_DURATION = CONFIG.ballistics.settle_time_s      # 0.15 s sabit oturma
     GUN_FIRE_DURATION = CONFIG.ballistics.firing_pulse_s
     RECOVER_DURATION = CONFIG.ballistics.recovery_time_s
-    BALLISTIC_DISPLAY_DURATION = 1.50
+    BALLISTIC_DISPLAY_DURATION = CONFIG.ballistics.eval_display_time_s
     TOTAL_FIRE_CYCLE = SPINUP_DURATION + SETTLE_DURATION + GUN_FIRE_DURATION + RECOVER_DURATION + BALLISTIC_DISPLAY_DURATION
 
     prev_target_detected = False
@@ -402,3 +402,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

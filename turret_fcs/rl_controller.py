@@ -90,12 +90,28 @@ class RLController:
     uses_velocity_obs = False
 
     def __init__(self, model_path=None, auto_load=True,
-                 deadband_px=5.0, deadband_exit_px=8.0, velocity_gate_px_s=30.0,
-                 reversal_damping=0.5,
+                 deadband_px=None, deadband_exit_px=None, velocity_gate_px_s=None,
+                 reversal_damping=None,
                  deadband_pan_deg=None, deadband_tilt_deg=None,
-                 taper_pan_deg=1.00, taper_tilt_deg=2.50,
+                 taper_pan_deg=None, taper_tilt_deg=None,
                  cmd_accel_pan_deg_s2=None, cmd_accel_tilt_deg_s2=None,
-                 v_max_px_s=300.0):
+                 v_max_px_s=None, dist_min_m=None, dist_max_m=None):
+        R = CONFIG.rl
+        deadband_px = R.deadband_px if deadband_px is None else deadband_px
+        deadband_exit_px = R.deadband_exit_px if deadband_exit_px is None else deadband_exit_px
+        velocity_gate_px_s = R.velocity_gate_px_s if velocity_gate_px_s is None else velocity_gate_px_s
+        reversal_damping = R.reversal_damping if reversal_damping is None else reversal_damping
+        taper_pan_deg = R.taper_pan_deg if taper_pan_deg is None else taper_pan_deg
+        taper_tilt_deg = R.taper_tilt_deg if taper_tilt_deg is None else taper_tilt_deg
+        cmd_accel_pan_deg_s2 = (
+            CONFIG.control.cmd_accel_pan_deg_s2 if cmd_accel_pan_deg_s2 is None else cmd_accel_pan_deg_s2
+        )
+        cmd_accel_tilt_deg_s2 = (
+            CONFIG.control.cmd_accel_tilt_deg_s2 if cmd_accel_tilt_deg_s2 is None else cmd_accel_tilt_deg_s2
+        )
+        v_max_px_s = R.v_max_px_s if v_max_px_s is None else v_max_px_s
+        dist_min_m = R.dist_min_m if dist_min_m is None else dist_min_m
+        dist_max_m = R.dist_max_m if dist_max_m is None else dist_max_m
         if model_path is None:
             model_path = Path(__file__).resolve().parent / "rl_sim" / "models" / "turret_ppo_v14.zip"
         self.model_path = Path(model_path)
@@ -110,8 +126,8 @@ class RLController:
         self.max_step_tilt_deg = CONFIG.actuator.max_step_tilt_deg
         self.max_step_deg = self.max_step_pan_deg
         self.v_max_px_s = float(v_max_px_s)
-        self.dist_min_m = 0.5
-        self.dist_max_m = 5.0
+        self.dist_min_m = float(dist_min_m)
+        self.dist_max_m = float(dist_max_m)
 
         self.last_err = np.zeros(2, dtype=np.float32)
         self.d_err_filt = np.zeros(2, dtype=np.float32)
@@ -136,12 +152,8 @@ class RLController:
         )
         self.taper_pan_deg = max(0.1, float(taper_pan_deg))
         self.taper_tilt_deg = max(0.1, float(taper_tilt_deg))
-        self.cmd_accel_pan_deg_s2 = (
-            float(cmd_accel_pan_deg_s2) if cmd_accel_pan_deg_s2 is not None else None
-        )
-        self.cmd_accel_tilt_deg_s2 = (
-            float(cmd_accel_tilt_deg_s2) if cmd_accel_tilt_deg_s2 is not None else None
-        )
+        self.cmd_accel_pan_deg_s2 = float(cmd_accel_pan_deg_s2)
+        self.cmd_accel_tilt_deg_s2 = float(cmd_accel_tilt_deg_s2)
         self.prev_cmd_pan = 0.0
         self.prev_cmd_tilt = 0.0
 
@@ -312,17 +324,15 @@ class RLController:
                 d_pan_deg = 0.0
                 d_tilt_deg = 0.0
 
-        # 2. Ivme sinirlama (Slew Rate Limiter - P ile ayni: 120 pan / 80 tilt deg/s^2)
-        if self.cmd_accel_pan_deg_s2 is not None:
-            max_delta_pan = self.cmd_accel_pan_deg_s2 * dt_safe
-            d_pan_deg = float(np.clip(
-                d_pan_deg, self.prev_cmd_pan - max_delta_pan, self.prev_cmd_pan + max_delta_pan
-            ))
-        if self.cmd_accel_tilt_deg_s2 is not None:
-            max_delta_tilt = self.cmd_accel_tilt_deg_s2 * dt_safe
-            d_tilt_deg = float(np.clip(
-                d_tilt_deg, self.prev_cmd_tilt - max_delta_tilt, self.prev_cmd_tilt + max_delta_tilt
-            ))
+        # 2. Ivme sinirlama (Slew Rate Limiter - P ile ayni: CONFIG.control.cmd_accel_*)
+        max_delta_pan = self.cmd_accel_pan_deg_s2 * dt_safe
+        d_pan_deg = float(np.clip(
+            d_pan_deg, self.prev_cmd_pan - max_delta_pan, self.prev_cmd_pan + max_delta_pan
+        ))
+        max_delta_tilt = self.cmd_accel_tilt_deg_s2 * dt_safe
+        d_tilt_deg = float(np.clip(
+            d_tilt_deg, self.prev_cmd_tilt - max_delta_tilt, self.prev_cmd_tilt + max_delta_tilt
+        ))
 
         d_pan_deg = float(np.clip(d_pan_deg, -max_pan_step, max_pan_step))
         d_tilt_deg = float(np.clip(d_tilt_deg, -max_tilt_step, max_tilt_step))

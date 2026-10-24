@@ -365,10 +365,10 @@ class TurretHUD:
         center_x = w // 2
 
         if control_mode == "RL":
-            mode_label = "RL Controller"
+            mode_label = "RL CONTROLLER"
             mode_color = (0, 255, 128)
         else:
-            mode_label = "P Controller"
+            mode_label = "P CONTROLLER"
             mode_color = (0, 255, 255)
 
         if patrol_enabled:

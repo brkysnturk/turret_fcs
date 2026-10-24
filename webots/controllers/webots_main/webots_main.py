@@ -83,7 +83,7 @@ def main():
     SETTLE_DURATION = CONFIG.ballistics.settle_time_s          # 0.15 s sabit oturma
     GUN_FIRE_DURATION = CONFIG.ballistics.firing_pulse_s        # 0.08 s
     RECOVER_DURATION = CONFIG.ballistics.recovery_time_s        # 0.35 s
-    BALLISTIC_DISPLAY_DURATION = 1.50                          # 1.50 s EVAL afisi
+    BALLISTIC_DISPLAY_DURATION = CONFIG.ballistics.eval_display_time_s  # EVAL afis suresi
 
     is_estop = False
     fire_stage = None
@@ -387,3 +387,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

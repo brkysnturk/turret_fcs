@@ -52,6 +52,13 @@ class ControlConfig:
     deadband_tilt_deg: float = 0.95
     max_output_deg: float = 1.50
     max_command_step_deg: float = 1.50  # Firmware Servo_ApplyCorrection ust siniri
+    far_gain: float = 1.6                # 5 derece ustu hatada Kp carpani
+    far_error_deg: float = 5.0           # Kazanc planlamasinin basladigi hata
+    cmd_accel_pan_deg_s2: float = 120.0  # P/RL pan komut ivme siniri
+    cmd_accel_tilt_deg_s2: float = 80.0  # P/RL tilt komut ivme siniri
+    lead_time_offset_s: float = 0.015    # Balistik lead'e eklenen sabit pay
+    lead_time_min_s: float = 0.03        # Lead sure alt siniri
+    lead_time_max_s: float = 0.25        # Lead sure ust siniri
     alpha_filter: float = 0.85           # P giris EMA'sinda yeni deger agirligi
     los_alpha: float = 0.70              # Dunya LOS konum duzeltmesi (log kalibrasyonu)
     los_beta: float = 0.20               # Dunya LOS hiz duzeltmesi (log kalibrasyonu)
@@ -90,7 +97,28 @@ class BallisticsConfig:
     settle_time_s: float = 0.15     # Slew sonrasi servo oturma (sabit hold; lead/gravity canli)
     firing_pulse_s: float = 0.08    # Solenoid itici darbe suresi (80 ms - STM32 firmware ile uyumlu)
     recovery_time_s: float = 0.35   # Mekanik geri toplama suresi
+    eval_display_time_s: float = 1.50  # Atis sonrasi EVAL gosterim suresi
     system_latency_s: float = 0.080 # 80 ms kamera-yolo-uart-solenoid toplam tasiyici gecikmesi
+
+
+@dataclass(frozen=True)
+class RLConfig:
+    """RL cikarim ve egitim ortaminin ortak sabitleri (tek kaynak)."""
+    deadband_px: float = 5.0             # Merkezde politika bias'ini bastiran olu bolge
+    deadband_exit_px: float = 8.0        # Olu bolgeden cikis histerezisi
+    velocity_gate_px_s: float = 30.0     # Bu hizin ustunde olu bolge uygulanmaz
+    reversal_damping: float = 0.5        # Yon degistiren aksiyonun sonum orani
+    taper_pan_deg: float = 1.0           # Soft deadband gecis genisligi (pan)
+    taper_tilt_deg: float = 2.5          # Soft deadband gecis genisligi (tilt)
+    v_max_px_s: float = 300.0            # Hiz gozlemi Bryson olcegi
+    dist_min_m: float = 0.5              # Mesafe gozlemi alt siniri
+    dist_max_m: float = 5.0              # Mesafe gozlemi ust siniri
+    yolo_noise_std: float = 3.5          # Ortam varsayilan YOLO kutu gurultusu (px)
+    yolo_noise_std_min: float = 2.0      # Domain randomization alt siniri
+    yolo_noise_std_max: float = 5.0      # Domain randomization ust siniri
+    servo_tau_min_s: float = 0.035       # Domain randomization servo zaman sabiti
+    servo_tau_max_s: float = 0.065
+    episode_steps: int = 300             # Egitim bolumu uzunlugu
 
 
 @dataclass(frozen=True)
@@ -98,7 +126,6 @@ class LidarConfig:
     """TF-Luna menzil kapilama, sicrama reddi ve kararlilik filtreleri."""
     min_distance_m: float = 0.20
     max_distance_m: float = 8.00
-    gate_angle_deg: float = 3.0          # Bu aci icindeki LiDAR okumalari aday olabilir
     jump_threshold_m: float = 0.50       # Son gecerli mesafeden 50 cm'den fazla sapma = supheli
     stability_window: int = 3            # Ates icin gereken kararli okuma sayisi
     stability_tolerance_m: float = 0.10  # Bu pencerede izin verilen mesafe dalgalanmasi
@@ -151,6 +178,7 @@ class TurretConfig:
     actuator: ActuatorConfig = ActuatorConfig()
     kalman: KalmanConfig = KalmanConfig()
     ballistics: BallisticsConfig = BallisticsConfig()
+    rl: RLConfig = RLConfig()
     flywheel: FlywheelConfig = FlywheelConfig()
     lidar: LidarConfig = LidarConfig()
     mount: MountConfig = MountConfig()
