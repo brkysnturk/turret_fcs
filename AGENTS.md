@@ -110,6 +110,7 @@
   | Zigzag (5) | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
   | Step/hold (4) | ⚠️ | – | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
+  - **Metodolojik Not (Tez ve Karşılaştırma):** Bu tarama tablosu, önceki kazanç planlaması (`far_gain = 1.6`) ve eski ivme sınırı (120/80 derece/s^2) koşullarında ölçülmüştür. FAZ 14 ile birlikte kazanç planlaması tamamen kaldırılmış ve ivme sınırları fiziksel servo kabiliyetine (pan 400.0, tilt 267.0 derece/s^2) güncellenmiştir. Tez çalışmasında güncel doğrusal Tip-1 P mimarisi sınırları kullanılacaksa [p_profile_sweep.py](file:///c:/YTU/bitirme_projesi/turret_fcs/analysis/p_profile_sweep.py) yeni parametrelerle yeniden koşulabilir.
   - Kararlılık ölçütü: komut yön değiştirme oranı ve doyum (komut adımının 1.35 dereceyi aşma yüzdesi). Limit cycle'da yön değiştirme %8'e, doyum %50'ye çıkıyor; kararlı koşularda %0.8-1.9.
   - Standart sinüste sınır 0.35-0.39 arasında. Zigzag'de 0.27 hâlâ %89.6 kilit, 0.30 sınır, 0.34 çöküş. Step/hold'da 0.20 bile %25 doyumda, 0.30'da kilit %0.
   - **Tek bir evrensel Kp yok.** Taban 0.22/0.11; `webots_tuning.py` profil bazlı tavan uygular (standart/figure-8 0.32, zigzag 0.27, hızlı sinüs 0.25, step/hold 0.15).
@@ -131,7 +132,7 @@
   1. 11 boyutlu gözlem eğitimle aynı; gözlem ölçülen bbox'tan ve yumuşatılmış Kalman hızından üretilir.
   2. Politika ağırlıkları `turret_ppo_v14_policy.npz` olarak dışa aktarılır; çıkarım SB3/torch sürümünden bağımsız 11-64-64-2 NumPy MLP ile yapılır.
   3. Eylem geçmişi uygulanan normalize komutu saklar; reset ve hedef kaybında temizlenir.
-  4. EMA/slew yok. 5 px yumuşak ölü bölge (politikanın sıfır-hata bias'ı için) ve yön değiştiren aksiyonda 0.5 sönümleme var.
+  4. EMA/slew yok. Açısal yumuşak ölü bölge (pan 0.85°, tilt 0.95° ve Hermite taper geçişi; politikanın sıfır-hata bias'ını ve dişli boşluğu rezonansını bastırır; `deadband_px > 0` anahtarıyla tetiklenir) ve yön değiştiren aksiyonda 0.5 sönümleme var.
   5. v1.3'te son komut P ile harmanlandı: `u = 0.3 * u_RL + 0.7 * u_P`. Bu harman v1.4'te kaldırıldı; RL artık saf PPO aksiyonu kullanır.
   6. Tek RL yolu vardır: `turret_fcs/rl_controller.py` içindeki `RLController`. Seçici ve eski sarmalayıcı v1.4'te kaldırıldı.
 - **Webots doğrulaması (profil 2, ilk 600 kare):**
@@ -221,6 +222,7 @@
 | **Neden ölü bölgeye yumuşak geçiş (Soft Deadband) koydunuz?** | Sert eşikli ölü bölge, eşik sınırında anlık basamak darbesi üreterek dişli boşluğuyla (backlash) birleştiğinde yüksek frekanslı mekanik titreşime yol açar. Yumuşak ölü bölge hatayı sıfırdan başlatarak sıfır jerk ile kalkış sağlar. |
 | **Neden MPC veya LQR değil de PPO RL?** | Sistemde analitik olarak modellenmesi zor olan süreksiz doğrusal olmayanlıklar vardır (ölü bölge, 0.1° UART kuantalaması, dişli boşluğu, değişken 80 ms USB taşıma gecikmesi). PPO, bu rastgeleleştirilmiş POMDP ailesi üzerinde çevrimdışı eğitilmiş amortize bir optimal politika sunar; çalışma zamanında tek ileri geçiş maliyeti 0.17 ms'dir. |
 | **Eylem geçmişi (Action History) neden gözlem uzayında?** | Smith Predictor ilkesine göre, 80 ms (yaklaşık 2-3 kare) gecikmeli bir sistemde ajan doğru karar verebilmek için motora gönderilmiş ama henüz kameraya yansımamış olan "yoldaki komutları" (in-flight commands) bilmek zorundadır. |
+| **Neden teorik Ki-Kare NIS kapısı yerine fiziksel 150 px artık kapısı kullandınız? (Saha verisinde gördünüz mü?)** | Evet, bizzat 15:08 oturumuna ait 5400 karelik gerçek saha telemetrisinde test edilmiştir. Taret hedefi yakalamak için hızla döndüğünde inovasyonlar 30-70 px seviyesine çıkmaktadır; fakat CV modelinde inovasyon kovaryansı S standart sapması yaklaşık 9.2 px kaldığı için normalize inovasyon karesi d^2 = (30/9.2)^2 ... (70/9.2)^2 = 10 ... 58 bandına fırlamakta ve 13.82 eşiğini aşmaktadır. Teorik NIS kapısı normal taret dönüşlerini aykırı değer sayarak 5400 karede 302 kez (her 18 karede bir) filtreyi sıfırlamış, hız korelasyonu 0.969'dan 0.774'e düşmüş ve RMSE 81'den 221 px/s'ye fırlamıştır. Bu saha kanıtı üzerine teorik NIS kapısı terk edilmiş; normal dinamik dönüşü engellemeyen fakat sahte YOLO sıçramalarını R * 100 ile sönümleyen fiziksel 150 px artık kapısı seçilmiştir (sahte reset: 0, korelasyon: 0.969). |
 | **Atış anında neden basamak sıçraması olmuyor?** | Kademeli atış senkronizasyonu ve Zero-Lag Feedforward devrededir: Hedef kilitliyken volanlar boşta döner. Y tuşundan sonra 0.25 s SPINUP/SLEW ile taret balistik önleme ve süper-elevasyon açısına gider; ardından 0.15 s SETTLE ile komut sabit tutulup servo lag/backlash oturur (lead/gravity canlı kalır). Sonra 80 ms solenoid darbesi uygulanır ve taret 350 ms içinde optik merkeze döner. EVAL 1.5 s gösterilirken ilk 0.75 s (22 kare) kilit muafiyeti uygulanır. Fiziksel fırlatıcı yolu güvenlik gereği laboratuvar/HUD testlerinde simüle edilebilir. |
 
 ---

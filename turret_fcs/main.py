@@ -40,11 +40,19 @@ def main():
     project_root = Path(__file__).resolve().parents[1]
     model_path = project_root / CONFIG.paths.yolo_model
     if not model_path.exists():
-        model_path = ensure_weight_file(model_path)
+        try:
+            model_path = ensure_weight_file(model_path, required=False)
+        except Exception:
+            pass
     if not model_path.exists():
-        fallback_path = ensure_weight_file(project_root / CONFIG.paths.fallback_yolo_model)
-        if fallback_path.exists():
-            model_path = fallback_path
+        fallback_path = project_root / CONFIG.paths.fallback_yolo_model
+        try:
+            model_path = ensure_weight_file(fallback_path, required=True)
+        except FileNotFoundError as err:
+            raise FileNotFoundError(
+                f"[FCS HATA] Model agirliklari temin edilemedi: {err}\n"
+                f"Lutfen 'python -m turret_fcs.weights' komutunu calistirarak modelleri indirin."
+            ) from err
     model = YOLO(str(model_path))
 
     cap = CameraThread()

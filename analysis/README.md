@@ -1,12 +1,12 @@
 # Analysis Tools & Verification Suite (Analiz ve Doğrulama Araçları)
 
-Bu dizin; Turret FCS projesinin kontrol dinamiklerini, sistem tanıma verilerini, Kalman filtresi kestirim doğruluğunu, Webots simülasyon ve gerçek donanım telemetri loglarını incelemek için geliştirilen akademik analiz betiklerini içerir.
+Bu dizin; Turret FCS projesinin kontrol dinamiklerini, sistem tanıma verilerini, Kalman filtresi kestirim doğruluğunu, Webots simülasyon ve gerçek donanım telemetri loglarını incelemek için geliştirilen 20 adet akademik analiz betiğini içerir.
 
 Tüm grafikler `analysis/figures/` dizinine 300 DPI çözünürlükte kaydedilir.
 
 ---
 
-## 📊 Betik ve Çıktı Haritası
+## 📊 Betik ve Çıktı Haritası (20 Betik)
 
 | Kategori | Betik Dosyası | Açıklama & Ürettiği Çıktı | Çalıştırma Komutu |
 | :--- | :--- | :--- | :--- |
@@ -14,7 +14,9 @@ Tüm grafikler `analysis/figures/` dizinine 300 DPI çözünürlükte kaydedilir
 | **Sistem Tanıma** | `system_identification.py` | Taret motor gecikmesi, zaman sabiti (tau) ve transfer fonksiyonu kestirimi. | `python analysis/system_identification.py` |
 | **P Kontrolcü** | `p_gain_sweep.py` | Webots ortamında farklı Kp kazançlarının taranması ve yön değiştirme doyum analizi. | `python analysis/p_gain_sweep.py` |
 | **P Kontrolcü** | `p_profile_sweep.py` | 6 farklı hedef uçuş profiline karşı P kazanç matrisi doğrulaması. | `python analysis/p_profile_sweep.py` |
+| **P Kontrolcü** | `p_gain_oscillation.py` | Kp kazanç taramalarında limit-cycle titreşim başlangıcının yön değişimiyle tespiti. | `python analysis/p_gain_oscillation.py` |
 | **P Kontrolcü** | `p_controller_benchmark.py` | Gerçek donanım ve simülasyon adım yanıtı karşılaştırması. | `python analysis/p_controller_benchmark.py` |
+| **P Kontrolcü** | `p_controller_validation.py` | Webots telemetrisinden zemin gerçeği (ground truth) fiziksel nişan hatası analizi. | `python analysis/p_controller_validation.py` |
 | **Kalman** | `generate_kalman_plots.py` | CV Kalman filtresi hız kestirimi ile yer gerçeği (ground truth) karşılaştırma grafiği. | `python analysis/generate_kalman_plots.py` |
 | **Kalman** | `kalman_validation.py` | Kovaryans yakınsaması ve inovasyon sıçrama kapısı doğrulaması. | `python analysis/kalman_validation.py` |
 | **Optik** | `calibrate_camera_fov.py` | Logitech C270 kamera optik FOV açılarının piksel ölçümleriyle kalibrasyonu. | `python analysis/calibrate_camera_fov.py` |
@@ -22,6 +24,7 @@ Tüm grafikler `analysis/figures/` dizinine 300 DPI çözünürlükte kaydedilir
 | **RL Analizi** | `export_rl_policy.py` | PyTorch / SB3 politikasını hafif 11-64-64-2 NumPy MLP (`.npz`) formatına aktarır. | `python analysis/export_rl_policy.py` |
 | **RL Analizi** | `rl_diagnose.py` | RL politika durum dağılımlarını ve eylem çıkış sınırlarını inceler. | `python analysis/rl_diagnose.py` |
 | **RL Analizi** | `rl_webots_eval.py` | Webots simülatöründe RL kapalı çevrim başarımını doğrular. | `python analysis/rl_webots_eval.py` |
+| **RL Analizi** | `rl_postproc_sweep.py` | Telemetri logu üzerinde taper, ivme sınırı ve hız ölçeği parametrelerinin çevrimdışı A/B taraması. | `python analysis/rl_postproc_sweep.py <log_yolu>` |
 | **Telemetri** | `inspect_logs.py` | En son telemetri CSV kütüğünü otomatik okur, kilit ve açı hatalarını özetler. | `python analysis/inspect_logs.py` |
 | **Telemetri** | `deep_analyze_last_log.py` | Son donanım telemetri kaydının FFT spektral analizi ve titreşim tespiti. | `python analysis/deep_analyze_last_log.py` |
 | **Telemetri** | `consolidate_telemetry_logs.py`| Parçalı telemetri dosyalarını tek bir özet veri setinde birleştirir. | `python analysis/consolidate_telemetry_logs.py` |

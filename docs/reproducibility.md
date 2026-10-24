@@ -26,13 +26,13 @@ pip install -e .[test]
 
 ## 2. Otomatik Test Paketinin Koşulması
 
-Donanıma (kamera veya STM32) ihtiyaç duymadan çalışan 29 birim, entegrasyon ve SSOT tutarlılık testi:
+Donanıma (kamera veya STM32) ihtiyaç duymadan çalışan 35 birim, entegrasyon, ağırlık ve SSOT tutarlılık testi:
 
 ```bash
 pytest -v
 ```
 
-Bu komut; Tip-1 P kontrolcünün adım sınırlarını, CV Kalman filtresinin kovaryans kararlılığını, 2B Gauss kilit olasılığını, menzil kapılama histerezisini ve `CONFIG` parametrelerinin tüm kod tabanında tutarlı şekilde okunduğunu doğrular.
+Bu komut; Tip-1 P kontrolcünün adım sınırlarını, CV Kalman filtresinin kovaryans kararlılığını, 2B Gauss kilit olasılığını, menzil kapılama histerezisini, model ağırlık yöneticisini ve `CONFIG` parametrelerinin tüm kod tabanında tutarlı şekilde okunduğunu doğrular.
 
 ---
 
@@ -41,7 +41,7 @@ Bu komut; Tip-1 P kontrolcünün adım sınırlarını, CV Kalman filtresinin ko
 Projede kullanılan derin öğrenme modelleri GitHub Releases üzerinden dağıtılır:
 
 ```bash
-# Model ağırlıklarını (best.pt ve yolov8n.pt) otomatik indirmek için:
+# Model ağırlıklarını (best.pt ve yolov8n.pt) otomatik indirmek ve SHA256 doğrulaması yapmak için:
 python -m turret_fcs.weights
 ```
 
@@ -54,7 +54,7 @@ Dosyalar `weights/` dizini altına kaydedilir.
 11-boyutlu Gymnasium taret simülasyon ortamında (`TurretEnv`) sıfırdan model eğitmek için:
 
 ```bash
-# 250.000 adımlık PPO eğitimini başlatın (Sabit tohum / seed: 42)
+# 250.000 adımlık PPO eğitimini başlatın
 python turret_fcs/rl_sim/train_rl.py
 ```
 

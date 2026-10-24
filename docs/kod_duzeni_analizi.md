@@ -42,35 +42,38 @@ Güncel durum:
 - P, Kalman, RL, FIRING, Webots v1.3 etiketi, 40.5/46.9 derece/s ve HUD renk
   docstring'leri düzeltildi. (Bölüm 5.2/3'ün bir kısmı kapandı.)
 
-**Açık kalanlar (19:10 itibarıyla)**
+**19:10'da açık olanlar — bdebbb4 commit'i ile kapandı**
 
-1. `webots_main.py` tuş işleyicisi yeni `keymap` sözleşmesine bağlanmamış:
-   `process_key_event(key, is_estop=...)` çağrısı 8 argüman isteyen fonksiyona
-   uymuyor ve `action.action` diye bir dönüş yok. Webots denetleyicisi ilk
-   karede `TypeError` ile düşer; `keymap` ise saf eşleyici değil, FCS/angajman
-   durumunu değiştiren bir işleyici. Tek sözleşme seçilmeli.
-2. `presenter.py` devriye metni `patrol_status == "PATROLLING"` arıyor; gerçek
-   değerler `FIGURE-8 SCAN (...)`, `HOLDING (...)`, `RTB BORESIGHT (...)`,
-   `BORESIGHT LOCKED ...`. Eşleşme hiç olmadığı için HUD'da hep
-   "PATROL STANDBY" görünüyor. Ayrıca `render()` parametrelerinden
-   `latency_ms` ve `temp_c` kullanılmıyor.
-3. Kalman sözleşmesi: kod ve testler artık 150 px tekil-sıçrama kapısında
-   (NIS kapısı saha telemetrisinde 18 karede bir sahte reset attığı için
-   dönülmüş; gerekçe `test_kalman_dynamic_slew_innovations_never_false_reset`
-   docstring'inde yazılı). Buna karşılık `AGENTS.md` FAZ 14 ve dosya haritası
-   hâlâ Ki-Kare NIS'i "güncel" anlatıyor; `docs/algoritma_analizi.md` ise
-   kapının kaldırıldığını söylüyor. Üç metin tek karara hizalanmalı.
-4. `main.py` başlığı hâlâ "kazanç planlamalı" P diyor; `numpy` ithalatı
-   kullanılmıyor. `fcs_manager.py` içinde bir yorum hâlâ "dairesel tarama"
-   diyor. README dosya ağacı ve AGENTS dosya haritası yeni üç modülü ve
-   `weights.py` dosyasını listelemiyor.
-5. Eski ölü parametreler duruyor: `compute_velocity_ff()`, dört sınıfta
-   `**kwargs`, telemetride sabit `rl_weight`, `sensor_temp_c`, `sigma_a`,
-   `lock_thr`. Bu turda kapsam dışı bırakıldıysa sorun değil; kapatıldıysa
-   belge güncellenmeli.
-6. Üretimde EVAL metni hâlâ "ENGAGEMENT SUCCESSFUL"; isabet ölçen sensör yok.
-   Angajman yöneticisi "ENGAGEMENT COMPLETED" diyor, Webots gerçek HIT/MISS
-   gösteriyor. Üç yerde üç farklı anlam.
+1. `webots_main.py` tuş işleyicisi kanonik `keymap` sözleşmesine bağlandı;
+   `action.action` kaldırıldı, E-stop geçişinde launcher ve servo güvenliği
+   webots tarafında ele alınıyor.
+2. `presenter.py`: devriye metni artık `f"PATROL: {patrol_status}"`; takip
+   çizgisi geri bağlandı; `latency_ms` ve `temp_c` ölü parametreleri kaldırıldı;
+   HUD "firing" bayrağı `engagement_state.is_active` oldu, EVAL paneli düzeldi.
+3. Kalman sözleşmesi kod, testler, README ve AGENTS.md'de 150 px robust
+   tekil-sıçrama kapısında birleşti; NIS'in saha telemetrisinde ürettiği sahte
+   resetler FAZ 14'te sayılarla belgelendi.
+4. `main.py` başlığı ve `numpy` ithalatı, `fcs_manager` yorumu, README/AGENTS
+   dosya haritaları düzeltildi; EVAL metni nötr "ENGAGEMENT COMPLETED" oldu.
+5. `compute_velocity_ff()` ve sınıflardaki `**kwargs` yutucuları kaldırıldı.
+
+**19:27 itibarıyla kalanlar**
+
+- Telemetride `rl_weight`, `sensor_temp_c`, `sigma_a`, `lock_thr` sütunları hâlâ
+  sabit/ikincil değer taşıyor. Kaldırılmalı ya da gerçek kaynağa bağlanmalı.
+- `docs/algoritma_analizi.md` 18:17 anlık görüntüsü olarak duruyor; 39-44 ve
+  456. satırlar artık güncel kodu anlatmıyor. Başına tarihsel not eklenmeli.
+- E-stop davranışı iki noktada eskisinden ayrılıyor: (a) `fcs.reset()` artık
+  çağrılmıyor, dolayısıyla serbest bırakıldığında önceki kilit durumu korunuyor;
+  (b) `patrol_enabled = False` yalnızca Webots sarmalayıcısında var, `keymap`
+  içinde yok; üretimde E-stop sonrası devriye kendiliğinden devam edebilir.
+  İkisi de bilinçli tercih değilse `keymap` E-stop dalında düzeltilmeli.
+- Firmware'de dört `.c` dosyasında modül başlığı yok; bu ortamda ARM derleyici
+  bulunmadığı için "sıfır uyarı" iddiası burada doğrulanamadı.
+- `test_entrypoint_contracts` yalnız çağrıyı taklit ediyor; `main.py` ve
+  `webots_main.py` içindeki gerçek çağrı yerlerini denetlemiyor. Giriş noktası
+  yine bozulursa test yeşil kalır; AST tabanlı bir çağrı-yeri testi daha güçlü
+  olur.
 
 Bu revizyonun ayrıntılı doğrulaması için bir sonraki inceleme turuna bakın;
 aşağıdaki bölümler tarihsel anlık görüntü olarak korunmuştur.

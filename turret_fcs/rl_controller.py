@@ -280,6 +280,9 @@ class RLController:
         # 1. Acisal yumusak olu bolge (Soft Deadband Taper)
         # Hedef merkezdeyken politikanin sifir-hata gurultusunu bastirir,
         # MG996R mekanik disli boslugu (backlash) rezonansini ve avlanmayi (limit cycle) onler.
+        # NOT: self.deadband_px bir piksel esigi degildir; geriye donuk SSOT uyumlulugu
+        # icin tutulan ac/kapa anahtaridir (> 0 ise acisal olu bolge aktiftir).
+        # Gercek uygulanan olu bolge acisal bazdadir: Pan 0.85°, Tilt 0.95° ve Hermite taper.
         if self.deadband_px > 0.0:
             fx = CONFIG.optics.compute_fx(screen_w)
             fy = CONFIG.optics.compute_fy(screen_h)

@@ -151,7 +151,7 @@ CARDS = [
             "11-B Gözlem: [hata_x, hata_y, d_err_x, d_err_y, vx, vy, mesafe, eylem_t-1, eylem_t-2]",
             "80 ms Taşıma Gecikmesi Telafisi: 2-adımlı eylem geçmişi Markovian süreci garanti eder",
             "0.75° Tilt Adımı (22.5°/s) & Yön Değiştirme Sönümü (0.50) ile rezonans önleme",
-            "Sıfır-Hata Yumuşak Ölü Bölgesi (5 px): Merkezde 0.031° komut ve %65.5 kilit kararlılığı"
+            "Açısal Yumuşak Ölü Bölge (Pan 0.85°, Tilt 0.95°): Hermite taper ile %65.5 kilit kararlılığı"
         ],
         940, 585, 470, 160,
         "#1C162C", "#8B5CF6", "#FFFFFF", 10, "#D8B4FE", "#C084FC"
