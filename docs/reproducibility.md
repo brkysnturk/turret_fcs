@@ -59,6 +59,7 @@ python turret_fcs/rl_sim/train_rl.py
 ```
 
 Eğitim parametreleri:
+
 - **Algoritma:** PPO (MlpPolicy: [64, 64])
 - **Öğrenme Oranı (Learning Rate):** 3e-4
 - **Gamma:** 0.99

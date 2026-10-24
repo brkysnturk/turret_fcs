@@ -1,8 +1,8 @@
 # Otonom Asimetrik Hava Tehdidi Tespit ve Atış Kontrol Sistemi (Turret FCS)
 
-### Yıldız Teknik Üniversitesi — Kontrol ve Otomasyon Mühendisliği Bölümü
+## Yıldız Teknik Üniversitesi — Kontrol ve Otomasyon Mühendisliği Bölümü
 
-**Bitirme Çalışması ve Tasarım Projesi**
+Bitirme Çalışması ve Tasarım Projesi
 
 [![Release](https://img.shields.io/badge/Release-Production-success.svg)](https://github.com/brkysnturk/turret_fcs/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -615,10 +615,10 @@ venv\Scripts\python.exe -m turret_fcs.main
 1. Webots R2025a ile `webots/worlds/webots_turret_fcs.wbt` dosyasını açın.
 2. Başlangıç modunu seçin:
 
-```text
-WEBOTS_CONTROL_MODE=P     # hassas kilit
-WEBOTS_CONTROL_MODE=RL    # çevik takip
-```
+   ```text
+   WEBOTS_CONTROL_MODE=P     # hassas kilit
+   WEBOTS_CONTROL_MODE=RL    # çevik takip
+   ```
 
 3. Hedef profilini `webots/balloon_profile.json` içindeki `active_profile` ile veya `WEBOTS_BALLOON_PROFILE` ortam değişkeniyle seçin (0-7).
 4. Gözlem gecikmesini `WEBOTS_OBS_DELAY_S` (varsayılan 0.080 s), kutu titremesini `WEBOTS_BBOX_JITTER` (varsayılan 3.0 px) ile ayarlayabilirsiniz.

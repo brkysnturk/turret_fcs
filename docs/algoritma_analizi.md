@@ -66,7 +66,7 @@ Tek karelik döngü (`main.py`):
       -> telemetri (35 kolon) -> HUD çizimi -> klavye
 
 | Aşama | Tipik gecikme | Kaynak |
-|---|---:|---|
+| --- | ---: | --- |
 | Kamera pozlama + aktarım | 33 ms (1 kare) | 30 FPS |
 | YOLO çıkarımı | ölçülmedi (log `latency_ms` içinde) | `telemetry.log_frame` |
 | Seçici + FCS + UART yazımı | 1-3 ms | `latency_ms` |
@@ -96,6 +96,7 @@ sürücü tamponunu da küçültür. `new_frame_event` ile isteğe bağlı 30 FP
 sağlanır; aynı karenin iki kez işlenmesi engellenir.
 
 **Kritik ayrıntılar:**
+
 - `is_stale = (now - last_frame_time) > timeout` — kamera donduğunda eski kare
   "geçerli" sayılmaz, döngü kırılır. `isOpened()` 0.60 s, `read()` 0.35 s eşiği kullanır.
 - Önce MSMF, açılmazsa DSHOW. C270'in MJPG 720p30 akışı MSMF'te daha kararlı.
@@ -128,6 +129,7 @@ checksum, hatalıysa **tek bayt** silip yeniden senkronize olma. Tampon 4096 bay
 aşarsa son 10 bayt tutulur. Bu, bölünmüş/gecikmiş paketlere karşı dayanıklıdır.
 
 **Zayıflıklar:**
+
 - 8 bit toplam checksum, bayt sırası değişimini yakalayamaz; CRC-8 (0x07) aynı
   maliyetle çok daha güçlü olur.
 - `send()` ana döngüdedir. `write_timeout=0.04` saniye; sürücü tamponu dolarsa bir
@@ -142,6 +144,7 @@ aşarsa son 10 bayt tutulur. Bu, bölünmüş/gecikmiş paketlere karşı dayan�
 minimum kenar (18 px), en-boy oranı (0.35-2.50).
 
 **Üç kademeli seçim:**
+
 1. Kilitli ByteTrack kimliği **ve** mekânsal kapı (son merkeze <= 250 px) -> kabul.
 2. Kimlik yoksa/atladıysa: son merkeze en yakın aday (kapı içinde).
 3. Yeni hedef: ekran merkezine en yakın aday.
@@ -151,6 +154,7 @@ güven eşiği 0.16'ya düşer. Bu, taret hızla dönerken oluşan hareket bulan
 kimliğin kopmasını engeller. Sayaç aşılırsa `reset()`.
 
 **Değerlendirme:**
+
 - Mekânsal kapı, ByteTrack kimlik atlamasını reddeden doğru bir koruma; kimlik
   değişse bile seçim son konuma yakın kalır.
 - 250 px kapı, 1280 px genişlikte yaklaşık 10 dereceye karşılık gelir; hedefin
@@ -186,6 +190,7 @@ yakalandığında (`was_lost`) gözlemci sıfırdan başlar; önceki artık komu
 sıçrama yaratmaz.
 
 **(c) Menzil kapılama (TF-Luna).** Dört katman:
+
 1. Atış sırasında ölçüm dondurulur (duvar/flaş okuması engellenir).
 2. Son geçerli mesafeden 50 cm'den fazla sapma reddedilir.
 3. Aynı sapma 3 kare tutarlıysa gerçek mesafe değişimi kabul edilir.
@@ -216,6 +221,7 @@ RL yüklenemezse sessizce P'ye düşer (`current_rl_weight = 0`).
 devriye açıksa `patrol_generator` devreye girer, değilse sıfır komut döner.
 
 **Zayıflıklar:**
+
 - `get_angular_velocity_deg_s` her karede çağrılıyor ama P kontrolcü bu omegayı
   kullanmıyor (`compute_p` içinde yok sayılıyor). Gereksiz hesap.
 - `prev_applied_lead_*` yalnızca hedef varken güncelleniyor. Ateş sırasında hedef
@@ -228,7 +234,7 @@ devriye açıksa `patrol_generator` devreye girer, değilse sıfır komut döner
 **(a) Dinamik kilit penceresi.** Hedef hızına göre giriş eşiği:
 
 | Hedef hızı (px/s) | Giriş | Çıkış (+0.60) |
-|---|---:|---:|
+| --- | ---: | ---: |
 | < 15 | 1.60 | 2.20 |
 | 15-45 | 2.20 | 2.80 |
 | >= 45 | 3.00 | 3.60 |
@@ -253,7 +259,7 @@ merkezî olmayan ki-kare CDF'i ile tam analitik hesaplanır:
 Sayısal doğrulama (sigma_weapon = 1.25 derece, 2 m, 60 px kutu = 1.22 derece):
 
 | Hata (derece) | 60 px kutu | 120 px kutu |
-|---|---:|---:|
+| --- | ---: | ---: |
 | 0.00 | %37.8 | %85.0 |
 | 0.85 | %31.5 | %78.5 |
 | 1.50 | %21.5 | %65.3 |
@@ -267,6 +273,7 @@ range_stable` arıyor. 3 derece hata ile 60 px'lik hedefte "LOCKED" olunup %3.8
 olasılıkla ateş edilebilir.
 
 **Zayıflıklar:**
+
 - Eşikler (1.60/2.20/3.00) ve `0.25` katsayısı kod içinde sabit; SSOT dışında.
 - Saçılma izotropik varsayılıyor (`df=2`); gerçek pan/tilt saçılması farklıdır.
 - `sigma_motion` için `t_toplam` 0.28 s kullanılırken kontrolcü lead'i 0.215 s
@@ -324,6 +331,7 @@ listesi) ve `_events.csv` (operatör/sistem olayları). Kapanışta özet: süre
 FPS, tespit ve kilit oranları.
 
 **Değerlendirme:**
+
 - `getattr(fcs, ...)` ile savunmacı okuma: FCS arayüzü değişse bile kayıt kırılmaz.
 - `latency_ms` gerçek işlem süresidir (dt değil) — doğru.
 - `angular_err_*` kontrolcünün filtrelenmiş değeri değil, ham kamera hatası — doğru
@@ -352,7 +360,7 @@ hız üretmek için gereken zorunlu konum hatasıdır. Nişan noktası lead ile
 `Kp = 0.22` ile:
 
 | omega (derece/s) | Nişan hatası e | Lead (derece) | Olması gereken | Artık ıska (derece) |
-|---:|---:|---:|---:|---:|
+| ---: | ---: | ---: | ---: | ---: |
 | 2 | 1.15 | 0.43 | 0.56 | 1.28 |
 | 5 | 1.61 | 1.08 | 1.40 | 1.93 |
 | 10 | 2.37 | 2.15 | 2.80 | 3.02 |
@@ -384,7 +392,7 @@ bu analiz, kapalı kalmasının bedelini sayısallaştırıyor.
 ## 5. Kesit Analizi: Niceleme ve Ölü Bölge Zinciri
 
 | Katman | Çözünürlük / eşik | Etki |
-|---|---|---|
+| --- | --- | --- |
 | YOLO kutu merkezi | 1 px = 0.04 derece | filtre gürültüsü (r_var = 8 px) |
 | Kalman çıkışı | hız ölü bölgesi 30-60 px/s | duran hedefte sıfır hız |
 | P kontrolcü | 0.85 / 0.95 derece yumuşak ölü bölge | kalıcı durum hatası |
@@ -401,7 +409,7 @@ bu bilinçli ve doğru bir tercih (potansiyometre sıçraması sahte hız üreti
 ## 6. Bulgular
 
 | # | Önem | Bulgu | Kanıt | Öneri |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 1 | Yüksek | Lead süresi, kapalı çevrim gecikmesini ve ölü bölgeyi kapsamıyor; hızlı hedefte sistematik ıska | Bölüm 4 tablosu | `T_lead`'e `1/(30*Kp)` + taşıma gecikmesi ekle veya hız FF aç |
 | 2 | Yüksek | Ateş kapısı hedef boyutundan bağımsız; 3 derece hatada %3.8 isabetle ateş mümkün | `lock_manager.update`, `main.py` ateş koşulu | Ateş için `hit_probability >= esik` veya `hata < k * theta_hedef` şartı |
 | 3 | Orta | Çalışma ağacındaki refactor (Kalman kapısı, RL hız gözlemi, `a*dt^2`) commit edilmedi ve saha/Webots doğrulaması yok | `git status`, Bölüm 6.1 | Commit öncesi Webots profil 2/5/7 ve gerçek taret testini yinele |
@@ -435,7 +443,7 @@ Ağaç analiz sırasında aktif olarak düzenlendi; kronoloji:
 Değişikliklerin niteliği (18:17 ara denemesi - FAZ 14 ile geri alındı):
 
 | Dosya | Değişiklik | Analitik etki |
-|---|---|---|
+| --- | --- | --- |
 | `kalman_filter.py` | (Ara deneme) 150 px tekil-sıçrama kapısı kaldırılmıştı; FAZ 14 ile geri alındı | Tek sahte kutunun hızı saptırmasını önlemek için 150 px + R*100 sönümleme aktif kodda mevcuttur |
 | `rl_controller.py` | `uses_velocity_obs = True`, `prefers_smooth_velocity = True` | Politikaya gürültülü Kalman hızı giriyor (v2.0'de bu yüzden kapatılmıştı) |
 | `p_controller.py`, `rl_controller.py` | İvme sınırı `a*dt` -> `a*dt^2` | Boyut olarak doğru; nihai mutabakatta fiziksel sınırlar 400.0/267.0 deg/s^2 olarak belirlendi |

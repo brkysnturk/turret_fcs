@@ -22,12 +22,12 @@ Bu doküman; Turret FCS projesinin gömülü denetleyici katmanı olan **STM32F4
 | **Tilt Servo Sinyali** | `PB5` (TIM3_CH2) | MG996R / DS3218 | 50 Hz PWM, 0.57 - 2.47 ms darbe aralığı, 65.0° - 115.0° (±25° hareket alanı) |
 | **Volan Sürücü (MOSFET)** | `PB0` (GPIO Output) | IRLZ44N N-MOSFET | Çift FF-180 motor açma/kapama kontrolü (LOCKED/FIRING durumunda pre-spin aktif) |
 | **Solenoid Tetikleme** | `PB1` (GPIO Output) | JF-0530B İtici | Optokuplör yalıtımlı solenoid darbe çıkışı (yazılımsal 80 ms itme + 150 ms geri çekilme) |
-| **TF-Luna LiDAR RX** | `PA10` (USART1_RX)| Benewake TF-Luna | 100 Hz ToF mesafe telemetrisi alımı (115200 Baud UART) |
+| **TF-Luna LiDAR RX** | `PA10` (USART1_RX) | Benewake TF-Luna | 100 Hz ToF mesafe telemetrisi alımı (115200 Baud UART) |
 | **TF-Luna LiDAR TX** | `PA9` (USART1_TX) | Benewake TF-Luna | LiDAR konfigürasyon ve sorgulama hattı |
 | **PC İletişim TX** | `PA2` (USART2_TX) | ST-Link VCP | PC'ye 10-baytlık durum ve LiDAR telemetrisi iletimi (`0x55` header) |
 | **PC İletişim RX** | `PA3` (USART2_RX) | ST-Link VCP | PC'den 7-baytlık ikili komut paketi alımı (`0xAA` header + Pan + Tilt + State + CS) |
-| **Kullanıcı Butonu (B1)** | `PC13` (GPIO Input)| Mavi Buton (B1) | Mandallı yazılım E-stop: ilk basışta volan/solenoid kesilir ve servolar merkeze iner; ikinci basışta mandal çözülür. Dahili pull-up + 250 ms debounce |
-| **Durum LED'i (LD2)** | `PA5` (GPIO Output)| Yeşil LED (LD2) | Sistem hazır / ana döngü aktivite göstergesi |
+| **Kullanıcı Butonu (B1)** | `PC13` (GPIO Input) | Mavi Buton (B1) | Mandallı yazılım E-stop: ilk basışta volan/solenoid kesilir ve servolar merkeze iner; ikinci basışta mandal çözülür. Dahili pull-up + 250 ms debounce |
+| **Durum LED'i (LD2)** | `PA5` (GPIO Output) | Yeşil LED (LD2) | Sistem hazır / ana döngü aktivite göstergesi |
 
 ---
 
@@ -79,9 +79,11 @@ Bu doküman; Turret FCS projesinin gömülü denetleyici katmanı olan **STM32F4
 
 5. **Fiziksel Ateşleme İzolasyonu (Etik Güvenlik):**
    - Test ve simülasyon ortamında istenmeyen atışları engellemek için `stm32/turret_main/Core/Src/main.c` içinde:
+
      ```c
      #ifndef ENABLE_PHYSICAL_FIRE
      #define ENABLE_PHYSICAL_FIRE 0
      #endif
      ```
+
    - Bu makro `0` olduğu sürece solenoid fiziksel olarak asla enerjilenmez; yalnızca simülasyon ve yazılımsal durum güncellenir.

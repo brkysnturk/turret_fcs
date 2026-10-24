@@ -23,7 +23,7 @@ Yöntem: statik okuma, AST tabanlı ölü parametre/ölü metot taraması, satı
 Bu belgeden sonra yapılan refactor, aşağıdaki bulguların bir kısmını kapatmıştır.
 Güncel durum:
 
-**Kapananlar**
+### Kapananlar
 
 - İki monolitik döngü ayrıştırıldı: `engagement.py` (186 satır, FSM),
   `presenter.py` (142 satır, HUD sunumu), `keymap.py` (100 satır, tuş eylemleri).
@@ -42,7 +42,7 @@ Güncel durum:
 - P, Kalman, RL, FIRING, Webots v1.3 etiketi, 40.5/46.9 derece/s ve HUD renk
   docstring'leri düzeltildi. (Bölüm 5.2/3'ün bir kısmı kapandı.)
 
-**19:10'da açık olanlar — bdebbb4 commit'i ile kapandı**
+### 19:10'da açık olanlar — bdebbb4 commit'i ile kapandı
 
 1. `webots_main.py` tuş işleyicisi kanonik `keymap` sözleşmesine bağlandı;
    `action.action` kaldırıldı, E-stop geçişinde launcher ve servo güvenliği
@@ -57,7 +57,7 @@ Güncel durum:
    dosya haritaları düzeltildi; EVAL metni nötr "ENGAGEMENT COMPLETED" oldu.
 5. `compute_velocity_ff()` ve sınıflardaki `**kwargs` yutucuları kaldırıldı.
 
-**20:05 itibarıyla durum**
+### 20:05 itibarıyla durum
 
 - E-stop kapandı: `keymap` mandallanınca devriyeyi kapatıyor, girişte ve çıkışta
   `fcs.reset()` çağrılıyor; Webots'taki mükerrer satır kaldırıldı.
@@ -128,7 +128,7 @@ Kendi firmware kodumuz (CubeMX üretimi dahil) yaklaşık 2.650 satır; bunun ya
 1.000 satırı HAL/CubeMX iskeleti.
 
 | Dosya | Yaklaşık satır | En uzun fonksiyon | Not |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `turret_fcs/main.py` | 405 | `main()` 366 satır | Başlatma + FSM + HUD + klavye + telemetri tek fonksiyonda |
 | `turret_fcs/fcs_manager.py` | 485 | `update()` 194 satır | 6 ayrı iş tek metotta |
 | `turret_fcs/telemetry.py` | 420 | `log_frame()` 125 satır | 35 sütun `@dataclass TelemetryRow` |
@@ -166,7 +166,7 @@ gizlenebilir.
 Önerilen ayrıştırma (davranış değişmeden):
 
 | Yeni modül | İçerik | Kazanç |
-|---|---|---|
+| --- | --- | --- |
 | `engagement.py` | Atış aşaması, `slew_factor`, aşama metni, ateş izni | ~120 satır tek yerde |
 | `presenter.py` | `status_text/color`, HUD çağrı sırası | ~80 satır tek yerde |
 | `keymap.py` | Tuş -> eylem tablosu | ~50 satır, test edilebilir |
@@ -219,7 +219,7 @@ Aşağıdakilerin her biri AST taramasıyla doğrulandı: tanım dışında hiç
 ya da yalnızca testte okunuyor.
 
 | # | Bulgu | Kanıt | Etki |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1 | `PController.kp_pan` / `kp_tilt` yazılıyor, hiç okunmuyor | `p_controller.__init__`; `webots_tuning.apply_tuning`; `test_webots_tuning` bu ölü alanı doğruluyor | Kazancın iki temsili var; biri sessizce eskiyebilir. Test yanlış şeyi koruyor. |
 | 2 | `compute_velocity_ff()` daima `(0.0, 0.0)` döner | `p_controller`; tek çağıran `test_p_controller` | Hız FF'si kapalı; API ve testi ölü yolu ayakta tutuyor. |
 | 3 | `compute_p(omega_pan_deg_s, omega_tilt_deg_s)` parametreleri yok sayılıyor | `p_controller.compute_p`; `fcs_manager` her karede bu hızları hesaplayıp geçiriyor | Kare başına gereksiz hesap + okuyucuya "FF var" izlenimi. |
@@ -320,7 +320,7 @@ Böylece "neden" bilgisi kaybolmaz, "ne" bilgisi ilk ekranda kalır.
 `config.py` iyi bir tek kaynak ama kapsamı tam değil. Kod içinde kalan eşikler:
 
 | Modül | Kod içindeki sabit | Öneri |
-|---|---|---|
+| --- | --- | --- |
 | `target_selector` | `min_conf 0.28`, `track_min_conf 0.16`, `min_area 400`, `max_area 400000`, `min_dim 18`, aspect `0.35-2.50`, `spatial_gate_px 250` | `CONFIG.selector` |
 | `lock_manager` | dinamik eşik `1.60 / 2.20 / 3.00`, hız kırılımları `15 / 45 px/s` | `CONFIG.lock` |
 | `patrol_generator` | `45 / 16 derece`, `8.0 s`, `20 derece/s`, `1.5 s`, `1.5 / 0.95 derece` | `CONFIG.patrol` |
@@ -414,7 +414,7 @@ soruyor; tersini (kodda sabit kalmış eşik) yakalamıyor. Bir "yasak sabit" te
 ## 9. Önceliklendirilmiş Plan
 
 | Öncelik | İş | Süre | Kazanç |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | P0 | Doküman-kod kaymasını düzelt: Kalman kapısı, RL hız gözlemi, FIRING "rezerve", v1.3 etiketleri, 40.5 derece/s, "dairesel" devriye, HUD renk tarifi | 1 saat | Jüride yanlış beyan riski kalkar |
 | P0 | Ölü alanları kaldır veya bağla: `kp_pan/kp_tilt`, `compute_velocity_ff`, `omega_*`, `filtered_*`, `_outlier_frames`, `current_sigma_a`, `temp`, `rl_weight`, `log_event`, erken `fx/fy` | 1-2 saat | Kod ile telemetri arasındaki yalan kalkar |
 | P0 | `**kwargs` yutucularını kaldır; çağrıları derleme anında kır | 30 dakika | Kaldırılan alanların sessizce yutulması biter |
