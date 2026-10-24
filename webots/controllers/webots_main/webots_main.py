@@ -234,7 +234,6 @@ def main():
                 hud.log_event("[SYS] WEBOTS SESSION TERMINATED", color=(180, 180, 180))
                 break
             if is_estop and not prev_estop:
-                fcs.patrol_enabled = False
                 launcher.stop_flywheels()
                 hw.set_neutral()
 

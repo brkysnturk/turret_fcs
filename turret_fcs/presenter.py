@@ -8,7 +8,7 @@ arasindaki tum gorsel render siralamasini ve renk sozlesmesini tek yerde toplar.
 ================================================================================
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 import numpy as np
 
 
@@ -30,7 +30,7 @@ class HUDPresenter:
         dist_cm: int,
         strength: int,
         is_estop: bool,
-        hit_feedback: Optional[str] = None,
+        hit_feedback: Optional[Union[str, Tuple[str, Tuple[int, int, int]]]] = None,
     ):
         """HUD katmanlarini askeri hiyerarsiye gore kare uzerine cizer."""
         target_detected = target_box is not None
@@ -83,7 +83,9 @@ class HUDPresenter:
             if getattr(fcs, "patrol_enabled", False):
                 status_text = f"PATROL: {getattr(fcs, 'patrol_status', 'STANDBY')}"
                 status_color = (0, 255, 0)
-                angle_err_text = f"TURRET POSE:   [{getattr(fcs, 'turret_pan_deg', 0.0):+.1f} , {getattr(fcs, 'turret_tilt_deg', 0.0):+.1f}] deg"
+                t_pan = getattr(fcs, "turret_pan_deg", 0.0)
+                t_tilt = getattr(fcs, "turret_tilt_deg", 0.0)
+                angle_err_text = f"TURRET POSE:   [{t_pan:+.1f} , {t_tilt:+.1f}] deg"
             else:
                 status_text = "STATUS: SEARCHING AIRSPACE"
                 status_color = (0, 191, 255)

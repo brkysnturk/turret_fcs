@@ -438,6 +438,9 @@ bu bilinçli ve doğru bir tercih (potansiyometre sıçraması sahte hız üreti
 
 ### 6.1 Analiz penceresinde gözlenen durum değişimi
 
+> [!NOTE]
+> **Tarihsel Not (18:17 Ara Durumu):** Aşağıdaki kronolojide bahsi geçen "150 px tekil-sıçrama kapısının kaldırılması" denemesi, saha telemetrisindeki sahte YOLO sıçramalarını sönümleme ihtiyacı nedeniyle FAZ 14 nihai mutabakatıyla geri alınmıştır. Aktif kod tabanında 150 px tekil-sıçrama kapısı (`outlier_residual_px = 150.0`, R * 100 sönümleme) ve 400°/s² - 267°/s² ivme sınırları korunmaktadır.
+
 Ağaç analiz sırasında aktif olarak düzenlendi; kronoloji:
 
 - 18:11: `import turret_fcs` -> `AttributeError: 'KalmanConfig' object has no attribute

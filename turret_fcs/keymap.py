@@ -68,12 +68,15 @@ def process_key_event(
     elif key_code == 32:
         new_estop = not is_estop
         if new_estop:
+            fcs.patrol_enabled = False
             if hasattr(fcs, "patrol") and fcs.patrol is not None:
                 fcs.patrol.reset()
             fcs.patrol_status = "STANDBY"
+            fcs.reset()
             engagement.abort()
             log("[E-STOP] MOTORS HALTED & ZEROED (LATCHED)", color=(0, 0, 255))
         else:
+            fcs.reset()
             log("[E-STOP] DISENGAGED - RESUMING FCS", color=(0, 255, 128))
         return False, new_estop
 

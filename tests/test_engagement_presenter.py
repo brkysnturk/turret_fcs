@@ -84,9 +84,17 @@ def test_keymap_events():
     process_key_event(ord("p"), fcs, em, False, 10.0, True, True, log_cb)
     assert fcs.patrol_enabled is True
 
-    # Acil fren (Space)
+    # Acil fren (Space) - devriyeyi ve kilidi kesin sifirlamalidir
+    fcs.lock_mgr.is_locked = True
     _, estop = process_key_event(32, fcs, em, False, 10.0, True, True, log_cb)
     assert estop is True
+    assert fcs.patrol_enabled is False
+    assert fcs.is_locked is False
+
+    # Acil frenden cikis (Space) - temiz baslangic saglanir
+    _, estop = process_key_event(32, fcs, em, True, 11.0, True, True, log_cb)
+    assert estop is False
+    assert fcs.is_locked is False
 
     # Cikis (Q)
     should_exit, _ = process_key_event(ord("q"), fcs, em, estop, 10.0, True, True, log_cb)
@@ -185,3 +193,27 @@ def test_entrypoint_contracts():
         is_estop=False,
         hit_feedback=None,
     )
+
+
+def test_entrypoint_ast_callsites():
+    """main.py ve webots_main.py kaynak kodlarinin AST analiziyle dogru sozlesmeyi cagirdigini dogrular."""
+    import ast
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parents[1]
+    required_kws = {
+        "key_code", "fcs", "engagement", "is_estop", "now",
+        "is_range_valid", "is_flywheel_idle", "log_event_cb"
+    }
+    for rel_path in ["turret_fcs/main.py", "webots/controllers/webots_main/webots_main.py"]:
+        file_path = project_root / rel_path
+        tree = ast.parse(file_path.read_text(encoding="utf-8"))
+        call_found = False
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                func_id = getattr(node.func, "id", None)
+                if func_id == "process_key_event":
+                    call_found = True
+                    actual_kws = {kw.arg for kw in node.keywords}
+                    assert required_kws.issubset(actual_kws), f"{rel_path} eksik anahtar sozcuk: {required_kws - actual_kws}"
+        assert call_found, f"{rel_path} icinde process_key_event cagrisi bulunamadi"

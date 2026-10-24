@@ -71,6 +71,7 @@ scratch/
 
 # Pytest Cache & Local Test Artifacts
 .pytest_cache/
+.git_backup*/
 
 # Datasets & Training Runs
 datasets/
