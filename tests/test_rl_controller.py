@@ -115,3 +115,35 @@ def test_unloaded_controller_returns_zero():
     rl = RLController(auto_load=False)
     assert rl.is_loaded is False
     assert rl.predict_angles(700, 300, 640, 360, 1280, 720, 0, 0, 2.0, 0, 0, 0.033) == (0.0, 0.0)
+
+
+def test_soft_deadband_taper_and_accel_limit():
+    fake = _FakeModel([1.0, 1.0])
+    rl = RLController(
+        auto_load=False,
+        deadband_pan_deg=0.85,
+        deadband_tilt_deg=0.95,
+        taper_pan_deg=1.00,
+        cmd_accel_pan_deg_s2=120.0,
+    )
+    rl.model = fake
+    rl.is_loaded = True
+
+    # 1. Olu bolge icinde (0.50 deg): sifir komut (tam kilit)
+    d_pan, d_tilt = rl.predict_angles(650.0, 360.0, 640.0, 360.0, 1280.0, 720.0, 0, 0, 2.0, 0.50, 0.50, 0.033)
+    assert d_pan == 0.0
+    assert d_tilt == 0.0
+    assert rl._in_deadband is True
+
+    # 2. Taper bolgesinde (1.35 deg = db + 0.5): komut yumusatilir
+    d_pan_taper, _ = rl.predict_angles(700.0, 360.0, 640.0, 360.0, 1280.0, 720.0, 0, 0, 2.0, 1.35, 1.35, 0.033)
+    assert 0.0 < d_pan_taper < CONFIG.actuator.max_step_pan_deg
+
+    # 3. Ivme sinirlama: kare basina degisim accel * dt ile sinirlanir
+    rl_accel = RLController(auto_load=False, cmd_accel_pan_deg_s2=10.0)
+    rl_accel.model = fake
+    rl_accel.is_loaded = True
+    dt = 0.03333
+    u1, _ = rl_accel.predict_angles(800.0, 360.0, 640.0, 360.0, 1280.0, 720.0, 0, 0, 2.0, 10.0, 10.0, dt)
+    assert u1 == pytest.approx(10.0 * dt, abs=1e-3)
+

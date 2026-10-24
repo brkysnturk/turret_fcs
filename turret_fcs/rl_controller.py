@@ -91,7 +91,11 @@ class RLController:
 
     def __init__(self, model_path=None, auto_load=True,
                  deadband_px=5.0, deadband_exit_px=8.0, velocity_gate_px_s=30.0,
-                 reversal_damping=0.5):
+                 reversal_damping=0.5,
+                 deadband_pan_deg=None, deadband_tilt_deg=None,
+                 taper_pan_deg=1.00, taper_tilt_deg=2.50,
+                 cmd_accel_pan_deg_s2=None, cmd_accel_tilt_deg_s2=None,
+                 v_max_px_s=300.0):
         if model_path is None:
             model_path = Path(__file__).resolve().parent / "rl_sim" / "models" / "turret_ppo_v14.zip"
         self.model_path = Path(model_path)
@@ -105,7 +109,7 @@ class RLController:
         self.max_step_pan_deg = CONFIG.actuator.max_step_pan_deg
         self.max_step_tilt_deg = CONFIG.actuator.max_step_tilt_deg
         self.max_step_deg = self.max_step_pan_deg
-        self.v_max_px_s = 300.0
+        self.v_max_px_s = float(v_max_px_s)
         self.dist_min_m = 0.5
         self.dist_max_m = 5.0
 
@@ -121,6 +125,25 @@ class RLController:
         self.deadband_exit_px = max(self.deadband_px, float(deadband_exit_px))
         self.velocity_gate_px_s = max(0.0, float(velocity_gate_px_s))
         self.reversal_damping = float(np.clip(float(reversal_damping), 0.0, 1.0))
+
+        self.deadband_pan_deg = (
+            float(deadband_pan_deg) if deadband_pan_deg is not None
+            else float(CONFIG.control.deadband_pan_deg)
+        )
+        self.deadband_tilt_deg = (
+            float(deadband_tilt_deg) if deadband_tilt_deg is not None
+            else float(CONFIG.control.deadband_tilt_deg)
+        )
+        self.taper_pan_deg = max(0.1, float(taper_pan_deg))
+        self.taper_tilt_deg = max(0.1, float(taper_tilt_deg))
+        self.cmd_accel_pan_deg_s2 = (
+            float(cmd_accel_pan_deg_s2) if cmd_accel_pan_deg_s2 is not None else None
+        )
+        self.cmd_accel_tilt_deg_s2 = (
+            float(cmd_accel_tilt_deg_s2) if cmd_accel_tilt_deg_s2 is not None else None
+        )
+        self.prev_cmd_pan = 0.0
+        self.prev_cmd_tilt = 0.0
 
     def load_model(self):
         """NumPy politikasini (varsa) veya SB3 zip modelini yukler."""
@@ -174,6 +197,8 @@ class RLController:
         self.last_action = np.zeros(2, dtype=np.float32)
         self.prev_policy_action = np.zeros(2, dtype=np.float32)
         self._in_deadband = False
+        self.prev_cmd_pan = 0.0
+        self.prev_cmd_tilt = 0.0
 
     def on_target_lost(self):
         """Hedef kaybinda gecmisi temizle; yeniden yakalamada hayalet aksiyon kalmasin."""
@@ -250,20 +275,59 @@ class RLController:
         d_pan_deg = float(damped[0] * max_pan_step)
         d_tilt_deg = float(damped[1] * max_tilt_step)
 
-        # Kucuk hata + yavas hedef: politikanin sifir-hata bias'ini bastir.
-        err_px = float(np.hypot(bx - center_x, by - center_y))
-        speed_px = float(np.hypot(vx, vy))
-        if self._in_deadband:
-            if err_px > self.deadband_exit_px or speed_px > self.velocity_gate_px_s:
-                self._in_deadband = False
-        elif err_px <= self.deadband_px and speed_px <= self.velocity_gate_px_s:
-            self._in_deadband = True
-        if self._in_deadband:
-            d_pan_deg = 0.0
-            d_tilt_deg = 0.0
+        # 1. Acisal yumusak olu bolge (Soft Deadband Taper)
+        # Hedef merkezdeyken politikanin sifir-hata gurultusunu bastirir,
+        # MG996R mekanik disli boslugu (backlash) rezonansini ve avlanmayi (limit cycle) onler.
+        if self.deadband_px > 0.0:
+            fx = CONFIG.optics.compute_fx(screen_w)
+            fy = CONFIG.optics.compute_fy(screen_h)
+            err_pan = (
+                float(curr_pan_deg) if (curr_pan_deg is not None and abs(float(curr_pan_deg)) > 1e-4)
+                else float(np.degrees(np.arctan((bx - center_x) / max(1e-3, fx))))
+            )
+            err_tilt = (
+                float(curr_tilt_deg) if (curr_tilt_deg is not None and abs(float(curr_tilt_deg)) > 1e-4)
+                else float(np.degrees(np.arctan(-(by - center_y) / max(1e-3, fy))))
+            )
+
+            abs_pan = abs(err_pan)
+            abs_tilt = abs(err_tilt)
+
+            def _calc_taper(err_abs, db_deg, taper_deg):
+                if err_abs <= db_deg:
+                    return 0.0
+                if err_abs >= (db_deg + taper_deg):
+                    return 1.0
+                x = (err_abs - db_deg) / max(1e-4, taper_deg)
+                return float(x * x * (3.0 - 2.0 * x))
+
+            taper_pan = _calc_taper(abs_pan, self.deadband_pan_deg, self.taper_pan_deg)
+            taper_tilt = _calc_taper(abs_tilt, self.deadband_tilt_deg, self.taper_tilt_deg)
+
+            d_pan_deg *= taper_pan
+            d_tilt_deg *= taper_tilt
+
+            self._in_deadband = (abs_pan <= self.deadband_pan_deg and abs_tilt <= self.deadband_tilt_deg)
+            if self._in_deadband:
+                d_pan_deg = 0.0
+                d_tilt_deg = 0.0
+
+        # 2. Ivme sinirlama (Slew Rate Limiter - P ile ayni: 120 pan / 80 tilt deg/s^2)
+        if self.cmd_accel_pan_deg_s2 is not None:
+            max_delta_pan = self.cmd_accel_pan_deg_s2 * dt_safe
+            d_pan_deg = float(np.clip(
+                d_pan_deg, self.prev_cmd_pan - max_delta_pan, self.prev_cmd_pan + max_delta_pan
+            ))
+        if self.cmd_accel_tilt_deg_s2 is not None:
+            max_delta_tilt = self.cmd_accel_tilt_deg_s2 * dt_safe
+            d_tilt_deg = float(np.clip(
+                d_tilt_deg, self.prev_cmd_tilt - max_delta_tilt, self.prev_cmd_tilt + max_delta_tilt
+            ))
 
         d_pan_deg = float(np.clip(d_pan_deg, -max_pan_step, max_pan_step))
         d_tilt_deg = float(np.clip(d_tilt_deg, -max_tilt_step, max_tilt_step))
+        self.prev_cmd_pan = d_pan_deg
+        self.prev_cmd_tilt = d_tilt_deg
 
         # Egitimdeki gibi normalize komut gecmisi (deadband/reversal sonrasi).
         applied = np.array(

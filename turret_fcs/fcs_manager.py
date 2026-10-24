@@ -205,7 +205,10 @@ class FCSManager:
         """PPO politika agirligini yalnizca RL modu secildiginde tembel (lazy) yukler."""
         if self.rl_controller is None:
             from .rl_controller import RLController
-            self.rl_controller = RLController()
+            self.rl_controller = RLController(
+                cmd_accel_pan_deg_s2=120.0,
+                cmd_accel_tilt_deg_s2=80.0,
+            )
         return self.rl_controller
 
     @property

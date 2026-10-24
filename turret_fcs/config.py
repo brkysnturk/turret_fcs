@@ -62,7 +62,7 @@ class ControlConfig:
 class ActuatorConfig:
     """Eyleyici ve servo mekanik adim / kuantalama limitleri."""
     max_step_pan_deg: float = 1.50     # RL kare basi maksimum Pan adimi (30 FPS'te 45 deg/s)
-    max_step_tilt_deg: float = 1.50    # RL kare basi maksimum Tilt adimi (30 FPS'te 45 deg/s)
+    max_step_tilt_deg: float = 0.75    # RL kare basi maksimum Tilt adimi (30 FPS'te 22.5 deg/s - donanim eylemsizlik uyumu)
     servo_deadband_deg: float = 0.10   # STM32 0.1 deg UART kuantalama ve servo mekanik olu bolgesi
 
 
