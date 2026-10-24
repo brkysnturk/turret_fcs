@@ -33,6 +33,7 @@ stm32/turret_main/*.launch
 *.map
 *.d
 stm32/**/Debug/
+stm32/**/Release/
 
 # Operating System Files
 Thumbs.db
