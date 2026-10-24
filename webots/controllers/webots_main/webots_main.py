@@ -187,7 +187,6 @@ def main():
             if telemetry:
                 telemetry.log(
                     frame_id, sim_t, hw.dt, fps, fcs, hw, best_box,
-                    is_firing=eng_state.is_physical_firing,
                     fire_stage=eng_state.phase,
                     fcs_state=fcs_state,
                     ballistics=ballistics,

@@ -67,7 +67,7 @@ class WebotsTelemetryLogger:
 
         atexit.register(self.save)
 
-    def log(self, frame_id, sim_t, dt, fps, fcs, hw, best_box, is_firing=False, fire_stage=None, fcs_state=None, ballistics=None, tuning=None):
+    def log(self, frame_id, sim_t, dt, fps, fcs, hw, best_box, fire_stage=None, fcs_state=None, ballistics=None, tuning=None):
         """Her adimda Schema v2 telemetri satirini tampona ekler."""
         # 1. Zemin Gercegi (Ground Truth)
         gt_x, gt_y, gt_z = 0.0, 0.0, 0.0
@@ -85,8 +85,6 @@ class WebotsTelemetryLogger:
         # 2. Algoritma Durumlari
         has_target = best_box is not None
         conf = float(getattr(fcs, "target_conf", 0.0)) if has_target else 0.0
-        if conf <= 0.0 and has_target and len(best_box) > 4:
-            conf = float(best_box[4])
         cx = float((best_box[0] + best_box[2]) / 2.0) if has_target else 0.0
         cy = float((best_box[1] + best_box[3]) / 2.0) if has_target else 0.0
 

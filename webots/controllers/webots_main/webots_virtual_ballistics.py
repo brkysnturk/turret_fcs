@@ -102,7 +102,6 @@ class VirtualBallisticsEvaluator:
             "impact_z": impact_z,
             "dist_front_m": dist_front,
             "dist_center_m": dist,
-            "dist_m": dist,
             "gravity_drop_cm": gravity_drop_m * 100.0,
         }
         self.active_shots.append(shot)
