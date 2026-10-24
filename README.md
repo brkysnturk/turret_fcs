@@ -32,7 +32,7 @@ Sistem; **Logitech C270 RGB Kamera (720p @ 30 FPS)** ve **Benewake TF-Luna ToF L
 
 * **Yeniden Tasarlanan Tip-1 P Kontrolcü Omurgası:**
   * Pan ekseni için `Kp_pan = 0.22`, Tilt ekseni için `Kp_tilt = 0.11` taban kazançları doğrulandı (Faz Marjı: 45.1°, Kazanç Marjı: 7.2 dB).
-  * 6 derece/s ile sınırlayan sabit hız adımı kaldırıldı; yerine mekanik rezonansı ve dişli aşınmasını önleyen 120°/s² Pan ve 80°/s² Tilt ivme sınırlaması (acceleration limiting) getirildi.
+  * 6 derece/s ile sınırlayan sabit hız adımı kaldırıldı; yerine mekanik rezonansı ve dişli aşınmasını önleyen 400°/s² Pan ve 267°/s² Tilt ivme sınırlaması (acceleration limiting) getirildi.
   * Çift EMA katmanı elendi; tek EMA filtresi (alpha = 0.85) ve yumuşak ölü bölge taper (Pan 0.85° - 1.00°, Tilt 0.95° - 2.50°) ile merkezde 0.030° komut genliğiyle sıfır avlanma (chattering) elde edildi.
 
 * **Ego-Hareket Telafili ve Tek Q/R CV Kalman Filtresi:**
@@ -97,7 +97,7 @@ Sistem; **Logitech C270 RGB Kamera (720p @ 30 FPS)** ve **Benewake TF-Luna ToF L
 | **Birincil Kontrolcü** | Tip-1 P (tek EMA, ivme sınırlamalı) | Pan Kp=0.22, Tilt Kp=0.11, Slew: 400°/s² Pan, 267°/s² Tilt |
 | **İkincil Kontrolcü** | 11-Boyutlu Saf PPO RL Ajanı | NumPy MLP (11-64-64-2), 1.50° pan / 0.75° tilt adımı, 0.03 ms CPU çıkarımı |
 | **Gömülü Denetleyici** | STM32F401RE Nucleo (ARM Cortex-M4) | 84 MHz, 115200 Baud UART, 50 Hz PWM, 300 ms Heartbeat + 800 ms IWDG |
-| **Aktüatörler** | MG996R / DS3218 Metal Dişli Servo | 50 Hz PWM, Pan: 15° - 165° (±75°), Tilt: -15° / +25°, 45°/s slew doyumu |
+| **Aktüatörler** | MG996R / DS3218 Metal Dişli Servo | 50 Hz PWM, Pan: 15° - 165° (±75°), Tilt: 65° - 115° (±25°), 45°/s slew doyumu |
 | **Fırlatma Mekanizması** | Çift FF-180 Volan + JF-0530B Solenoid | 23.500 RPM, 10.0 m/s mermi hızı, 80 ms darbe genişliği |
 | **Dijital İkiz** | Cyberbotics Webots R2025a | ODE fizik motoru, 80 ms gecikme, 45 ms lag, 1.20° backlash |
 
@@ -172,7 +172,7 @@ Sistemin arama, tespit, takip, kilitlenme ve atış sekansları [turret_fcs_flow
 * **DURUM 6 (Kademeli Atış Protokolü):**
   * `SPINUP & SLEW (1.0 s)`: Çift volan motoru 23.500 RPM devire çıkarılır ve taret önleme açısına yönelir.
   * `SETTLE (0.15 s)`: Nişan açısı sabitlenir, servo lag ve dişli boşluğu oturur.
-  * `FIRING (80 ms)`: STM32 donanımsal zamanlayıcısı 80 ms darbeli solenoid dart iticisini tetikler.
+  * `FIRING (80 ms)`: STM32 yazılımsal durum makinesi (`HAL_GetTick()`) ile 80 ms darbeli solenoid dart iticisini tetikler.
   * `RECOVER (0.35 s)`: Solenoid yayla geri çekilirken taret optik eksene döner.
   * `EVAL (1.50 s)`: Ekranda `ENGAGEMENT COMPLETE / ENGAGEMENT SUCCESSFUL` afişi gösterilir; ilk 0.75 s boyunca kilit muafiyeti uygulanır.
 
@@ -244,7 +244,7 @@ Burada hata karesinin azalışı (`e_prev^2 - e^2`) pozitif ödüllendirilirken,
 6. **Zaman Tabanlı Hız Sınırlaması:** STM32 firmware'i gerçek döngü süresini (`dt`) ölçerek servo komutunu 45 derece/s ile donanımsal olarak sınırlar; PC kare hızı artsa bile taret aşırı hızlanamaz.
 7. **Geç Ateşleme Koruması:** Volan motorları nominal devrine (23.500 RPM) ulaşmadan atış izni verilmez; dartın taret başka yöne bakarken fırlatılması engellenir.
 8. **350 ms Kamera Donma Koruması:** Web kamerasından 350 ms boyunca yeni görüntü karesi gelmezse sistem güvenli bekleme moduna geçer.
-9. **Çift Dart Önleyici Kenar Tetiklemeli Darbe:** Solenoid darbesi donanımsal zamanlayıcı ile tam 80 ms olarak sınırlandırılmıştır; tek basışta birden fazla dart atılamaz.
+9. **Çift Dart Önleyici Kenar Tetiklemeli Darbe:** Solenoid darbesi gömülü yazılımsal durum makinesi (`HAL_GetTick()`) ile tam 80 ms olarak sınırlandırılmıştır; tek basışta birden fazla dart atılamaz.
 10. **Açılışta Donanımsal Pull-Down Koruması:** STM32 güç aldığı anda ve reset durumlarında fırlatıcı kontrol hatları donanımsal pull-down dirençleri ile kesin 0V seviyesinde tutulur.
 
 ---
@@ -367,7 +367,7 @@ venv\Scripts\python.exe analysis/inspect_logs.py
 ```text
 turret_fcs/
 ├── .github/                   # GitHub Actions CI sürekli entegrasyon iş akışları (ci.yml)
-├── tests/                     # 31 adet otomatik Pytest birim, SSOT ve entegrasyon testi
+├── tests/                     # 35 adet otomatik Pytest birim, SSOT ve entegrasyon testi
 ├── requirements.txt           # Python kütüphane bağımlılıkları (YOLO, Torch, SB3, vb.)
 ├── pyproject.toml             # Python paket ve yapılandırma manifestosu
 ├── CHANGELOG.md               # Sürüm değişiklikleri ve detaylı sürüm geçmişi
@@ -437,7 +437,7 @@ Bu sistem; Yıldız Teknik Üniversitesi bünyesinde yalnızca **akademik araşt
 
 ## 🧠 Proje Hafızası ve Geliştirme Tarihçesi
 
-Projenin ilk günden bugüne geçirdiği tüm fazlar, Kalman filtresinin sıfırdan yeniden tasarımı, P kontrolcü rezonans çözümleri, pekiştirmeli öğrenme sim-to-real boşluğunun kapatılması ve mimari kararların teknik hafızası için [AGENTS.md](file:///c:/YTU/bitirme_projesi/turret_fcs/AGENTS.md) dokümanına başvurabilirsiniz.
+Projenin ilk günden bugüne geçirdiği tüm fazlar, Kalman filtresinin sıfırdan yeniden tasarımı, P kontrolcü rezonans çözümleri, pekiştirmeli öğrenme sim-to-real boşluğunun kapatılması ve mimari kararların teknik hafızası için [AGENTS.md](AGENTS.md) dokümanına başvurabilirsiniz.
 
 ---
 

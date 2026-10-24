@@ -1,35 +1,31 @@
 # Analysis Tools & Verification Suite (Analiz ve Doğrulama Araçları)
 
-Bu dizin; Turret FCS projesinin kontrol dinamiklerini, sistem tanıma verilerini, Kalman filtresi kestirim doğruluğunu, Webots simülasyon ve gerçek donanım telemetri loglarını incelemek için geliştirilen 20 adet akademik analiz betiğini içerir.
+Bu dizin; Turret FCS projesinin kontrol dinamiklerini, sistem tanıma modellerini, Kalman filtresi kestirim doğruluğunu, Webots simülasyon ve gerçek donanım telemetri loglarını incelemek için geliştirilen akademik analiz ve doğrulama araçlarını içerir.
 
 Tüm grafikler `analysis/figures/` dizinine 300 DPI çözünürlükte kaydedilir.
 
 ---
 
-## 📊 Betik ve Çıktı Haritası (20 Betik)
+## 📊 Betik ve Çıktı Haritası
 
 | Kategori | Betik Dosyası | Açıklama & Ürettiği Çıktı | Çalıştırma Komutu |
 | :--- | :--- | :--- | :--- |
 | **Sistem Tanıma** | `plot_tuned_system.py` | 8 panelli analitik model, basamak yanıtı, faz portresi ve Bode kararlılık analizi (`fig1`–`fig8`). | `python analysis/plot_tuned_system.py` |
-| **Sistem Tanıma** | `system_identification.py` | Taret motor gecikmesi, zaman sabiti (tau) ve transfer fonksiyonu kestirimi. | `python analysis/system_identification.py` |
-| **P Kontrolcü** | `p_gain_sweep.py` | Webots ortamında farklı Kp kazançlarının taranması ve yön değiştirme doyum analizi. | `python analysis/p_gain_sweep.py` |
-| **P Kontrolcü** | `p_profile_sweep.py` | 6 farklı hedef uçuş profiline karşı P kazanç matrisi doğrulaması. | `python analysis/p_profile_sweep.py` |
-| **P Kontrolcü** | `p_gain_oscillation.py` | Kp kazanç taramalarında limit-cycle titreşim başlangıcının yön değişimiyle tespiti. | `python analysis/p_gain_oscillation.py` |
-| **P Kontrolcü** | `p_controller_benchmark.py` | Gerçek donanım ve simülasyon adım yanıtı karşılaştırması. | `python analysis/p_controller_benchmark.py` |
-| **P Kontrolcü** | `p_controller_validation.py` | Webots telemetrisinden zemin gerçeği (ground truth) fiziksel nişan hatası analizi. | `python analysis/p_controller_validation.py` |
-| **Kalman** | `generate_kalman_plots.py` | CV Kalman filtresi hız kestirimi ile yer gerçeği (ground truth) karşılaştırma grafiği. | `python analysis/generate_kalman_plots.py` |
-| **Kalman** | `kalman_validation.py` | Kovaryans yakınsaması ve inovasyon sıçrama kapısı doğrulaması. | `python analysis/kalman_validation.py` |
-| **Optik** | `calibrate_camera_fov.py` | Logitech C270 kamera optik FOV açılarının piksel ölçümleriyle kalibrasyonu. | `python analysis/calibrate_camera_fov.py` |
-| **RL Analizi** | `generate_benchmark_plots.py`| Saf PPO RL ile Tip-1 P kontrolcünün Webots profil karşılaştırma görseli (`p_vs_rl_final_benchmark.png`). | `python analysis/generate_benchmark_plots.py` |
-| **RL Analizi** | `export_rl_policy.py` | PyTorch / SB3 politikasını hafif 11-64-64-2 NumPy MLP (`.npz`) formatına aktarır. | `python analysis/export_rl_policy.py` |
-| **RL Analizi** | `rl_diagnose.py` | RL politika durum dağılımlarını ve eylem çıkış sınırlarını inceler. | `python analysis/rl_diagnose.py` |
-| **RL Analizi** | `rl_webots_eval.py` | Webots simülatöründe RL kapalı çevrim başarımını doğrular. | `python analysis/rl_webots_eval.py` |
-| **RL Analizi** | `rl_postproc_sweep.py` | Telemetri logu üzerinde taper, ivme sınırı ve hız ölçeği parametrelerinin çevrimdışı A/B taraması. | `python analysis/rl_postproc_sweep.py <log_yolu>` |
-| **Telemetri** | `inspect_logs.py` | En son telemetri CSV kütüğünü otomatik okur, kilit ve açı hatalarını özetler. | `python analysis/inspect_logs.py` |
-| **Telemetri** | `deep_analyze_last_log.py` | Son donanım telemetri kaydının FFT spektral analizi ve titreşim tespiti. | `python analysis/deep_analyze_last_log.py` |
-| **Telemetri** | `consolidate_telemetry_logs.py`| Parçalı telemetri dosyalarını tek bir özet veri setinde birleştirir. | `python analysis/consolidate_telemetry_logs.py` |
-| **Telemetri** | `plot_patrol_log.py` | Lissajous devriye tarama yörüngesini ve servo açı adımlarını çizer. | `python analysis/plot_patrol_log.py` |
-| **Mimari** | `generate_architecture_svg.py`| Sistem mimarisini temsil eden güncel SVG şemasını (`docs/assets/`) üretir. | `python analysis/generate_architecture_svg.py` |
+| **Sistem Tanıma** | `system_identification.py` | Taret motor gecikmesi, zaman sabiti (tau = 45 ms), transfer fonksiyonu kestirimi ve kök-yer eğrisi (`fig9_system_identification.png`). | `python analysis/system_identification.py` |
+| **Kontrol & Benchmark** | `generate_benchmark_plots.py` | Saf PPO RL ile Tip-1 P kontrolcünün TurretEnv benchmark karşılaştırma görseli (`p_vs_rl_final_benchmark.png`). | `python analysis/generate_benchmark_plots.py` |
+| **Kontrol & Benchmark** | `p_controller_benchmark.py` | Farklı hedef profillerinde (zikzak, kaçış, dairesel) hızlı kapalı çevrim P adım yanıtı benchmark'ı. | `python analysis/p_controller_benchmark.py` |
+| **Kontrol & Benchmark** | `export_rl_policy.py` | PyTorch / SB3 politikasını hafif 11-64-64-2 NumPy MLP (`.npz`) formatına aktarır. | `python analysis/export_rl_policy.py` |
+| **Kontrol & Benchmark** | `rl_diagnose.py` | PPO politikasının durum dağılımlarını, eylem sürekliliğini ve kapalı çevrim başarımını doğrular. | `python analysis/rl_diagnose.py` |
+| **Kalman** | `generate_kalman_plots.py` | CV Kalman filtresi hız kestirimi ile yer gerçeği (ground truth) karşılaştırma grafiği (`kalman_tracking_performance.png`). | `python analysis/generate_kalman_plots.py` |
+| **Kalman** | `kalman_validation.py` | Telemetri loglarında dünya LOS hızıyla Kalman hız kestiriminin kovaryans ve işaret doğrulaması. | `python analysis/kalman_validation.py` |
+| **Optik & Donanım** | `calibrate_camera_fov.py` | Logitech C270 kamera optik FOV açılarının (69° HFOV / 42° VFOV) ve odak uzaklığının piksel ölçümleriyle kalibrasyonu. | `python analysis/calibrate_camera_fov.py` |
+| **Mimari** | `generate_architecture_svg.py` | Sistem mimarisini temsil eden güncel SVG şemasını (`docs/assets/turret_fcs_architecture.svg`) üretir. | `python analysis/generate_architecture_svg.py` |
+| **Telemetri & Doğrulama** | `inspect_logs.py` | En son telemetri CSV kütüğünü otomatik okur; kilit süresi, açısal hata, salınım ve rezonansı raporlar. | `python analysis/inspect_logs.py` |
+| **Telemetri & Doğrulama** | `p_controller_validation.py` | Webots telemetrisinden balonun yer gerçeği konumuna göre fiziksel nişan hatası ve kilit analizi. | `python analysis/p_controller_validation.py` |
+| **Telemetri & Doğrulama** | `p_profile_sweep.py` | 6 farklı hedef uçuş profiline karşı Webots üzerinde P kazanç matrisi doğrulaması. | `python analysis/p_profile_sweep.py` |
+| **Telemetri & Doğrulama** | `p_gain_sweep.py` | Webots ortamında farklı Kp kazançlarının taranması ve yön değiştirme doyum analizi. | `python analysis/p_gain_sweep.py` |
+| **Telemetri & Doğrulama** | `plot_patrol_log.py` | Lissajous devriye tarama yörüngesini ve servo açı adımlarını çizer. | `python analysis/plot_patrol_log.py` |
+| **Telemetri & Doğrulama** | `consolidate_telemetry_logs.py` | Parçalı saha telemetri dosyalarını tek bir özet veri setinde birleştirir ve KPI grafiği çizer. | `python analysis/consolidate_telemetry_logs.py` |
 
 ---
 
@@ -41,12 +37,15 @@ Tüm temel akademik analiz grafiklerini tek seferde üretmek için:
 # 1. 8 Panelli Dinamik Kararlılık Figürleri (fig1 - fig8)
 python analysis/plot_tuned_system.py
 
-# 2. Kalman Filtresi Hız ve Doğrulama Figürü
+# 2. Sistem Tanıma ve Kök-Yer Eğrisi Figürü (fig9)
+python analysis/system_identification.py
+
+# 3. Kalman Filtresi Hız ve Doğrulama Figürü
 python analysis/generate_kalman_plots.py
 
-# 3. P vs RL Benchmark Karşılaştırma Figürü
+# 4. P vs RL Benchmark Karşılaştırma Figürü
 python analysis/generate_benchmark_plots.py
 
-# 4. En Son Gerçek Donanım Kütüğünün İncelenmesi
+# 5. En Son Telemetri Kütüğünün İncelenmesi
 python analysis/inspect_logs.py
 ```

@@ -76,30 +76,33 @@ python analysis/export_rl_policy.py
 
 ## 5. P Kontrolcü vs PPO RL Benchmark Karşılaştırması
 
-İki kontrolcünün aynı dinamik hedef yörüngesi üzerindeki başarımını karşılaştırmak ve karşılaştırma grafiğini üretmek için:
+İki kontrolcünün dinamik hedef yörüngesi üzerindeki başarımını karşılaştırmak ve 5 panelli akademik benchmark grafiğini (`analysis/figures/p_vs_rl_final_benchmark.png`) üretmek için:
 
 ```bash
-python turret_fcs/rl_sim/compare_p_vs_rl.py
+python analysis/generate_benchmark_plots.py
 ```
 
-Bu betik `analysis/figures/p_vs_rl_comparison.png` görselini üretir ve terminale pan/tilt RMS hatalarını, kilit oranlarını ve iyileşme yüzdesini basar.
+Bu betik; TurretEnv üzerinde Zikzak, Kaçış ve Doğrusal Kaçış senaryolarında her iki kontrolcüyü aynı tohumlarla koşturur; pan/tilt hata zaman serilerini, kontrol eforunu, hata CDF dağılımını ve akademik metrik tablosunu üretir.
 
 ---
 
 ## 6. Akademik Analiz Figürlerinin Üretilmesi
 
-Tüm analitik modelleri, Kalman kestirim doğrulamalarını ve faz uzayı grafiklerini üretmek için:
+Tüm analitik modelleri, sistem tanıma modellerini, Kalman kestirim doğrulamalarını ve faz uzayı grafiklerini üretmek için:
 
 ```bash
 # 1. 8 Panelli Dinamik Kararlılık Figürleri (fig1 - fig8)
 python analysis/plot_tuned_system.py
 
-# 2. Kalman Filtresi Hız ve Zemin Gerçeği Karşılaştırma Figürü
+# 2. Sistem Tanıma ve Kök-Yer Eğrisi Figürü (fig9)
+python analysis/system_identification.py
+
+# 3. Kalman Filtresi Hız ve Zemin Gerçeği Karşılaştırma Figürü
 python analysis/generate_kalman_plots.py
 
-# 3. P vs RL Webots Benchmark Görseli
+# 4. P vs RL Benchmark Görseli
 python analysis/generate_benchmark_plots.py
 
-# 4. Sistem Mimarisi SVG Şeması
+# 5. Sistem Mimarisi SVG Şeması
 python analysis/generate_architecture_svg.py
 ```

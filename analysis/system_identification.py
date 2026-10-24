@@ -367,17 +367,14 @@ def run_system_identification():
 
     plt.tight_layout()
 
-    # Rapor gorsellerini kaydet
-    report_path1 = BASE_DIR / "system_identification_analysis.png"
-    report_path2 = FIG_DIR / "fig8_system_identification.png"
-    plt.savefig(str(report_path1), dpi=300)
-    plt.savefig(str(report_path2), dpi=300)
+    # Rapor gorselini kaydet (fig9: fig1-fig8 cakismasini onler)
+    report_path = FIG_DIR / "fig9_system_identification.png"
+    plt.savefig(str(report_path), dpi=300)
     plt.close()
 
     print("\n" + "=" * 70)
     print("[BASARILI] Sistem Tanima ve Root Locus Raporu Kaydedildi:")
-    print(f"   --> {report_path1}")
-    print(f"   --> {report_path2}")
+    print(f"   --> {report_path}")
     print("=" * 70)
 
 
