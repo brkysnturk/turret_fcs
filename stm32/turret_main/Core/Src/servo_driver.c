@@ -6,6 +6,10 @@ static TIM_HandleTypeDef htim1;
 static float current_pan = 90.0f;
 static float current_tilt = 90.0f;
 
+// Zaman tabanli hiz siniri icin son komut ani
+static uint32_t last_cmd_ms = 0;
+static bool have_last_cmd = false;
+
 static uint32_t AngleToPulse(float angle)
 {
     if (angle < 0.0f) angle = 0.0f;
@@ -97,16 +101,61 @@ void Servo_SetTilt(float angle_deg)
 
 void Servo_ApplyCorrection(float d_pan, float d_tilt)
 {
-    // Maksimum adim sinirlamasi (Mekanik asiri tork ve disli korumasi)
-    if (d_pan > MAX_STEP_PAN_DEG) d_pan = MAX_STEP_PAN_DEG;
-    if (d_pan < -MAX_STEP_PAN_DEG) d_pan = -MAX_STEP_PAN_DEG;
-    if (d_tilt > MAX_STEP_TILT_DEG) d_tilt = MAX_STEP_TILT_DEG;
-    if (d_tilt < -MAX_STEP_TILT_DEG) d_tilt = -MAX_STEP_TILT_DEG;
+    // 1. Zaman tabanli hiz siniri: PC kare basina delta gonderir. FPS artarsa
+    // ayni delta daha sik gelir; burada gercek dt olculerek hiz sabitlenir.
+    uint32_t now = HAL_GetTick();
+    float dt_s = 0.010f; // ilk komutta dongu periyodu varsayimi
+    if (have_last_cmd)
+    {
+        uint32_t dt_ms = now - last_cmd_ms;
+        dt_s = (float)dt_ms / 1000.0f;
+        if (dt_s < 0.005f) dt_s = 0.005f;  // 200 Hz ust sinir
+        if (dt_s > 0.100f) dt_s = 0.100f;  // 10 Hz alt sinir
+    }
+    last_cmd_ms = now;
+    have_last_cmd = true;
+
+    // 2. Tek pakette mutlak adim siniri + zaman tabanli hiz siniri (kucuk olani)
+    float limit_pan = MAX_RATE_PAN_DPS * dt_s;
+    if (limit_pan > MAX_STEP_PAN_DEG) limit_pan = MAX_STEP_PAN_DEG;
+    float limit_tilt = MAX_RATE_TILT_DPS * dt_s;
+    if (limit_tilt > MAX_STEP_TILT_DEG) limit_tilt = MAX_STEP_TILT_DEG;
+
+    if (d_pan > limit_pan) d_pan = limit_pan;
+    if (d_pan < -limit_pan) d_pan = -limit_pan;
+    if (d_tilt > limit_tilt) d_tilt = limit_tilt;
+    if (d_tilt < -limit_tilt) d_tilt = -limit_tilt;
 
     // Kamera taretle birlikte dondugunden hata acisini mevcut aciya ekler.
     // Yon tersleme PC katmaninda yapilir; burada tekrar terslenmez.
     Servo_SetPan(current_pan + d_pan);
-    Servo_SetTilt(current_tilt + d_tilt);}
+    Servo_SetTilt(current_tilt + d_tilt);
+}
+
+bool Servo_HomeStep(void)
+{
+    float d_pan = SERVO_CENTER_DEG - current_pan;
+    float d_tilt = SERVO_CENTER_DEG - current_tilt;
+
+    if (d_pan < SERVO_HOME_TOL_DEG && d_pan > -SERVO_HOME_TOL_DEG &&
+        d_tilt < SERVO_HOME_TOL_DEG && d_tilt > -SERVO_HOME_TOL_DEG)
+    {
+        return true;
+    }
+
+    // Ayni hiz sinirlayicisindan gecer: E-stop artik servo uzerinde basamak
+    // olusturmaz, merkeze ~45 derece/s ile yumusak iner.
+    Servo_ApplyCorrection(d_pan, d_tilt);
+    return false;
+}
+
+bool Servo_IsAtCenter(void)
+{
+    float d_pan = SERVO_CENTER_DEG - current_pan;
+    float d_tilt = SERVO_CENTER_DEG - current_tilt;
+    return (d_pan < SERVO_HOME_TOL_DEG && d_pan > -SERVO_HOME_TOL_DEG &&
+            d_tilt < SERVO_HOME_TOL_DEG && d_tilt > -SERVO_HOME_TOL_DEG);
+}
 
 float Servo_GetPan(void)
 {

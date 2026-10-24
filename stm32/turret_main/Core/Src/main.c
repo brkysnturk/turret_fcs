@@ -28,6 +28,51 @@
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
+/*
+ * Zaman Asimlari (ms)
+ * - 300 ms: PC komut akisi kesildi -> firlaticiyi fail-safe durdur.
+ * - 2000 ms: PC kalici olarak yok -> servolari yumusakca merkeze al.
+ *            Aksi halde iki MG996R son konumda surekli stall akimi ceker.
+ */
+#define FCS_CMD_TIMEOUT_MS    300u
+#define SERVO_PARK_TIMEOUT_MS 2000u
+
+/*
+ * Bagimsiz Watchdog (IWDG)
+ * LSI ~32 kHz, prescaler /64 -> 500 Hz (2 ms/sayac). 800 ms nominal.
+ * LSI toleransi (~17-47 kHz) nedeniyle gercek pencere ~540-1900 ms arasi
+ * degisir; bu, ~11 ms'lik dongu periyoduna karsi bolca marj birakir.
+ * HAL_IWDG surucusu kullanilmaz: CubeIDE Debug makefile'ina yeni kaynak
+ * eklemek gerekmesin diye dogrudan register erisimi tercih edildi.
+ */
+#define IWDG_GUARD_TIMEOUT_MS 800u
+
+static void IWDG_Guard_Init(uint32_t timeout_ms)
+{
+  uint32_t reload = timeout_ms / 2u;   /* 2 ms/sayac */
+  if (reload > 0xFFFu) reload = 0xFFFu;
+  if (reload < 1u) reload = 1u;
+
+  IWDG->KR = 0x5555u;                  /* PR/RLR yazma kilidini ac */
+  IWDG->PR = 0x4u;                     /* LSI / 64 */
+  IWDG->RLR = reload;
+  while (IWDG->SR & (IWDG_SR_PVU | IWDG_SR_RVU)) { }  /* guncellemeyi bekle */
+  IWDG->KR = 0xAAAAu;                  /* ilk reload */
+  IWDG->KR = 0xCCCCu;                  /* sayaci baslat (artik durdurulamaz) */
+
+#if defined(DEBUG)
+  /* Hata ayiklama kolayligi: cekirdek breakpoint'te durduruldugunda IWDG
+     saymasin; aksi halde her adimda reset yenir. DBGMCU her zaman erisilebilir
+     (APB1 uzerinde ayri bir saat kapisi yok), bu yuzden RCC makrosu gerekmez. */
+  DBGMCU->APB1FZ |= DBGMCU_APB1_FZ_DBG_IWDG_STOP;
+#endif
+}
+
+static inline void IWDG_Guard_Feed(void)
+{
+  IWDG->KR = 0xAAAAu;
+}
+
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
@@ -41,6 +86,11 @@ int main(void)
 {
   /* MCU Configuration --------------------------------------------------------*/
   HAL_Init();
+
+  /* Watchdog'u mumkun olan en erken anda baslat: sonraki herhangi bir
+     kilitlenme (saat yapilandirmasi dahil) artik reset ile kurtarilir. */
+  IWDG_Guard_Init(IWDG_GUARD_TIMEOUT_MS);
+
   SystemClock_Config();
 
   MX_GPIO_Init();
@@ -54,6 +104,7 @@ int main(void)
   Launcher_Init(); // Pinleri guvenli PULLDOWN ve LOW (0V) durumuna kilitler
 
   uint32_t last_pc_cmd_time = HAL_GetTick();
+  bool servos_park = false;  // Yumusak merkez donusu (E-stop veya link kaybi)
 #if ENABLE_PHYSICAL_FIRE
   static uint8_t prev_fcs_state = 0;
 #endif
@@ -63,7 +114,11 @@ int main(void)
 
   while (1)
   {
-    // 1. Sabit 100 Hz Periyodik Telemetri: LiDAR'dan bagimsiz periyodik gonderim
+    // 0. Watchdog beslemesi: dongu saglikliysa IWDG sayaci sifirlanir.
+    //    Herhangi bir kilitlenmede IWDG reset atar ve pinler tekrar LOW'a cekilir.
+    IWDG_Guard_Feed();
+
+    // 1. Sabit ~100 Hz Periyodik Telemetri: LiDAR'dan bagimsiz periyodik gonderim
     // (LiDAR kopuk veya gecikmeli olsa bile servo geri bildirimi ve odometri asla kesilmez)
     uint16_t dist = Luna_GetDistance();
     uint16_t strength = Luna_GetStrength();
@@ -78,23 +133,41 @@ int main(void)
       last_pc_cmd_time = HAL_GetTick();
       if (state == 3)
       {
-        // Acil Durdurma: Motorlari dogrudan mekanik merkez pozisyonuna (90°, 90°) dondur
-        Servo_SetPan(90.0f);
-        Servo_SetTilt(90.0f);
+        /*
+         * Acil Durdurma: firlaticiyi aninda kes, servolari ise BASAMAKSIZ
+         * merkeze indir. Dogrudan Servo_SetPan(90) yazmak, MAX_STEP korumasini
+         * atlayip servo uzerinde 45 dereceye varan ani tork sokuna yol aciyordu.
+         * Artik merkeze inis Servo_HomeStep() ile hiz sinirli yapilir.
+         */
         Launcher_EmergencyStop();
+        servos_park = true;
 #if ENABLE_PHYSICAL_FIRE
         prev_fcs_state = 0;  // E-stop sonrasi yanlis ates kenari olusmasin
 #endif
       }
       else
       {
+        servos_park = false;  // PC kontrolu geri aldi
         Servo_ApplyCorrection(d_pan, d_tilt);
+
+#if ENABLE_PHYSICAL_FIRE
+        /*
+         * Ates tetigi, volan enable blogundan ONCE calisir. Aksi halde ayni
+         * karede enerjilendirilen volan "hazir" sanilir ve dart devirsiz
+         * firlatilirdi. Bu sira ile Launcher_TriggerFire() yalnizca volan
+         * onceki karelerde (PC SPINUP fazinda) gercekten hazirsa ates eder.
+         */
+        if (state == 2 && prev_fcs_state != 2)
+        {
+          (void)Launcher_TriggerFire();
+        }
+#endif
 
         /*
          * Flywheel pre-spin (bosta donme):
          * LOCKED (1) veya FIRING (2) durumunda volanlari enerjilendir.
          * PC, ates oncesi slew/settle boyunca state=1 gonderir; FIRING kenarinda
-         * volanlar zaten hazir oldugu icin solenoid gecikmesi 500 ms'ye cikmaz.
+         * volanlar zaten hazir olur.
          * TRACKING (0) veya ESTOP (3) durumunda volanlari kapat.
          */
         if (state == 1 || state == 2)
@@ -111,23 +184,14 @@ int main(void)
             Launcher_Flywheel_Enable(false);
           }
         }
-
-#if ENABLE_PHYSICAL_FIRE
-        // PC yalnizca gercek FIRING fazinda state=2 gonderir; yukselen kenar tek darbe.
-        if (state == 2 && prev_fcs_state != 2)
-        {
-          Launcher_TriggerFire();
-        }
-#endif
       }
 #if ENABLE_PHYSICAL_FIRE
       prev_fcs_state = (state == 3) ? 0 : state;
 #endif
     }
 
-    // 3. 300 ms Heartbeat Zaman Asimi: PC kaybolursa launcher'i fail-safe durdur.
-    // Servolar son komut pozisyonunda kalir; PC geri gelince komut akisi devam eder.
-    if (HAL_GetTick() - last_pc_cmd_time > 300)
+    // 3. Heartbeat: PC komut akisi kesilirse firlaticiyi fail-safe durdur.
+    if (HAL_GetTick() - last_pc_cmd_time > FCS_CMD_TIMEOUT_MS)
     {
       Launcher_EmergencyStop();
 #if ENABLE_PHYSICAL_FIRE
@@ -135,17 +199,30 @@ int main(void)
 #endif
     }
 
-    // 4. Sistem Kalp Atisi LED Gostergesi (500 ms periyot - ISR yukunu onler)
+    // 4. Uzun sureli PC kaybi: servolari yumusakca merkeze al.
+    //    Aksi halde iki MG996R son konumda surekli stall akimi cekip isinir.
+    if (HAL_GetTick() - last_pc_cmd_time > SERVO_PARK_TIMEOUT_MS)
+    {
+      servos_park = true;
+    }
+
+    // 5. Yumusak merkez donusu (E-stop veya link kaybi): hiz sinirli, basamaksiz.
+    if (servos_park)
+    {
+      (void)Servo_HomeStep();
+    }
+
+    // 6. Sistem Kalp Atisi LED Gostergesi (500 ms periyot - ISR yukunu onler)
     if (HAL_GetTick() - last_led_time >= 500)
     {
       last_led_time = HAL_GetTick();
       HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
     }
 
-    // 5. Firlatici durum makinesi (non-blocking)
+    // 7. Firlatici durum makinesi (non-blocking)
     Launcher_Update();
 
-    HAL_Delay(10); // 100 Hz kontrol dongusu
+    HAL_Delay(10); // ~90-100 Hz kontrol dongusu (bloklayan telemetri TX dahil)
   }
 }
 
@@ -286,6 +363,9 @@ void Error_Handler(void)
   __disable_irq();
   // Donanim Guvenligi: Solenoid ve Volan pinlerini aninda sifirla (bobin ve MOSFET korumasi)
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0 | GPIO_PIN_1, GPIO_PIN_RESET);
+
+  // Watchdog bilincli olarak BESLENMEZ: IWDG ~800 ms icinde reset atar,
+  // boylece cihaz kalici olarak kilitli kalmaz; acilista pinler tekrar LOW'a cekilir.
   while (1)
   {
   }

@@ -195,7 +195,7 @@ Bu proje; mikro/mini İnsansız Hava Araçları (İHA) ve asimetrik hava tehditl
 | **Vuruş Olasılığı** | Kapalı Form 2B Gauss (Marcum Q) | ncx2 CDF, dinamik hedef boyutu, histerezis kilit |
 | **Birincil Kontrolcü** | P (tek EMA, kazanç planlamalı) | Pan Kp=0.22 (6.6 1/s), Tilt Kp=0.11 (3.3 1/s) |
 | **İkincil Kontrolcü** | 11-Boyutlu PPO Pekiştirmeli Öğrenme | 80 ms gecikme tamponu, LQR ödül fonksiyonu |
-| **Mikrodenetleyici** | STM32F401RE Nucleo (ARM Cortex-M4) | 84 MHz, 100 Hz ikili paket UART, 300 ms Watchdog |
+| **Mikrodenetleyici** | STM32F401RE Nucleo (ARM Cortex-M4) | 84 MHz, ~100 Hz ikili paket UART, 300 ms heartbeat + 800 ms IWDG |
 | **Aktüatörler** | Çift MG996R Metal Dişli Servo | 50 Hz PWM, Pan: +/-45°, Tilt: -20° / +30° |
 | **Fırlatma Mekanizması** | Çift Fırçasız DC Volan + Solenoid | 23.500 RPM, 80 ms donanımsal solenoid darbesi |
 | **Dijital İkiz** | Cyberbotics Webots R2025a | ODE fizik motoru, tam kinematik/dinamik model |
@@ -247,8 +247,8 @@ Taretin 3D yazıcıdan üretilen açık beşikli, minimal optik paralakslı ve g
                                          ▼
 +-----------------------------------------------------------------------------------+
 |                        GÖMÜLÜ DONANIM / FİZİKSEL EYLEME                           |
-|  * STM32F401RE Nucleo Mikrodenetleyici (100 Hz İkili UART Protokolü)              |
-|  * 300 ms Donanımsal Heartbeat Watchdog (Otomatik Güvenli Kesme)                  |
+|  * STM32F401RE Nucleo Mikrodenetleyici (~100 Hz İkili UART Protokolü)              |
+|  * 300 ms Heartbeat + 800 ms IWDG (Otomatik Güvenli Kesme / Reset)                |
 |  * Çift Eksen Pan-Tilt MG996R Servoları (50 Hz PWM Donanımsal İntegratör)         |
 |  * Kademeli Atış Sekansı: 0.25 s SPINUP + 0.15 s SETTLE + 80 ms Solenoid       |
 +-----------------------------------------------------------------------------------+
@@ -326,11 +326,16 @@ Burada `lambda_u = 0.05` kontrol enerjisi regülasyonu, `mu_du = 0.02` eyleyici 
 
 ## 🛡️ Güvenlik ve Fail-Safe (Arıza Korumalı) Mimarisi
 
-1. **300 ms Donanımsal Heartbeat Watchdog:** PC ile STM32 arasındaki seri iletişim 300 ms kesilirse, STM32 fırlatıcı motorları ve solenoid darbesini donanımsal olarak kapatır (`Launcher_EmergencyStop()`).
-2. **Mandallı (Latched) Acil Durdurma (E-STOP):** Operatör `SPACE` tuşuna bastığında motorlar anında mekanik merkez (90°, 90°) konumuna kilitlenir. Tekrar `SPACE` tuşuna basılana kadar sistem hiçbir hedef komutunu işlemez.
-3. **350 ms Kamera Donma Koruması:** Web kamerasından 350 ms boyunca kare gelmezse, sistem güvenli bekleme moduna geçer.
-4. **Çift Atış Önleyici Yükselen Kenar Kilidi:** Solenoid darbesi 80 ms ile sınırlandırılmıştır ve tek yetkilendirmede birden fazla atış yapılması donanımsal mantıkla engellenmiştir.
-5. **Açılışta Donanımsal PULL-DOWN Koruması:** STM32 ilk açıldığında ve hata durumlarında PB0/PB1 tetik hatları donanımsal dirençlerle kesin 0V seviyesinde tutulur.
+1. **Bağımsız Watchdog (IWDG, ~800 ms):** Yazılım herhangi bir nedenle kilitlenirse (bellek bozulması, `Error_Handler`) donanımsal IWDG reset atar ve açılışta PB0/PB1 tekrar 0V'a çekilir. Böylece volanın süresiz dönmesi mümkün değildir.
+2. **300 ms Donanımsal Heartbeat Watchdog:** PC ile STM32 arasındaki seri iletişim 300 ms kesilirse, STM32 fırlatıcı motorları ve solenoid darbesini donanımsal olarak kapatır (`Launcher_EmergencyStop()`).
+3. **2000 ms Servo Park Koruması:** PC bağlantısı 2 saniyeden uzun süre yoksa servolar hız sınırlı olarak mekanik merkeze (90°, 90°) indirilir; aksi halde iki MG996R son konumda sürekli stall akımı çekip ısınır.
+4. **Mandallı (Latched) Acil Durdurma (E-STOP):** Operatör `SPACE` tuşuna bastığında motorlar mekanik merkeze (90°, 90°) **hız sınırlı** olarak indirilir ve kilitlenir. Doğrudan konum ataması yerine 45 derece/s ile yumuşak iniş yapılır; ani tork şoku ve brownout önlenir. Tekrar `SPACE` tuşuna basılana kadar sistem hiçbir hedef komutunu işlemez.
+5. **E-STOP Paket Doğrulaması:** `state` baytı 0-3 aralığında doğrulanır; E-STOP yalnızca üst üste iki tutarlı pakette kabul edilir, tek bir bozulmuş paket tareti merkeze fırlatamaz.
+6. **Zaman Tabanlı Hız Sınırı:** PC kare başına delta gönderir; firmware gerçek `dt`'yi ölçerek komutu 45 derece/s ile sınırlar. PC kare hızı artarsa bile taret hızı sabit kalır.
+7. **Geç Ateşleme Koruması:** Volan hazır değilken atış tetiği `false` döner ve atış yapılmaz. Önceki sürüm sessizce 500 ms beklediği için dart, taret başka yöne bakarken fırlatılabiliyordu.
+8. **350 ms Kamera Donma Koruması:** Web kamerasından 350 ms boyunca kare gelmezse, sistem güvenli bekleme moduna geçer.
+9. **Çift Atış Önleyici Yükselen Kenar Kilidi:** Solenoid darbesi 80 ms ile sınırlandırılmıştır ve tek yetkilendirmede birden fazla atış yapılması donanımsal mantıkla engellenmiştir.
+10. **Açılışta Donanımsal PULL-DOWN Koruması:** STM32 ilk açıldığında ve hata durumlarında PB0/PB1 tetik hatları donanımsal dirençlerle kesin 0V seviyesinde tutulur.
 
 ---
 

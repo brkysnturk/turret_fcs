@@ -11,11 +11,24 @@ static volatile float cmd_tilt = 0.0f;
 static volatile uint8_t cmd_state = 0;
 static volatile bool new_cmd_flag = false;
 
+// E-stop tek bozuk paketle tetiklenmesin: ust uste iki tutarli paket sart.
+#define FCS_ESTOP_CONFIRM_FRAMES 2u
+static uint8_t estop_streak = 0;
+
+static void accept_command(int16_t p, int16_t t, uint8_t state)
+{
+    cmd_pan = (float)p / 10.0f;
+    cmd_tilt = (float)t / 10.0f;
+    cmd_state = state;
+    new_cmd_flag = true;
+}
+
 void FCS_Comm_Init(UART_HandleTypeDef *huart)
 {
     fcs_huart = huart;
     rx_index = 0;
     new_cmd_flag = false;
+    estop_streak = 0;
     if (fcs_huart != NULL)
     {
         HAL_UART_Receive_IT(fcs_huart, &fcs_rx_byte, 1);
@@ -50,11 +63,31 @@ void FCS_Comm_RxCallback(UART_HandleTypeDef *huart)
             {
                 int16_t p = (int16_t)(rx_buffer[1] | (rx_buffer[2] << 8));
                 int16_t t = (int16_t)(rx_buffer[3] | (rx_buffer[4] << 8));
+                uint8_t st = rx_buffer[5];
 
-                cmd_pan = (float)p / 10.0f;
-                cmd_tilt = (float)t / 10.0f;
-                cmd_state = rx_buffer[5];
-                new_cmd_flag = true;
+                // Gecersiz durum kodu (0..3 disi): paketi reddet, alim devam eder.
+                if (st > 3u)
+                {
+                    estop_streak = 0;
+                }
+                else if (st == 3u)
+                {
+                    // E-stop yalnizca ust uste dogrulanirsa kabul edilir; boylece
+                    // tek bir bozulmus paket tareti merkeze firlatmaz.
+                    if (estop_streak < FCS_ESTOP_CONFIRM_FRAMES)
+                    {
+                        estop_streak++;
+                    }
+                    else
+                    {
+                        accept_command(p, t, st);
+                    }
+                }
+                else
+                {
+                    estop_streak = 0;
+                    accept_command(p, t, st);
+                }
             }
         }
     }
@@ -68,6 +101,7 @@ void FCS_Comm_RxCallback(UART_HandleTypeDef *huart)
 void FCS_Comm_HandleError(void)
 {
     rx_index = 0;
+    estop_streak = 0;
     if (fcs_huart != NULL)
     {
         __HAL_UART_CLEAR_OREFLAG(fcs_huart);

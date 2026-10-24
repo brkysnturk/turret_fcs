@@ -188,7 +188,15 @@
 - **Kurulum düzeltmesi:** `requirements.txt` çözülemiyordu (SB3 2.3.2 + gymnasium 1.0.0 + numpy 2.1.3 çelişkisi). Yeni pinler: numpy 1.26.4, stable-baselines3 2.4.1, gymnasium 1.0.0. `setup_env.bat` uygun Python'u seçiyor, bozuk venv'i yeniden kuruyor, CPU torch wheel kuruyor ve importları doğruluyor. Temiz klonda 38/38 test ve YOLO çıkarımı doğrulandı.
 - **RL çıkış katmanı düzeltmesi (v1.4):** `rl_controller.py` çıkışında yumuşak ölü bölge ölçeği (taper) ve ivme sınırı zaten vardı, ama `if self.deadband_px > 0.0` kapısı yüzünden hiç devreye girmiyordu. Ölçek + ivme sınırı (120/80 derece/s^2) devreye alındı, `fcs_manager` ivme sınırını RL'e geçirir, `max_step_tilt_deg` 1.50 -> 0.75 yapıldı. Gerçek log: kilit %1.5 -> %47.4, pan RMS 5.80 -> 4.23, merkezde komut 0.531 -> 0.021, median hata 5.47 -> 2.03.
 - **SSOT sözleşmesi (v1.4):** `RLConfig` eklendi (ölü bölge, taper, hız/mesafe ölçekleri, YOLO gürültüsü, servo tau aralığı, bölüm uzunluğu); `far_gain`, `far_error_deg`, `cmd_accel_*`, `lead_time_*`, `eval_display_time_s` ControlConfig/BallisticsConfig'e taşındı. P, RL, TurretEnv, FCS lead ve Webots EVAL süresi artık bu alanları okur. Kullanılmayan `lidar.gate_angle_deg` ve ölü `DEFAULT_LEAD_TIME` silindi. `tests/test_config_consistency.py` her CONFIG alanının okunduğunu ve varsayılanların bağlı olduğunu doğrular.
-- **Sürüm:** Tüm v1.3 sonrası değişiklikler v1.4'te toplandı; test paketi 44 test.
+- **Firmware sertlestirme (v1.4):** STM32 tarafinda alti gercek acik kapatildi.
+  1. Bagimsiz watchdog (IWDG, ~800 ms) eklendi; HAL surucusu yerine register seviyesinde kuruldu (CubeIDE Debug makefile'ina kaynak eklemek gerekmesin). Yazilim kilitlenirse MCU reset atar ve pinler tekrar LOW'a cekilir; onceden volan sonsuza kadar donmeye devam ediyordu. DEBUG derlemesinde DBGMCU->APB1FZ ile breakpoint sirasinda IWDG dondurulur.
+  2. E-stop artik basamaksiz degil: dogrudan Servo_SetPan(90) yazimi MAX_STEP korumasini atliyor ve 45 dereceye varan ani tork soku uretiyordu. Yerine hiz sinirli Servo_HomeStep() geldi (45 derece/s).
+  3. state bayti 0-3 araliginda dogrulaniyor; E-stop yalnizca ust uste iki tutarli pakette kabul ediliyor. Tek bozulmus paket tareti merkeze firlatamiyor.
+  4. Zaman tabanli hiz siniri: PC kare basina delta gonderir; firmware gercek dt'yi olcup 45 derece/s ile sinirlar. PC FPS'i artarsa taret hizi degismez (onceden 60 FPS'te 90 derece/s oluyordu).
+  5. 2000 ms servo park korumasi: PC kalici olarak yoksa servolar merkeze indirilir; onceden iki MG996R son konumda surekli stall akimi cekiyordu.
+  6. Launcher_TriggerFire() volan hazir degilse atisi reddedip false donuyor; LAUNCHER_STATE_SPINUP ve FLYWHEEL_SPINUP_MS kaldirildi. Onceden sessizce 500 ms bekliyor, PC ise FIRING fazini 80 ms tuttugu icin dart gec ve yanlis yonde firlatilabiliyordu.
+- **Dogrulama:** Firmware arm-none-eabi-gcc 14.3 ile sifir uyarida derlendi ve linklendi (text 17680 B, data 20 B, bss 1924 B); protokol PC tarafiyla degismedi, test paketi 44/44.
+- **Sürüm:** Tüm v1.3 sonrasi degisiklikler v1.4'te toplandi; test paketi 44 test.
 
 ---
 

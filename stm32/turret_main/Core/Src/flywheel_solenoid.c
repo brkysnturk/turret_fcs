@@ -51,26 +51,25 @@ bool Launcher_IsFlywheelActive(void)
     return flywheel_active;
 }
 
-void Launcher_TriggerFire(void)
+bool Launcher_TriggerFire(void)
 {
-    // Eger sistem bostaysa atis sekansini baslat
-    if (current_state == LAUNCHER_STATE_IDLE)
+    // Atis yalnizca bostayken baslatilir (cift tetikleme korumasi)
+    if (current_state != LAUNCHER_STATE_IDLE)
     {
-        if (!flywheel_active)
-        {
-            // Volanlar calismiyorsa once onlari calistirip devir almasini bekle
-            Launcher_Flywheel_Enable(true);
-            state_timer = HAL_GetTick();
-            current_state = LAUNCHER_STATE_SPINUP;
-        }
-        else
-        {
-            // Volanlar zaten calisiyorsa dogrudan iticiyi tetikle
-            HAL_GPIO_WritePin(SOLENOID_GPIO_PORT, SOLENOID_PIN, GPIO_PIN_SET);
-            state_timer = HAL_GetTick();
-            current_state = LAUNCHER_STATE_PUSHING;
-        }
+        return false;
     }
+
+    // Volan hazir degilse atisi reddet. Sessizce beklemek yerine haber ver:
+    // PC 80 ms FIRING penceresini kacirirsa dart yanlis anda firlatilir.
+    if (!flywheel_active)
+    {
+        return false;
+    }
+
+    HAL_GPIO_WritePin(SOLENOID_GPIO_PORT, SOLENOID_PIN, GPIO_PIN_SET);
+    state_timer = HAL_GetTick();
+    current_state = LAUNCHER_STATE_PUSHING;
+    return true;
 }
 
 void Launcher_Update(void)
@@ -81,17 +80,6 @@ void Launcher_Update(void)
     {
         case LAUNCHER_STATE_IDLE:
             // Bekleme modu
-            break;
-
-        case LAUNCHER_STATE_SPINUP:
-            // Volanlarin hedeflenen RPM'e ulasmasi icin bekleme (Non-blocking)
-            if (now - state_timer >= FLYWHEEL_SPINUP_MS)
-            {
-                // Volanlar hazir, solenoidi mermiyi itmesi icin tetikle
-                HAL_GPIO_WritePin(SOLENOID_GPIO_PORT, SOLENOID_PIN, GPIO_PIN_SET);
-                state_timer = now;
-                current_state = LAUNCHER_STATE_PUSHING;
-            }
             break;
 
         case LAUNCHER_STATE_PUSHING:
