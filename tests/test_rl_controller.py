@@ -45,13 +45,16 @@ def test_rl_policy_loading_and_manager_wiring():
     assert unloaded.predict_angles(700, 300, 640, 360, 1280, 720, 0, 0, 2.0, 0, 0, 0.033) == (0.0, 0.0)
     assert not hasattr(unloaded, "blend_with_p")
     assert not hasattr(unloaded, "blend_commands")
-    assert unloaded.uses_velocity_obs is False
+    assert unloaded.uses_velocity_obs is True
 
 
 def test_rl_observation_and_action_history():
     """11-Boyutlu durum gozlem vektoru ve 2-adimli eylem gecmisi akisini dogrular."""
     fake = _FakeModel([0.5, -0.25])
-    rl = RLController(auto_load=False, deadband_px=0.0)
+    rl = RLController(
+        auto_load=False, deadband_px=0.0,
+        cmd_accel_pan_deg_s2=2000.0, cmd_accel_tilt_deg_s2=2000.0,
+    )
     rl.model = fake
     rl.is_loaded = True
 
@@ -76,7 +79,8 @@ def test_rl_deadband_taper_and_reversal_damping():
         deadband_pan_deg=0.85,
         deadband_tilt_deg=0.95,
         taper_pan_deg=1.00,
-        cmd_accel_pan_deg_s2=120.0,
+        cmd_accel_pan_deg_s2=5000.0,
+        cmd_accel_tilt_deg_s2=5000.0,
     )
     rl.model = fake
     rl.is_loaded = True
@@ -101,6 +105,13 @@ def test_rl_deadband_taper_and_reversal_damping():
     d_pan_rev, d_tilt_rev = rl.predict_angles(800.0, 200.0, 640.0, 360.0, 1280.0, 720.0, 0.0, 0.0, 2.0, 5.0, 5.0, 0.033)
     assert d_pan_rev == pytest.approx(-0.5 * CONFIG.actuator.max_step_pan_deg, abs=0.02)
     assert d_tilt_rev == pytest.approx(-0.5 * CONFIG.actuator.max_step_tilt_deg, abs=0.02)
+
+    # 5. Ivme sinirlama testi (accel * dt^2)
+    rl_accel = RLController(auto_load=False, cmd_accel_pan_deg_s2=10.0)
+    rl_accel.model = fake
+    rl_accel.is_loaded = True
+    d1, _ = rl_accel.predict_angles(800.0, 360.0, 640.0, 360.0, 1280.0, 720.0, 0, 0, 2.0, 5.0, 0.0, 0.03333)
+    assert d1 == pytest.approx(-10.0 * (0.03333 ** 2), abs=1e-5)
 
 
 def test_rl_reset_and_rate_scaling():

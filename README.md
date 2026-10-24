@@ -16,6 +16,8 @@
 
 Bu proje; Yıldız Teknik Üniversitesi Kontrol ve Otomasyon Mühendisliği Bölümü bitirme çalışması kapsamında geliştirilmiş; mikro/mini İnsansız Hava Araçları (İHA) ve asimetrik hava hedeflerine karşı elektro-optik tespit, balistik önleme ve kararlı hedef takibi gerçekleştiren otonom bir Atış Kontrol Sistemidir (Turret FCS).
 
+> **English Overview:** Autonomous Air Defense Turret Fire Control System (Turret FCS) developed as a Senior Capstone Project at Yildiz Technical University. Features dual-mode tracking (Type-1 P Controller and 11-D Pure PPO Reinforcement Learning), CV Kalman filter with 1st-order actuator observer for ego-motion compensation, closed-form 2D Gaussian hit probability (Marcum Q), zero-lag lead computation, and 100 Hz STM32F401RE embedded firmware integration.
+
 Sistem; **Logitech C270 RGB Kamera (720p @ 30 FPS)** ve **Benewake TF-Luna ToF LiDAR (100 Hz UART)** sensör füzyonu, **YOLOv8n Derin Öğrenme Hedef Tespiti**, **ByteTrack Çoklu Hedef Takibi**, **Ego-Hareket Telafili Sabit Hızlı (CV) Kalman Filtresi**, **Yumuşak Ölü Bölgeli Tip-1 P Kontrolcü**, **11-Boyutlu Saf PPO Pekiştirmeli Öğrenme Ajanı**, **Kapalı Form 2B Gauss Vuruş Olasılığı (Marcum Q / ncx2 CDF)** ve **STM32F401RE Gömülü Denetleyici** omurgası üzerinde gerçek zamanlı olarak çalışmaktadır.
 
 ---
@@ -87,16 +89,16 @@ Sistem; **Logitech C270 RGB Kamera (720p @ 30 FPS)** ve **Benewake TF-Luna ToF L
 
 | Alt Sistem / Bileşen | Donanım & Yazılım Özelliği | Çalışma Parametresi / Başarım |
 | :--- | :--- | :--- |
-| **Görsel Algılama** | Logitech C270 HD Web Kamerası | 1280x720 @ 30 FPS, FOV: Yatay 69°, Dikey 42° (Sıfır kuyruk gecikmeli thread) |
+| **Görsel Algılama** | Logitech C270 HD Web Kamerası | 1280x720 @ 30 FPS, FOV: Yatay 48.8°, Dikey 28.6° (Kalibre edilmiş optik açı, sıfır kuyruk gecikmeli thread) |
 | **Menzil Algılama** | Benewake TF-Luna ToF LiDAR | 850 nm ToF, 0.2 - 8.0 m menzil, 100 Hz donanımsal UART |
 | **Yapay Zeka Tespiti** | Ultralytics YOLOv8n + ByteTrack | Özel eğitilmiş balon/İHA tespiti, 8-15 ms GPU çıkarımı |
-| **Filtreleme & Füzyon** | Ego-Hareket Telafili CV Kalman | Joseph form kovaryans, 1. derece aktüatör gözlemcisi, 150 px gate |
+| **Filtreleme & Füzyon** | Ego-Hareket Telafili CV Kalman | Joseph form kovaryans, 1. derece aktüatör gözlemcisi, 30-60 px/s ölü bölge |
 | **Vuruş Olasılığı** | Kapalı Form 2B Gauss (Marcum Q) | ncx2 CDF, dinamik hedef boyutu, hız duyarlı histerezis |
-| **Birincil Kontrolcü** | Tip-1 P (tek EMA, ivme sınırlamalı) | Pan Kp=0.22, Tilt Kp=0.11, Slew: 120°/s² Pan, 80°/s² Tilt |
-| **İkincil Kontrolcü** | 11-Boyutlu Saf PPO RL Ajanı | NumPy MLP (11-64-64-2), 0.75° tilt adımı, 0.03 ms CPU çıkarımı |
+| **Birincil Kontrolcü** | Tip-1 P (tek EMA, ivme sınırlamalı) | Pan Kp=0.22, Tilt Kp=0.11, Slew: 400°/s² Pan, 267°/s² Tilt |
+| **İkincil Kontrolcü** | 11-Boyutlu Saf PPO RL Ajanı | NumPy MLP (11-64-64-2), 1.50° pan / 0.75° tilt adımı, 0.03 ms CPU çıkarımı |
 | **Gömülü Denetleyici** | STM32F401RE Nucleo (ARM Cortex-M4) | 84 MHz, 115200 Baud UART, 50 Hz PWM, 300 ms Heartbeat + 800 ms IWDG |
-| **Aktüatörler** | MG996R / DS3218 Metal Dişli Servo | 50 Hz PWM, Pan: ±45°, Tilt: -15° / +30°, 45°/s slew doyumu |
-| **Fırlatma Mekanizması** | Çift FF-180 Volan + JF-0530B Solenoid | 23.500 RPM, 15.5 m/s mermi hızı, 80 ms darbe genişliği |
+| **Aktüatörler** | MG996R / DS3218 Metal Dişli Servo | 50 Hz PWM, Pan: 15° - 165° (±75°), Tilt: -15° / +25°, 45°/s slew doyumu |
+| **Fırlatma Mekanizması** | Çift FF-180 Volan + JF-0530B Solenoid | 23.500 RPM, 10.0 m/s mermi hızı, 80 ms darbe genişliği |
 | **Dijital İkiz** | Cyberbotics Webots R2025a | ODE fizik motoru, 80 ms gecikme, 45 ms lag, 1.20° backlash |
 
 ---
@@ -164,7 +166,7 @@ Sistemin arama, tespit, takip, kilitlenme ve atış sekansları [turret_fcs_flow
 
 * **DURUM 1 (Devriye & Arama - PATROL):** Hedef yokken taret 5.0 s dinamik Lissajous (8-şekli) devriye taraması (Pan: ±45°, Tilt: ±16°) gerçekleştirir; kamera iş parçacığı sıfır kuyruk gecikmesiyle kare yakalar.
 * **DURUM 2 (Tespit & Mesafe - DETECT):** Hedef algılandığında TF-Luna LiDAR ile 100 Hz mesafe ve sinyal kalitesi doğrulanır; 3-kademeli menzil kapılama parazitleri eler; `TargetSelector` ID sürekliliğini doğrular.
-* **DURUM 3 (Takip & Önleme - TRACK):** CV Kalman filtresi hedef hızını ve konumunu kestirir; mermi uçuş süresi hesaplanır (`t_flight = mesafe / 15.5 m/s`) ve Zero-Lag Aim-Point Feedforward ile önleme noktası belirlenir.
+* **DURUM 3 (Takip & Önleme - TRACK):** CV Kalman filtresi hedef hızını ve konumunu kestirir; mermi uçuş süresi hesaplanır (`t_flight = mesafe / 10.0 m/s`) ve Zero-Lag Aim-Point Feedforward ile önleme noktası belirlenir.
 * **DURUM 4 (Motor Yönlendirme - P / RL):** Operatörün seçtiği Tip-1 P kontrolcü (`Kp = 0.22 / 0.11`) veya Saf PPO RL ajanı (`turret_ppo_v14_policy.npz`) motor açı adımlarını üretir.
 * **DURUM 5 (Hedefe Kilitlenme - LOCKED):** Açısal hata dinamik histerezis eşiğinin altına indiğinde ve 10 kare kesintisiz kararlılık sağlandığında kilit teyit edilir; HUD üzerinde nişangah ve vuruş olasılığı gösterilir, operatörden manuel atış izni (`[Y]` tuşu) beklenir.
 * **DURUM 6 (Kademeli Atış Protokolü):**
@@ -378,17 +380,21 @@ turret_fcs/
 │   ├── cad/                   # 3D yazıcı üretim ve prototipleme dosyaları (.stl)
 │   └── evidence/              # v1.4 donanım telemetri özetleri ve benchmark kayıtları
 ├── analysis/                  # Akademik kontrol, Kalman ve Webots doğrulama araçları
+│   ├── README.md              # Analiz betikleri ve üretilen figür haritası
 │   ├── plot_tuned_system.py   # 8 panelli analitik model ve telemetri analiz grafikleri
 │   ├── generate_kalman_plots.py # Kalman filtresi doğrulama görselleştiricisi
 │   ├── generate_benchmark_plots.py # P vs RL benchmark görselleştiricisi
 │   ├── generate_architecture_svg.py # Sistem mimarisi SVG üreteci
 │   ├── inspect_logs.py        # Telemetri kütüklerini analiz eden teftiş aracı
 │   └── figures/               # 300 DPI yayın kalitesinde akademik grafikler
-├── runs/                      # YOLOv8 tespit modeli ağırlıkları
-│   └── detect/balloon_detector/weights/best.pt # Özel eğitilmiş balon tespit model ağırlığı
+├── weights/                   # YOLOv8 tespit modeli ağırlıkları (GitHub Release Assets)
+│   ├── README.md              # Model ağırlıkları indirme ve sürüm kılavuzu
+│   ├── best.pt                # Özel eğitilmiş balon tespit model ağırlığı
+│   └── yolov8n.pt             # Temel YOLOv8 Nano nesne tespit modeli
 ├── turret_fcs/                # Gerçek donanım çalışma kodları
 │   ├── config.py              # SSOT merkezi konfigürasyon modülü
 │   ├── main.py                # Ana atış kontrol döngüsü ve koordinasyon
+│   ├── weights.py             # Otomatik GitHub Releases model ağırlığı indiricisi
 │   ├── telemetry.py           # v2 telemetri, JSON metadata sidecar ve event log
 │   ├── fcs_manager.py         # Hedef seçim, kilit, balistik ve menzil kapılama motoru
 │   ├── lock_manager.py        # Kapalı form 2B Gauss vuruş olasılığı (ncx2 CDF) ve histerezis
@@ -416,15 +422,30 @@ turret_fcs/
 
 ---
 
+## 🛡️ Güvenlik ve Etik Kullanım Bildirimi (Safety & Dual-Use Disclaimer)
+
+Bu sistem; Yıldız Teknik Üniversitesi bünyesinde yalnızca **akademik araştırma, hava savunma kontrol teorisi doğrulaması ve güvenli sünger dart (foam dart) hedefleri** için tasarlanmıştır:
+- Gömülü yazılımda fiziksel ateşleme varsayılan olarak hem yazılımsal hem de donanımsal olarak devreden çıkarılmıştır (`ENABLE_PHYSICAL_FIRE = 0`).
+- Sistem; insanlara, canlı hedeflere veya yetkisiz nesnelere karşı kesinlikle çalıştırılamaz.
+- Sistem donanım testlerinde acil durdurma (E-Stop / Space tuşu) ve 300 ms STM32 Heartbeat Watchdog koruması altında işletilmelidir.
+
+---
+
+## 🧠 Proje Hafızası ve Geliştirme Tarihçesi
+
+Projenin ilk günden bugüne geçirdiği tüm fazlar, Kalman filtresinin sıfırdan yeniden tasarımı, P kontrolcü rezonans çözümleri, pekiştirmeli öğrenme sim-to-real boşluğunun kapatılması ve mimari kararların teknik hafızası için [AGENTS.md](file:///c:/YTU/bitirme_projesi/turret_fcs/AGENTS.md) dokümanına başvurabilirsiniz.
+
+---
+
 ## 📜 Lisans & Akademik Referans
 
-Bu proje Yıldız Teknik Üniversitesi Kontrol ve Otomasyon Mühendisliği Bölümü Bitirme Çalışması & Tasarım Projesi kapsamında geliştirilmiştir. Tüm hakları proje ekibine aittir.
+Bu proje [MIT Lisansı](LICENSE) kapsamında lisanslanmıştır. Yıldız Teknik Üniversitesi Kontrol ve Otomasyon Mühendisliği Bölümü Bitirme Çalışması & Tasarım Projesi kapsamında geliştirilmiştir.
 
 Projenin akademik çalışmalarda veya yayınlarda referans gösterilmesi için:
 
 ```bibtex
 @misc{turret_fcs_2026,
-  author = {Senturk, Berkay and Project Team},
+  author = {Senturk, Berkay},
   title = {Autonomous Air Defense Turret Fire Control System (Turret FCS)},
   year = {2026},
   publisher = {GitHub},

@@ -19,7 +19,7 @@ class FCSState(IntEnum):
     STM32 firmware main.c protokolu ile birebir eslesir:
       0: TRACKING  (Hedef arama / dinamik takip)
       1: LOCKED    (Hedef kilit alaninda)
-      2: FIRING    (Atis / Solenoid tahrigi - firmware revizyonunda rezerve)
+      2: FIRING    (Atis / Solenoid tahrigi - volan hazirsa solenoid itici tetiklenir)
       3: ESTOP     (Acil durum durdurma / tum motorlar enerjisiz)
     """
     TRACKING = 0
@@ -52,17 +52,15 @@ class ControlConfig:
     deadband_tilt_deg: float = 0.95
     max_output_deg: float = 1.50
     max_command_step_deg: float = 1.50  # Firmware Servo_ApplyCorrection ust siniri
-    far_gain: float = 1.6                # 5 derece ustu hatada Kp carpani
-    far_error_deg: float = 5.0           # Kazanc planlamasinin basladigi hata
-    cmd_accel_pan_deg_s2: float = 120.0  # P/RL pan komut ivme siniri
-    cmd_accel_tilt_deg_s2: float = 80.0  # P/RL tilt komut ivme siniri
+    cmd_accel_pan_deg_s2: float = 400.0  # P/RL pan komut ivme siniri (113 ms kalkis)
+    cmd_accel_tilt_deg_s2: float = 267.0  # P/RL tilt komut ivme siniri (84 ms kalkis)
     lead_time_offset_s: float = 0.015    # Balistik lead'e eklenen sabit pay
     lead_time_min_s: float = 0.03        # Lead sure alt siniri
-    lead_time_max_s: float = 0.25        # Lead sure ust siniri
+    lead_time_max_s: float = 0.40        # Lead sure ust siniri (dart ucus suresi olcegi)
     alpha_filter: float = 0.85           # P giris EMA'sinda yeni deger agirligi
     los_alpha: float = 0.70              # Dunya LOS konum duzeltmesi (log kalibrasyonu)
     los_beta: float = 0.20               # Dunya LOS hiz duzeltmesi (log kalibrasyonu)
-    ego_tau_s: float = 0.030             # Ego icin komut adimi servo zaman sabiti
+    ego_tau_s: float = 0.045             # Ego icin komut adimi servo zaman sabiti (mount.servo_tau ile eslendi)
 
 
 @dataclass(frozen=True)
@@ -75,15 +73,14 @@ class ActuatorConfig:
 
 @dataclass(frozen=True)
 class KalmanConfig:
-    """Sabit hizli (CV) Kalman filtresi: tek Q/R cifti ve robust tekil-sicrama kapisi."""
+    """Sabit hizli (CV) Kalman filtresi: tek Q/R cifti ve Ki-Kare inovasyon kapisi."""
     r_var: float = 64.0                  # Olcum gurultusu varyansi (px^2), ~8 px standart sapma
     sigma_a: float = 300.0               # Surec ivme gurultusu (px/s^2), ~12 deg/s^2
     initial_velocity_var: float = 90000.0  # Ilk hiz kovaryansi (px/s)^2, hizli yakinsama icin
-    outlier_residual_px: float = 150.0   # Bu inovasyon ustunde olcum gurultusu buyutulur
-    outlier_r_scale: float = 100.0       # Tekil sicramada R carpani (kazanci bastirir)
-    reacquire_frames: int = 3            # Ust uste bu kadar sicramada takip yeniden baslar
     velocity_deadband_low_px_s: float = 30.0   # Bu hizin altinda cikis hizi sifir
     velocity_deadband_high_px_s: float = 60.0  # Bu hizdan itibaren cikis hizi tam gecerli
+    nis_threshold: float = 13.82         # 2-DOF %99.9 guvenlikli Ki-Kare inovasyon kapisi (Mahalanobis d^2)
+    reacquire_frames: int = 3            # Ust uste aykiri deger sonrasi yeni takip baslatma esigi
 
 
 @dataclass(frozen=True)
@@ -105,8 +102,6 @@ class BallisticsConfig:
 class RLConfig:
     """RL cikarim ve egitim ortaminin ortak sabitleri (tek kaynak)."""
     deadband_px: float = 5.0             # Merkezde politika bias'ini bastiran olu bolge
-    deadband_exit_px: float = 8.0        # Olu bolgeden cikis histerezisi
-    velocity_gate_px_s: float = 30.0     # Bu hizin ustunde olu bolge uygulanmaz
     reversal_damping: float = 0.5        # Yon degistiren aksiyonun sonum orani
     taper_pan_deg: float = 1.0           # Soft deadband gecis genisligi (pan)
     taper_tilt_deg: float = 2.5          # Soft deadband gecis genisligi (tilt)
@@ -167,7 +162,7 @@ class LockConfig:
 @dataclass(frozen=True)
 class PathConfig:
     """Agirlik ve yapay zeka model dosya yollari."""
-    yolo_model: str = "runs/detect/balloon_detector/weights/best.pt"
+    yolo_model: str = "weights/best.pt"
     fallback_yolo_model: str = "weights/yolov8n.pt"
 
 

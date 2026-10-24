@@ -16,6 +16,7 @@ dist/
 # Webots / CubeIDE local state
 stm32/cubeide_workspace/
 stm32/turret_main/.settings/
+stm32/turret_main/*.launch
 
 # Compiled Binaries & Executables
 *.exe
@@ -68,26 +69,28 @@ temp/
 scratch/
 *system_identification_analysis.png
 
-# Datasets
+# Pytest Cache & Local Test Artifacts
+.pytest_cache/
+
+# Datasets & Training Runs
 datasets/
+runs/
 
 # Large 3D CAD models
 *.stl
 *.step
 !docs/cad/*.stl
 
-# Model Weights & Checkpoints (Keep only active trained production weights)
-weights/
+# Model Weights & Checkpoints
+# Heavy PyTorch binary weights are distributed via GitHub Releases Assets.
 *.pt
 *.zip
-turret_fcs/rl_sim/models/*_steps.zip
-turret_fcs/rl_sim/models/*_250k.zip
-runs/**/last.pt
-
-# Whitelist production neural network weights and 3D assets
-!runs/detect/balloon_detector/weights/best.pt
-!turret_fcs/rl_sim/models/turret_ppo_v14.zip
+weights/*.pt
 !weights/
-!weights/yolov8n.pt
+!weights/README.md
+!turret_fcs/rl_sim/models/turret_ppo_v14.zip
+!turret_fcs/rl_sim/models/turret_ppo_v14_policy.npz
+
+# 3D assets required by simulation
 !webots/worlds/red_ballonn/red ballon.obj
 !webots/worlds/tf_luna/TF-Luna 3D structure.obj

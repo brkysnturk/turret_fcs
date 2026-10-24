@@ -60,10 +60,13 @@ def run(seed, mode):
             action, _ = model.predict(obs, deterministic=True)
             action = np.asarray(action, dtype=np.float32)
         elif mode == "policy":
-            # Hiz gozlemi bilincli olarak sifir (uretimdeki gibi).
+            target_dist = float(np.linalg.norm(env.target_pos_3d))
+            target_dist_safe = max(0.5, target_dist)
+            vx_px = (env.target_vel_3d[0] / target_dist_safe) * env.fx
+            vy_px = -(env.target_vel_3d[1] / target_dist_safe) * env.fy
             d_pan, d_tilt = controller.predict_angles(
                 eff_bx, eff_by, env.center_x, env.center_y, env.screen_w, env.screen_h,
-                0.0, 0.0, 2.0, rel_pan, rel_tilt, env.dt,
+                vx_px, vy_px, target_dist, rel_pan, rel_tilt, env.dt,
             )
             action = np.array(
                 [d_pan / env.max_step_pan_deg, d_tilt / env.max_step_tilt_deg],

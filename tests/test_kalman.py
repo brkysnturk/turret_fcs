@@ -60,30 +60,9 @@ def test_kalman_ego_shift_observer():
     assert kf.smooth_vx == 0.0
 
 
-def test_kalman_outliers_reversal_and_deadband():
-    """Aykiri deger reddi, kalici sicramada yeniden baslatma, yon degisimi ve hiz olu bolgesini dogrular."""
-    kf = KalmanFilter()
-    _constant(kf, 100.0, 41)
-    velocity_before = kf.smooth_vx
-
-    # 1. Tekil gurultu/sicrama: filtrelenen hiz korunmali
-    kf.update((640.0 + 100.0 * 0.033 * 40 + 300.0, 360.0), dt=0.033)
-    assert kf.initialized is True
-    assert abs(kf.smooth_vx - velocity_before) < 20.0
-
-    for i in range(5):
-        kf.update((640.0 + 100.0 * 0.033 * (41 + i), 360.0), dt=0.033)
-    assert kf.smooth_vx == pytest.approx(100.0, abs=20.0)
-
-    # 2. Kalici sicrama: reacquire suresi sonunda filtre kendini sifirlamali
-    for _ in range(CONFIG.kalman.reacquire_frames):
-        kf.update((1100.0, 360.0), dt=0.033)
-    assert kf.initialized is True
-    assert float(kf.x[0, 0]) == pytest.approx(1100.0)
-    assert kf.raw_vx == 0.0
-    assert kf._outlier_frames == 0
-
-    # 3. Ani ters yone hareket (150 px/s -> -150 px/s)
+def test_kalman_reversal_and_deadband():
+    """Ani yon degisimi ve hiz olu bolgesini dogrular."""
+    # 1. Ani ters yone hareket (150 px/s -> -150 px/s)
     kf_rev = KalmanFilter()
     _constant(kf_rev, 150.0, 41)
     assert kf_rev.smooth_vx > 100.0
@@ -102,3 +81,41 @@ def test_kalman_outliers_reversal_and_deadband():
     for i in range(61):
         fast.update((640.0 + 2.0 * i, 360.0), dt=0.033)
     assert fast.smooth_vx > CONFIG.kalman.velocity_deadband_high_px_s
+
+
+def test_kalman_nis_outlier_gating_and_reacquire():
+    """Tekil sahte YOLO sicramalarini Ki-Kare NIS kapisiyla sonumlemeyi ve 3 karede yeniden yakalamayi dogrular."""
+    kf = KalmanFilter()
+    dt = 0.033
+    # 1. 100 px/s sabit hizla oturma
+    _constant(kf, 100.0, 41, dt=dt)
+    assert kf.smooth_vx == pytest.approx(100.0, rel=0.05)
+    last_x = float(kf.x[0, 0])
+
+    # 2. Tekil 300 px sahte kutu sicramasi
+    jump_x = last_x + 300.0
+    kf.update((jump_x, 360.0), dt=dt)
+    assert kf.last_nis > kf.nis_threshold
+    assert kf._outlier_frames == 1
+    # Tekil sicrama R * 100 ile sonumlendigi icin hiz 400+ px/s'ye firlamaz
+    assert abs(kf.smooth_vx - 100.0) < 35.0
+
+    # 3. Sonraki kare gercek hedefe donus
+    normal_x = last_x + 100.0 * dt * 2
+    kf.update((normal_x, 360.0), dt=dt)
+    assert kf.last_nis <= kf.nis_threshold
+    assert kf._outlier_frames == 0
+
+    # 4. Ust uste 3 kare sapma: yeni hedef kabul edilip sifirdan baslatilmali
+    jump_pos = 950.0
+    for frame in range(1, 4):
+        px, py, vx, vy = kf.update((jump_pos, 360.0), dt=dt)
+        if frame < 3:
+            assert kf._outlier_frames == frame
+        else:
+            # 3. karede reacquire gerceklesir: konum olcumden, hiz sifirdan
+            assert kf._outlier_frames == 0
+            assert px == pytest.approx(jump_pos)
+            assert vx == 0.0
+            assert vy == 0.0
+

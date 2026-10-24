@@ -40,7 +40,6 @@ void Servo_ApplyCorrection(float d_pan, float d_tilt);
 // E-stop ve link kaybi icin: merkeze dogru tek adim atar (hiz sinirli).
 // Merkeze ulastiysa true doner.
 bool Servo_HomeStep(void);
-bool Servo_IsAtCenter(void);
 
 float Servo_GetPan(void);
 float Servo_GetTilt(void);

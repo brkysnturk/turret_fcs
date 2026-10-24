@@ -51,6 +51,12 @@ turret-fcs = "turret_fcs.main:main"
 where = ["."]
 include = ["turret_fcs*"]
 
+[tool.setuptools.package-data]
+turret_fcs = [
+    "rl_sim/models/*.npz",
+    "rl_sim/models/*.zip",
+]
+
 [tool.pytest.ini_options]
 pythonpath = [".", "webots/controllers/webots_main"]
 testpaths = ["tests"]

@@ -10,12 +10,24 @@
   */
 /* USER CODE END Header */
 
+/* Includes ------------------------------------------------------------------*/
 #include "main.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
 #include "luna_read.h"
 #include "servo_driver.h"
 #include "fcs_comm.h"
 #include "flywheel_solenoid.h"
+/* USER CODE END Includes */
 
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
 /*
  * Fiziksel ates yolu guvenlik nedeniyle varsayilan olarak KAPALI.
  * Laboratuvar/donanim testinde acmak icin 1 yapin.
@@ -23,11 +35,6 @@
 #ifndef ENABLE_PHYSICAL_FIRE
 #define ENABLE_PHYSICAL_FIRE 0
 #endif
-
-/* Private variables ---------------------------------------------------------*/
-UART_HandleTypeDef huart1;
-UART_HandleTypeDef huart2;
-IWDG_HandleTypeDef hiwdg;
 
 /*
  * Zaman Asimlari (ms)
@@ -46,6 +53,21 @@ IWDG_HandleTypeDef hiwdg;
  */
 #define IWDG_PRESCALER        IWDG_PRESCALER_64
 #define IWDG_RELOAD_COUNTS    400u
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart2;
+IWDG_HandleTypeDef hiwdg;
+
+/* USER CODE BEGIN PV */
+
+/* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -72,6 +94,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
 
+  /* USER CODE BEGIN 2 */
   /* Modulleri Baslat ---------------------------------------------------------*/
   Luna_Init(&huart1);
   FCS_Comm_Init(&huart2);
@@ -83,12 +106,16 @@ int main(void)
 #if ENABLE_PHYSICAL_FIRE
   static uint8_t prev_fcs_state = 0;
 #endif
-
-  /* Infinite loop ------------------------------------------------------------*/
   uint32_t last_led_time = 0;
+  /* USER CODE END 2 */
 
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
   while (1)
   {
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
     // 0. Watchdog beslemesi: dongu saglikliysa IWDG sayaci sifirlanir.
     //    Herhangi bir kilitlenmede IWDG reset atar ve pinler tekrar LOW'a cekilir.
     HAL_IWDG_Refresh(&hiwdg);
@@ -199,8 +226,10 @@ int main(void)
 
     HAL_Delay(10); // ~90-100 Hz kontrol dongusu (bloklayan telemetri TX dahil)
   }
+  /* USER CODE END 3 */
 }
 
+/* USER CODE BEGIN 4 */
 /**
   * @brief UART Kesme Callback (Tum alimlar modullere yonlendirilir)
   */
@@ -230,6 +259,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
     FCS_Comm_HandleError();
   }
 }
+/* USER CODE END 4 */
 
 /**
   * @brief System Clock Configuration
@@ -358,14 +388,17 @@ static void MX_GPIO_Init(void)
 
 void Error_Handler(void)
 {
+  /* USER CODE BEGIN Error_Handler_Debug */
   __disable_irq();
   // Donanim Guvenligi: Solenoid ve Volan pinlerini aninda sifirla (bobin ve MOSFET korumasi)
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0 | GPIO_PIN_1, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(FLYWHEEL_GPIO_PORT, FLYWHEEL_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SOLENOID_GPIO_PORT, SOLENOID_PIN, GPIO_PIN_RESET);
 
   // Watchdog bilincli olarak BESLENMEZ: IWDG ~800 ms icinde reset atar,
   // boylece cihaz kalici olarak kilitli kalmaz; acilista pinler tekrar LOW'a cekilir.
   while (1)
   {
   }
+  /* USER CODE END Error_Handler_Debug */
 }
 

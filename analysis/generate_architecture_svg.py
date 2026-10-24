@@ -94,7 +94,7 @@ CARDS = [
         "Kinematik Önleme (Lead) & Balistik Hesaplama",
         "(Dinamik Mermi Uçuş Süresi & Yerçekimi Telafisi)",
         [
-            "Uçuş Süresi: t_flight = mesafe / 15.5 m/s (LiDAR menzili ile senkronize)",
+            "Uçuş Süresi: t_flight = mesafe / 10.0 m/s (LiDAR menzili ile senkronize)",
             "Kinematik Önleme: lead_x = vx * t_flight, lead_y = vy * t_flight",
             "Zero-Lag Aim-Point Feedforward: delta_slew = lead - prev_lead türevsel adımı ile rampa takip hatası sıfırlanır",
             "Balistik Yerçekimi Süper-Elevasyonu: y_super = 0.5 * g * t_flight^2"
@@ -177,7 +177,7 @@ CARDS = [
         "(2-DOF Gimbal + Çift FF-180 Volan + JF-0530B Solenoid Dart İtici)",
         [
             "MG996R / DS3218 Dijital Servolar (Metal Dişli, 45°/s Maksimum Slew Hızı)",
-            "Çift FF-180 Motor: 23.500 RPM Devir ile 15.5 m/s Mermi Çıkış Hızı",
+            "Çift FF-180 Motor: 23.500 RPM Devir ile 10.0 m/s Mermi Çıkış Hızı",
             "5-Aşamalı Atış Sekansı: 1.0s Spinup -> 0.15s Settle -> 80ms Darbe -> 0.35s Recover -> 1.50s Eval",
             "IRLZ44N Logic-Level N-MOSFET + Optokuplör ile Parazitsiz İzolasyon"
         ],

@@ -7,7 +7,7 @@ histerezisli LockManager ve TurretHUD) Webots simulasyon ortaminda kosturan
 ince donanim adaptoru ve ana calistiricisidir.
 
 CALISMA ZAMANI SOZLESMESI:
-- Tesis Dogrulugu: Inkremental aci integrasyonu (theta += delta_theta), 40.5 deg/s limit.
+- Tesis Dogrulugu: Inkremental aci integrasyonu (theta += delta_theta), 46.9 deg/s limit (1.50 deg / 0.032 s).
 - Kontrolcu: Uretim FCSManager; varsayilan P (Kp=0.22/0.11).
 - RL: saf PPO, 11-64-64-2 NumPy politika; P harmani yok.
 - Mod Yapisi: Ayrik 'P' veya 'RL'; WEBOTS_CONTROL_MODE ile baslangic modu secilir.

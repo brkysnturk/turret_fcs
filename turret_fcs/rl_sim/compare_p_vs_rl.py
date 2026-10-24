@@ -134,7 +134,8 @@ def run_comparison():
     )
     plt.tight_layout(rect=[0, 0.02, 1, 0.94])
 
-    p_plot_path = current_dir / "p_vs_rl_comparison.png"
+    figures_dir = current_dir.parents[1] / "analysis" / "figures"
+    p_plot_path = (figures_dir / "p_vs_rl_comparison.png") if figures_dir.exists() else (current_dir / "p_vs_rl_comparison.png")
     plt.savefig(str(p_plot_path), dpi=300)
     plt.close()
 

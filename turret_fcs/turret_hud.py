@@ -6,8 +6,8 @@ Bu modul, askeri standartlarda taktik atis kontrol arayuzunu (MIL-STD HUD)
 kamera goruntusunun uzerine dinamik katman olarak bindiren gorsel render motorudur.
 
 GOSTERGE VE TELEMETRI BILESENLERI:
-1. Taktik Nisangah (Combat Reticle): Duruma gore renk degistiren (Arama: Sari,
-   Kilit: Yesil, Atesleme: Kirmizi) merkez hedefleme vizoru.
+1. Taktik Nisangah (Combat Reticle): Duruma gore renk degistiren (Arama/Takip: Sari,
+   Kilit ve Atesleme: Kirmizi) merkez hedefleme vizoru.
 2. Dinamik Kilit Bari (Lock Stability Progress Bar): Hedef kilit penceresinde
    kaldikca 0 - 100% dolan gorsel atis hazirlik cubugu.
 3. Analitik Isabet Olasiligi Gostergesi (Hit Probability %): Hedef acisal hatasina

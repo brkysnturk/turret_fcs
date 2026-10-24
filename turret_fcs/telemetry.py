@@ -21,6 +21,7 @@ SCHEMA V2 KOLONLARI (44 KRITIK MUHENDISLIK PARAMETRESI):
 ================================================================================
 """
 
+from dataclasses import dataclass, fields
 import csv
 import json
 import math
@@ -30,6 +31,59 @@ from datetime import datetime
 from pathlib import Path
 
 from .config import CONFIG
+
+
+@dataclass
+class TelemetryRow:
+    """Schema v2 telemetri satiri veri yapisi (Tek Dogruluk Kaynagi - SSOT)."""
+    schema_version: str = "2.0"
+    frame_id: int = 0
+    time_sec: float = 0.0
+    dt: float = 0.0
+    latency_ms: float = 0.0
+    fps: int = 0
+    target_detected: int = 0
+    target_conf: float = 0.0
+    box_cx: int = 0
+    box_cy: int = 0
+    angular_err_pan: float = 0.0
+    angular_err_tilt: float = 0.0
+    cmd_pan: float = 0.0
+    cmd_tilt: float = 0.0
+    vx_raw: float = 0.0
+    vy_raw: float = 0.0
+    target_vel_x: float = 0.0
+    target_vel_y: float = 0.0
+    target_speed: float = 0.0
+    innov_px: float = 0.0
+    sigma_a: float = 300.0
+    kp_eff_pan: float = 0.0
+    kp_eff_tilt: float = 0.0
+    db_eff_pan: float = 0.0
+    db_eff_tilt: float = 0.0
+    dist_cm: int = 0
+    signal_strength: int = 0
+    sensor_temp_c: float = 0.0
+    fcs_state: int = 0
+    control_mode: str = "P"
+    rl_weight: float = 0.0
+    is_locked: int = 0
+    lock_counter: int = 0
+    lock_thr: int = 0
+    hit_prob: float = 0.0
+    turret_pan: float = 0.0
+    turret_tilt: float = 0.0
+    servo_pan_fb: float = 0.0
+    servo_tilt_fb: float = 0.0
+    patrol_status: str = "STANDBY"
+    los_pan_deg: float = 0.0
+    los_tilt_deg: float = 0.0
+    los_pan_rate_deg_s: float = 0.0
+    los_tilt_rate_deg_s: float = 0.0
+
+    def to_list(self):
+        """Dataclass alanlarinin sirali deger listesini dondurur."""
+        return [getattr(self, f.name) for f in fields(self)]
 
 
 class TelemetryLogger:
@@ -63,52 +117,8 @@ class TelemetryLogger:
         self.frame_id_counter = 0
         self.is_active = True
 
-        self.headers = [
-            "schema_version",    # "2.0"
-            "frame_id",          # Artan kare indeksi (0, 1, 2...)
-            "time_sec",          # Test baslangicindan itibaren gecen sure (s)
-            "dt",                # Kare delta zamani (s)
-            "latency_ms",        # Kare dongu gecikmesi (ms)
-            "fps",               # Anlik FPS
-            "target_detected",   # Hedef algilandi mi (1 / 0)
-            "target_conf",       # Hedef YOLO guven skoru (0.00 - 1.00)
-            "box_cx",            # Hedef merkez x (pixel)
-            "box_cy",            # Hedef merkez y (pixel)
-            "angular_err_pan",   # Aci hatasi Pan (derece)
-            "angular_err_tilt",  # Aci hatasi Tilt (derece)
-            "cmd_pan",           # Motora gonderilen Pan komutu (delta derece)
-            "cmd_tilt",          # Motora gonderilen Tilt komutu (delta derece)
-            "vx_raw",            # Kalman oncesi olcum hedef hizi Vx (px/s)
-            "vy_raw",            # Kalman oncesi olcum hedef hizi Vy (px/s)
-            "target_vel_x",      # Filtrelenmis hedef hizi Vx (px/s)
-            "target_vel_y",      # Filtrelenmis hedef hizi Vy (px/s)
-            "target_speed",      # Hedef bileske hizi (px/s)
-            "innov_px",          # Kalman inovasyon / kalinti buyuklugu (pixel)
-            "sigma_a",           # Dinamik Kalman surec ivme gurultusu (px/s^2)
-            "kp_eff_pan",        # Uygulanan efektif Pan Kp kazanci
-            "kp_eff_tilt",       # Uygulanan efektif Tilt Kp kazanci
-            "db_eff_pan",        # Efektif Pan olu bolgesi (derece)
-            "db_eff_tilt",       # Efektif Tilt olu bolgesi (derece)
-            "dist_cm",           # TF-Luna mesafe (cm)
-            "signal_strength",   # TF-Luna sinyal gucu
-            "sensor_temp_c",     # TF-Luna sensor sicakligi (°C)
-            "fcs_state",         # 0: TRACKING, 1: LOCKED, 2: FIRING, 3: ESTOP
-            "control_mode",      # P / RL
-            "rl_weight",         # Yapay zeka agirlik katsayisi (0.0 - 1.0)
-            "is_locked",         # Kilit durumu (1 / 0)
-            "lock_counter",      # Kilit kararlilik sayaci (0 - 10)
-            "lock_thr",          # Kilit esik degeri (orn. 10)
-            "hit_prob",          # Balistik Gauss isabet olasiligi (%0.0 - 100.0)
-            "turret_pan",        # Taret dead-reckoning yatay acisi (derece)
-            "turret_tilt",       # Taret dead-reckoning dikey acisi (derece)
-            "servo_pan_fb",      # Donanimsal servo geri besleme acisi Pan (derece)
-            "servo_tilt_fb",     # Donanimsal servo geri besleme acisi Tilt (derece)
-            "patrol_status",     # Otonom devriye durum metni
-            "los_pan_deg",       # Dunya gorus hatti Pan acisi (taret + kamera hatasi)
-            "los_tilt_deg",      # Dunya gorus hatti Tilt acisi
-            "los_pan_rate_deg_s",   # Dunya LOS Pan acisal hizi (derece/s)
-            "los_tilt_rate_deg_s",  # Dunya LOS Tilt acisal hizi (derece/s)
-        ]
+        # Basliklar dogrudan TelemetryRow alanlarindan dinamik uretilir (pozisyon kaymasi imkansizdir)
+        self.headers = [f.name for f in fields(TelemetryRow)]
 
         self._init_csv()
         self._init_metadata()
@@ -313,54 +323,54 @@ class TelemetryLogger:
         else:
             los_pan = los_tilt = los_pan_rate = los_tilt_rate = 0.0
 
-        row = [
-            self.SCHEMA_VERSION,
-            current_frame_id,
-            elapsed_sec,
-            round(dt, 4),
-            latency_val,
-            int(fps),
-            1 if target_detected else 0,
-            target_conf,
-            box_cx,
-            box_cy,
-            err_pan,
-            err_tilt,
-            round(float(pan_cmd), 3),
-            round(float(tilt_cmd), 3),
-            round(vx_raw, 2),
-            round(vy_raw, 2),
-            round(vx, 2),
-            round(vy, 2),
-            target_speed,
-            innov_px,
-            sigma_a,
-            kp_eff_pan,
-            kp_eff_tilt,
-            db_eff_pan,
-            db_eff_tilt,
-            int(dist_cm or 0),
-            int(strength or 0),
-            round(float(temp_c or 0.0), 1),
-            int(fcs_state),
-            str(control_mode),
-            rl_weight,
-            is_locked_flag,
-            lock_counter,
-            lock_thr,
-            hit_prob,
-            turret_p,
-            turret_t,
-            pan_fb,
-            tilt_fb,
-            p_status,
-            los_pan,
-            los_tilt,
-            los_pan_rate,
-            los_tilt_rate,
-        ]
+        row = TelemetryRow(
+            schema_version=self.SCHEMA_VERSION,
+            frame_id=current_frame_id,
+            time_sec=elapsed_sec,
+            dt=round(dt, 4),
+            latency_ms=latency_val,
+            fps=int(fps),
+            target_detected=1 if target_detected else 0,
+            target_conf=target_conf,
+            box_cx=box_cx,
+            box_cy=box_cy,
+            angular_err_pan=err_pan,
+            angular_err_tilt=err_tilt,
+            cmd_pan=round(float(pan_cmd), 3),
+            cmd_tilt=round(float(tilt_cmd), 3),
+            vx_raw=round(vx_raw, 2),
+            vy_raw=round(vy_raw, 2),
+            target_vel_x=round(vx, 2),
+            target_vel_y=round(vy, 2),
+            target_speed=target_speed,
+            innov_px=innov_px,
+            sigma_a=sigma_a,
+            kp_eff_pan=kp_eff_pan,
+            kp_eff_tilt=kp_eff_tilt,
+            db_eff_pan=db_eff_pan,
+            db_eff_tilt=db_eff_tilt,
+            dist_cm=int(dist_cm or 0),
+            signal_strength=int(strength or 0),
+            sensor_temp_c=round(float(temp_c or 0.0), 1),
+            fcs_state=int(fcs_state),
+            control_mode=str(control_mode),
+            rl_weight=rl_weight,
+            is_locked=is_locked_flag,
+            lock_counter=lock_counter,
+            lock_thr=lock_thr,
+            hit_prob=hit_prob,
+            turret_pan=turret_p,
+            turret_tilt=turret_t,
+            servo_pan_fb=pan_fb,
+            servo_tilt_fb=tilt_fb,
+            patrol_status=p_status,
+            los_pan_deg=los_pan,
+            los_tilt_deg=los_tilt,
+            los_pan_rate_deg_s=los_pan_rate,
+            los_tilt_rate_deg_s=los_tilt_rate,
+        )
 
-        self.buffer.append(row)
+        self.buffer.append(row.to_list())
         self.total_records += 1
         if target_detected:
             self.detected_records += 1

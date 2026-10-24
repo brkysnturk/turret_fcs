@@ -14,16 +14,16 @@ TASARIM KARARLARI (neden bu kadar sade?):
    Boylece hiz durumu dunya referanslidir; taret donerken hedefin gercek
    hizi ile kamera kaynakli gorunur kayma birbirine karismaz.
 3. Tek bir surec gurultusu (sigma_a) ve tek bir olcum gurultusu (r_var)
-   kullanilir. Adaptif Q, hiz EMA'si, ivme sinirlamasi, donus dedektoru ve
-   olcum egimi gibi katmanlar kaldirilmistir; bunlar gecikme ve yanlis yon
-   uretiyordu.
-4. Tek karelik buyuk bbox sicramalari R buyutulerek bastirilir. Ayni buyuk
-   sapma ust uste `reacquire_frames` kez gelirse hedef gercekten sicramis
-   (yeniden yakalanmis) demektir; konum olcume sifirlanir, hiz sifirlanir.
-   Boylece tek bir sahte tespit filtrenin hizini bozamaz.
-5. Cikista yalnizca yumusak bir hiz olu bolgesi vardir. Bu bir filtre katmani
-   degil, duran hedefin sifir civarindaki gurultusunu lead noktasindan uzak
-   tutan statik bir esiklemedir.
+   kullanilir. Joseph formu ile sayisal kararli kovaryans guncellemesi saglanir.
+   Adaptif Q, hiz EMA'si, ivme sinirlamasi, donus dedektoru ve olcum egimi
+   gibi gecikme ureten katmanlar kaldirilmistir.
+4. Cikista yalnizca 30-60 px/s yumusak bir hiz olu bolgesi vardir. Bu bir filtre
+   katmani degil, duran hedefin sifir civarindaki gurultusunu lead noktasindan
+   uzak tutan statik bir esiklemedir.
+5. Ki-Kare Normalleştirilmiş İnovasyon Kapısı (NIS): Tekil 1-2 karelik sahte YOLO
+   kutu sicramalari (d^2 > 13.82, %99.9 guven bandi) olcum kovaryansi R * 100 ile
+   sonumlenir; boylece sahte kutular hizi ve lead'i patlatmaz. Sapma 3 kare ust uste
+   surerse hedef gercekten yer degistirmis kabul edilir ve takip sifirdan baslatilir.
 ================================================================================
 """
 
@@ -44,22 +44,21 @@ class KalmanFilter:
         dt=0.033,
         r_var=CONFIG.kalman.r_var,
         sigma_a=CONFIG.kalman.sigma_a,
-        outlier_residual=CONFIG.kalman.outlier_residual_px,
-        outlier_r_scale=CONFIG.kalman.outlier_r_scale,
-        reacquire_frames=CONFIG.kalman.reacquire_frames,
         initial_velocity_var=CONFIG.kalman.initial_velocity_var,
         deadband_low=CONFIG.kalman.velocity_deadband_low_px_s,
         deadband_high=CONFIG.kalman.velocity_deadband_high_px_s,
+        nis_threshold=CONFIG.kalman.nis_threshold,
+        reacquire_frames=CONFIG.kalman.reacquire_frames,
+        **kwargs,
     ):
         self.dt = float(dt)
         self.r_var = float(r_var)
         self.sigma_a = float(sigma_a)
-        self.outlier_residual = float(outlier_residual)
-        self.outlier_r_scale = float(outlier_r_scale)
-        self.reacquire_frames = max(1, int(reacquire_frames))
         self.initial_velocity_var = float(initial_velocity_var)
         self.velocity_deadband_low_px_s = float(deadband_low)
         self.velocity_deadband_high_px_s = float(deadband_high)
+        self.nis_threshold = float(nis_threshold)
+        self.reacquire_frames = int(reacquire_frames)
 
         self.H = np.array([
             [1.0, 0.0, 0.0, 0.0],
@@ -69,18 +68,23 @@ class KalmanFilter:
 
         self.reset()
 
+    @property
+    def current_sigma_a(self):
+        """Telemetri ve analiz uyumlulugu icin sabit surec gurultusu."""
+        return self.sigma_a
+
     def reset(self):
         """Filtreyi ilk kare durumuna dondurur."""
         self.x = np.zeros((4, 1), dtype=float)
         self.P = self._initial_covariance()
         self.initialized = False
         self.last_residual = 0.0
-        self.current_sigma_a = self.sigma_a
+        self.last_nis = 0.0
+        self._outlier_frames = 0
         self.raw_vx = 0.0
         self.raw_vy = 0.0
         self.smooth_vx = 0.0
         self.smooth_vy = 0.0
-        self._outlier_frames = 0
 
     def _initial_covariance(self):
         return np.diag([
@@ -96,11 +100,12 @@ class KalmanFilter:
         self.P = self._initial_covariance()
         self.initialized = True
         self.last_residual = 0.0
+        self.last_nis = 0.0
+        self._outlier_frames = 0
         self.raw_vx = 0.0
         self.raw_vy = 0.0
         self.smooth_vx = 0.0
         self.smooth_vy = 0.0
-        self._outlier_frames = 0
         return float(mx), float(my), 0.0, 0.0
 
     def _process_noise(self, dt):
@@ -150,19 +155,24 @@ class KalmanFilter:
         residual = float(np.hypot(nu[0, 0], nu[1, 0]))
         self.last_residual = residual
 
-        # 3. Tek karelik sicramayi bastir; kalici sicramada takibi yeniden baslat.
-        r_eff = self.R
-        if residual > self.outlier_residual:
+        # 3. Ki-Kare Normalleştirilmiş İnovasyon Kapısı (NIS - 2 DOF, p=0.001 -> 13.82)
+        S_nom = self.H @ P_pred @ self.H.T + self.R
+        d2 = float((nu.T @ np.linalg.solve(S_nom, nu)).item())
+        self.last_nis = d2
+
+        if d2 > self.nis_threshold:
             self._outlier_frames += 1
             if self._outlier_frames >= self.reacquire_frames:
                 return self._start_track(mx, my)
-            r_eff = self.R * self.outlier_r_scale
+            r_eff = self.R * 100.0
+            S = self.H @ P_pred @ self.H.T + r_eff
         else:
             self._outlier_frames = 0
+            r_eff = self.R
+            S = S_nom
 
         # 4. Kalman kazanci ve durum guncellemesi
-        S = self.H @ P_pred @ self.H.T + r_eff
-        K = np.linalg.solve(S, self.H @ P_pred).T
+        K = np.linalg.solve(S, self.H @ P_pred).T  # K: 4x2
         self.x = x_pred + K @ nu
 
         # 5. Joseph formu ile sayisal kararli kovaryans guncellemesi

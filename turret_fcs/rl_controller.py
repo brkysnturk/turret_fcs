@@ -20,9 +20,8 @@ sokuyordu:
 TASARIM (v1.4, SAF RL):
 - Gozlem vektoru egitimle ayni: 11 boyut, ayni Bryson olcekleri.
 - Gozlem, P kontrolcunun EMA'li hatasindan degil, olculen bbox'tan uretilir.
-- Hiz gozlemi (obs[4:6]) runtime'da sifirlanir: Webots/gercek Kalman hizi
-  gurultulu ve politika onunla doyuma giriyor. Politika egitimde gercek hizla
-  egitildi; statik hedefte sifir hiz zaten dagilimda oldugu icin sifir guvenli.
+- Hiz gozlemi (obs[4:6]): Filtrelenmis yumusak Kalman hizi (smooth_vx, smooth_vy)
+  v_max_px_s ile normalize edilerek egitimle uyumlu sekilde politikaya verilir.
 - Cikarim, SB3/torch gerektirmeyen 11-64-64-2 NumPy MLP ile yapilir.
 - Eylem gecmisi uygulanan normalize komutu saklar.
 - Cikista EMA/slew yok; yalnizca:
@@ -86,20 +85,19 @@ class RLController:
     # - Ölçülen bbox (P EMA'si degil), egitimdeki piksel hatasiyla ayni.
     # - Yumusatilmis Kalman hizi, egitimdeki gercek hedef hizina daha yakin.
     uses_measured_bbox = True
-    prefers_smooth_velocity = False
-    uses_velocity_obs = False
+    prefers_smooth_velocity = True
+    uses_velocity_obs = True
 
     def __init__(self, model_path=None, auto_load=True,
-                 deadband_px=None, deadband_exit_px=None, velocity_gate_px_s=None,
+                 deadband_px=None,
                  reversal_damping=None,
                  deadband_pan_deg=None, deadband_tilt_deg=None,
                  taper_pan_deg=None, taper_tilt_deg=None,
                  cmd_accel_pan_deg_s2=None, cmd_accel_tilt_deg_s2=None,
-                 v_max_px_s=None, dist_min_m=None, dist_max_m=None):
+                 v_max_px_s=None, dist_min_m=None, dist_max_m=None,
+                 **kwargs):
         R = CONFIG.rl
         deadband_px = R.deadband_px if deadband_px is None else deadband_px
-        deadband_exit_px = R.deadband_exit_px if deadband_exit_px is None else deadband_exit_px
-        velocity_gate_px_s = R.velocity_gate_px_s if velocity_gate_px_s is None else velocity_gate_px_s
         reversal_damping = R.reversal_damping if reversal_damping is None else reversal_damping
         taper_pan_deg = R.taper_pan_deg if taper_pan_deg is None else taper_pan_deg
         taper_tilt_deg = R.taper_tilt_deg if taper_tilt_deg is None else taper_tilt_deg
@@ -138,8 +136,6 @@ class RLController:
         self.prev_policy_action = np.zeros(2, dtype=np.float32)
         self._in_deadband = False
         self.deadband_px = max(0.0, float(deadband_px))
-        self.deadband_exit_px = max(self.deadband_px, float(deadband_exit_px))
-        self.velocity_gate_px_s = max(0.0, float(velocity_gate_px_s))
         self.reversal_damping = float(np.clip(float(reversal_damping), 0.0, 1.0))
 
         self.deadband_pan_deg = (
@@ -325,11 +321,11 @@ class RLController:
                 d_tilt_deg = 0.0
 
         # 2. Ivme sinirlama (Slew Rate Limiter - P ile ayni: CONFIG.control.cmd_accel_*)
-        max_delta_pan = self.cmd_accel_pan_deg_s2 * dt_safe
+        max_delta_pan = self.cmd_accel_pan_deg_s2 * (dt_safe ** 2)
         d_pan_deg = float(np.clip(
             d_pan_deg, self.prev_cmd_pan - max_delta_pan, self.prev_cmd_pan + max_delta_pan
         ))
-        max_delta_tilt = self.cmd_accel_tilt_deg_s2 * dt_safe
+        max_delta_tilt = self.cmd_accel_tilt_deg_s2 * (dt_safe ** 2)
         d_tilt_deg = float(np.clip(
             d_tilt_deg, self.prev_cmd_tilt - max_delta_tilt, self.prev_cmd_tilt + max_delta_tilt
         ))

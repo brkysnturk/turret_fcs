@@ -15,7 +15,7 @@ GOREVLER VE ALGORITMALAR:
    Gauss isabet olasiligi hesabi ile atis izni kontrolu.
 5. Mod Yonetimi ve Kontrolculer: Yumusak Olu Bolgeli Tip-1 P Kontrolcu (Hassas Kilit)
    veya 11-Boyutlu PPO RL Kontrolcu (Cevik Takip).
-6. Sakin Dairesel Devriye: Hedef kayboldugunda 1.5 sn bekleme, merkeze donus ve 2 eksenli dairesel tarama.
+6. Sakin Figure-8 (Lissajous) Devriye: Hedef kayboldugunda 1.5 sn bekleme, merkeze donus ve 2 eksenli sekiz motifi tarama.
 ================================================================================
 """
 
@@ -97,6 +97,14 @@ class FCSManager:
         # Balistik Slew ve Nisan Noktasi Ileri Beslemesi (Aim-Point Feedforward)
         self.prev_applied_lead_pan = 0.0
         self.prev_applied_lead_tilt = 0.0
+
+    def _integrate_command(self, u_pan, u_tilt):
+        """Hesaplanan inkremental adimlari limitler dahilinde tarete uygular."""
+        self.turret_pan_deg = float(np.clip(self.turret_pan_deg + u_pan, self.PAN_LIMIT_MIN, self.PAN_LIMIT_MAX))
+        self.turret_tilt_deg = float(np.clip(self.turret_tilt_deg + u_tilt, self.TILT_LIMIT_MIN, self.TILT_LIMIT_MAX))
+        self.last_cmd_pan = u_pan
+        self.last_cmd_tilt = u_tilt
+        return u_pan, u_tilt
 
     def _estimate_geom_distance(self, box_dim, fx, fy):
         """Hedef kutusunun acisal boyutundan mesafe tahmini (0.15 m yaricap varsayimi)."""
@@ -300,7 +308,8 @@ class FCSManager:
             # ego icin kullanilmaz; STM potansiyometresi kuantalanmis ve sicramali oldugu
             # icin kareler arasi farkta buyuk sahte hizlar uretir.
             if not was_lost:
-                alpha_m = 1.0 - float(np.exp(-dt / max(1e-3, self.ego_tau_s)))
+                # Bitki modeliyle ayni geriye dogru Euler ayriklastirmasi: dt / (tau + dt)
+                alpha_m = float(dt / (self.ego_tau_s + dt))
                 self.ego_step_pan_deg = (1.0 - alpha_m) * self.ego_step_pan_deg + alpha_m * self.last_cmd_pan
                 self.ego_step_tilt_deg = (1.0 - alpha_m) * self.ego_step_tilt_deg + alpha_m * self.last_cmd_tilt
                 ego_dx = -float(fx) * float(np.tan(np.radians(self.ego_step_pan_deg)))
@@ -347,20 +356,15 @@ class FCSManager:
             active_pan = float(pan_deg + applied_lead_pan)
             active_tilt = float(tilt_deg + applied_lead_tilt)
 
-            omega_pan = 0.0
-            omega_tilt = 0.0
-            if self.control_mode == "P" and not is_firing:
-                omega_pan, omega_tilt = self.tracker.get_angular_velocity_deg_s(fx=fx, fy=fy)
-
             u_p_pan, u_p_tilt = self.p_controller.compute_p(
                 active_pan, active_tilt, dt=dt,
-                omega_pan_deg_s=omega_pan, omega_tilt_deg_s=omega_tilt,
             )
-            step_limit = self.p_controller.max_step_for(dt)
+            step_limit_pan = self.p_controller.max_step_for(dt, axis="pan")
+            step_limit_tilt = self.p_controller.max_step_for(dt, axis="tilt")
 
             # Rampa adimini dogrudan motor komutuna ekle (Zero-Lag Slew)
-            u_p_pan = float(np.clip(u_p_pan + delta_slew_pan, -step_limit, step_limit))
-            u_p_tilt = float(np.clip(u_p_tilt + delta_slew_tilt, -step_limit, step_limit))
+            u_p_pan = float(np.clip(u_p_pan + delta_slew_pan, -step_limit_pan, step_limit_pan))
+            u_p_tilt = float(np.clip(u_p_tilt + delta_slew_tilt, -step_limit_tilt, step_limit_tilt))
 
             if self.control_mode == "RL":
                 if self.rl_controller is None:
@@ -370,53 +374,29 @@ class FCSManager:
                     screen_w = center_x * 2
                     screen_h = center_y * 2
 
-                    # RL gözlemi: eğitimdeki gibi ölçülen bbox'tan üret.
-                    # Eski RLController P'nin EMA'li hatasını kullanıyordu; bu,
-                    # politikaya eğitimden farklı ve gecikmeli bir gözlem veriyordu.
-                    if getattr(self.rl_controller, "uses_measured_bbox", False):
-                        eff_bx = float(bx) + float(np.tan(np.radians(applied_lead_pan))) * fx
-                        eff_by = float(by) - float(np.tan(np.radians(applied_lead_tilt))) * fy
-                    else:
-                        eff_bx = center_x + float(np.tan(np.radians(active_pan)) * fx)
-                        eff_by = center_y - float(np.tan(np.radians(active_tilt)) * fy)
-
-                    # RL velocity observation is intentionally zeroed: Kalman
-                    # velocity is noisy on the real/Webots plant and destabilises
-                    # the policy. Lead/HUD still use the Kalman estimate.
-                    obs_vx, obs_vy = 0.0, 0.0
-                    if getattr(self.rl_controller, "uses_velocity_obs", False):
-                        if getattr(self.rl_controller, "prefers_smooth_velocity", False):
-                            obs_vx, obs_vy = self.tracker.get_velocity()
-                        else:
-                            obs_vx = getattr(self.tracker, "raw_vx", self.target_velocity[0])
-                            obs_vy = getattr(self.tracker, "raw_vy", self.target_velocity[1])
+                    eff_bx = float(bx) + float(np.tan(np.radians(applied_lead_pan))) * fx
+                    eff_by = float(by) - float(np.tan(np.radians(applied_lead_tilt))) * fy
+                    obs_vx, obs_vy = self.tracker.get_velocity()
 
                     d_pan_deg, d_tilt_deg = self.rl_controller.predict_angles(
                         eff_bx, eff_by, center_x, center_y, screen_w, screen_h,
                         obs_vx, obs_vy,
                         d_m, active_pan, active_tilt, dt
                     )
-                    u_pan = float(np.clip(d_pan_deg + delta_slew_pan, -step_limit, step_limit))
-                    u_tilt = float(np.clip(d_tilt_deg + delta_slew_tilt, -step_limit, step_limit))
-                    self.turret_pan_deg = float(np.clip(self.turret_pan_deg + u_pan, self.PAN_LIMIT_MIN, self.PAN_LIMIT_MAX))
-                    self.turret_tilt_deg = float(np.clip(self.turret_tilt_deg + u_tilt, self.TILT_LIMIT_MIN, self.TILT_LIMIT_MAX))
-                    self.last_cmd_pan = u_pan
-                    self.last_cmd_tilt = u_tilt
-                    return u_pan, u_tilt
+                    u_pan = float(np.clip(d_pan_deg + delta_slew_pan, -step_limit_pan, step_limit_pan))
+                    u_tilt = float(np.clip(d_tilt_deg + delta_slew_tilt, -step_limit_tilt, step_limit_tilt))
+                    return self._integrate_command(u_pan, u_tilt)
 
             # P modu veya RL yuklu degilse:
             self.current_rl_weight = 0.0
-            self.turret_pan_deg = float(np.clip(self.turret_pan_deg + u_p_pan, self.PAN_LIMIT_MIN, self.PAN_LIMIT_MAX))
-            self.turret_tilt_deg = float(np.clip(self.turret_tilt_deg + u_p_tilt, self.TILT_LIMIT_MIN, self.TILT_LIMIT_MAX))
-            self.last_cmd_pan = u_p_pan
-            self.last_cmd_tilt = u_p_tilt
-            return u_p_pan, u_p_tilt
+            return self._integrate_command(u_p_pan, u_p_tilt)
 
         else:
             self.frames_since_lost += 1
             self.last_pan_err_deg = 0.0
             self.last_tilt_err_deg = 0.0
             self._reset_lidar_range()
+            self.p_controller.on_target_lost()
             if self.rl_controller is not None and hasattr(self.rl_controller, "on_target_lost"):
                 self.rl_controller.on_target_lost()
             if self.frames_since_lost >= self.max_lost_frames:

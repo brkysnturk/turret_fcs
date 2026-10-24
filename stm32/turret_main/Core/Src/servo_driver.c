@@ -149,14 +149,6 @@ bool Servo_HomeStep(void)
     return false;
 }
 
-bool Servo_IsAtCenter(void)
-{
-    float d_pan = SERVO_CENTER_DEG - current_pan;
-    float d_tilt = SERVO_CENTER_DEG - current_tilt;
-    return (d_pan < SERVO_HOME_TOL_DEG && d_pan > -SERVO_HOME_TOL_DEG &&
-            d_tilt < SERVO_HOME_TOL_DEG && d_tilt > -SERVO_HOME_TOL_DEG);
-}
-
 float Servo_GetPan(void)
 {
     return current_pan;

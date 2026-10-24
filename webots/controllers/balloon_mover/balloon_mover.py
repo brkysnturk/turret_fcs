@@ -1,6 +1,6 @@
 """
 ================================================================================
-MODUL: WEBOTS 3B HAREKETLI HEDEF KONTROLCUSU (BALLOON MOVER - v1.3)
+MODUL: WEBOTS 3B HAREKETLI HEDEF KONTROLCUSU (BALLOON MOVER - v1.4)
 ================================================================================
 Balonun 8 test hareketini, secilebilir profil ile uretir. Profil secimi:
   - WEBOTS_BALLOON_PROFILE ortam degiskeni (0-7), veya
