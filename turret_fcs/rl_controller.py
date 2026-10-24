@@ -20,8 +20,9 @@ sokuyordu:
 TASARIM (v1.4, SAF RL):
 - Gozlem vektoru egitimle ayni: 11 boyut, ayni Bryson olcekleri.
 - Gozlem, P kontrolcunun EMA'li hatasindan degil, olculen bbox'tan uretilir.
-- Hiz gozlemi (obs[4:6]): Filtrelenmis yumusak Kalman hizi (smooth_vx, smooth_vy)
-  v_max_px_s ile normalize edilerek egitimle uyumlu sekilde politikaya verilir.
+- Hiz gozlemi (obs[4:6]): Calisma zamaninda (fcs_manager) kapali cevrim ego-hareket
+  faz gecikmesinin limit cycle osilasyonu uretmesini onlemek icin sifirlanir (0.0, 0.0);
+  politika konum hatasi, hata turevi (d_err) ve Smith Predictor eylem gecmisiyle stabil calisir.
 - Cikarim, SB3/torch gerektirmeyen 11-64-64-2 NumPy MLP ile yapilir.
 - Eylem gecmisi uygulanan normalize komutu saklar.
 - Cikista EMA/slew yok; yalnizca:

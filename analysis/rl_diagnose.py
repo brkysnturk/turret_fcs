@@ -1,11 +1,10 @@
 """Uretim PPO politikasinin TurretEnv uzerindeki kapali cevrim teshisi.
 
-Ayni tohum ve hedef uzerinde uc varyant:
-1. raw          : egitimdeki gibi dogrudan ham politika aksiyonu (referans taban)
-2. policy_gt    : `turret_fcs.rl_controller.RLController` (simulasyon zemin-gercegi hiziyla
-                  denetleyici son isleme ve adim olcekleme tavanini olcer)
-3. policy_kalman: `turret_fcs.rl_controller.RLController` + `KalmanFilter` (uretimdeki gercek
-                  akisa sadik: ego kompanzasyonlu online Kalman filtre kestirimi)
+Ayni tohum ve hedef uzerinde iki varyant:
+1. policy : `turret_fcs.rl_controller.RLController` (uretim cikarim yolu, hiz gozlemi 0.0)
+2. raw    : egitimdeki gibi dogrudan ham politika aksiyonu (hiz gozlemi 0.0)
+Iki yolun ayni sonucu vermesi, uretim sarmalayicisinin egitim semantigini
+korudugunu gosterir.
 """
 
 from __future__ import annotations
@@ -21,8 +20,6 @@ from stable_baselines3 import PPO
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from turret_fcs.config import CONFIG
-from turret_fcs.kalman_filter import KalmanFilter
 from turret_fcs.rl_controller import RLController
 from turret_fcs.rl_sim.turret_env import TurretEnv
 
@@ -42,20 +39,12 @@ def sign_flip_rate(actions):
 
 def run(seed, mode):
     np.random.seed(seed)
-    env = TurretEnv(enable_randomization=False)
+    env = TurretEnv(enable_randomization=False, use_velocity_obs=False)
     obs, _ = env.reset(seed=seed)
     model = PPO.load(str(MODEL), device="cpu")
     controller = RLController(auto_load=False)
     controller.model = model
     controller.is_loaded = True
-
-    kf = None
-    ego_step_pan = 0.0
-    ego_step_tilt = 0.0
-    last_cmd_pan = 0.0
-    last_cmd_tilt = 0.0
-    if mode == "policy_kalman":
-        kf = KalmanFilter(dt=env.dt)
 
     actions = []
     errors = []
@@ -70,37 +59,13 @@ def run(seed, mode):
         if mode == "raw":
             action, _ = model.predict(obs, deterministic=True)
             action = np.asarray(action, dtype=np.float32)
-        elif mode in ("policy", "policy_gt"):
+        elif mode == "policy":
             target_dist = float(np.linalg.norm(env.target_pos_3d))
-            target_dist_safe = max(0.5, target_dist)
-            vx_px = (env.target_vel_3d[0] / target_dist_safe) * env.fx
-            vy_px = -(env.target_vel_3d[1] / target_dist_safe) * env.fy
+            # Hiz gozlemi bilincli olarak sifir (uretimdeki fcs_manager yolu gibi).
             d_pan, d_tilt = controller.predict_angles(
                 eff_bx, eff_by, env.center_x, env.center_y, env.screen_w, env.screen_h,
-                vx_px, vy_px, target_dist, rel_pan, rel_tilt, env.dt,
+                0.0, 0.0, target_dist, rel_pan, rel_tilt, env.dt,
             )
-            action = np.array(
-                [d_pan / env.max_step_pan_deg, d_tilt / env.max_step_tilt_deg],
-                dtype=np.float32,
-            )
-        elif mode == "policy_kalman":
-            alpha_m = float(env.dt / (CONFIG.control.ego_tau_s + env.dt))
-            ego_step_pan = (1.0 - alpha_m) * ego_step_pan + alpha_m * last_cmd_pan
-            ego_step_tilt = (1.0 - alpha_m) * ego_step_tilt + alpha_m * last_cmd_tilt
-            ego_dx = -float(env.fx) * math.tan(math.radians(ego_step_pan))
-            ego_dy = float(env.fy) * math.tan(math.radians(ego_step_tilt))
-
-            px, py = env.last_pixel_pos
-            kf.update((px, py), dt=env.dt, ego_dx=ego_dx, ego_dy=ego_dy)
-            vx_px, vy_px = kf.get_velocity()
-
-            target_dist = float(np.linalg.norm(env.target_pos_3d))
-            d_pan, d_tilt = controller.predict_angles(
-                eff_bx, eff_by, env.center_x, env.center_y, env.screen_w, env.screen_h,
-                vx_px, vy_px, target_dist, rel_pan, rel_tilt, env.dt,
-            )
-            last_cmd_pan = d_pan
-            last_cmd_tilt = d_tilt
             action = np.array(
                 [d_pan / env.max_step_pan_deg, d_tilt / env.max_step_tilt_deg],
                 dtype=np.float32,
@@ -138,10 +103,6 @@ def summarize(rows, label):
 
 if __name__ == "__main__":
     seeds = list(range(12))
-    modes = (
-        ("policy_gt", "policy_gt (controller with ground-truth velocity ceiling)"),
-        ("policy_kalman", "policy_kalman (controller with production online Kalman filter)"),
-        ("raw", "raw (direct policy observation)"),
-    )
-    for mode, label in modes:
+    for mode in ("policy", "raw"):
+        label = "policy (production controller path with zero velocity observation)" if mode == "policy" else "raw (direct policy observation)"
         summarize([run(s, mode) for s in seeds], label)
