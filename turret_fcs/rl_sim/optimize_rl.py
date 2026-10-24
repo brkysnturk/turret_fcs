@@ -1,13 +1,15 @@
 """
 ================================================================================
-MODUL: BAYESIAN OPTIMIZATION ILE LQR REWARD HIPERPARAMETRE AYARI (OPTUNA TPE)
+MODUL: BAYESIAN OPTIMIZATION ILE ODUL HIPERPARAMETRE TARAMASI (OPTUNA TPE)
 ================================================================================
-Bu modul, TurretEnv ortaminda LQR / Bryson tabanli 3 temel parametreyi:
+Bu modul, TurretEnv ortaminda (v2.0 progress odulu) 3 temel parametreyi:
 1. lambda_u: Kontrol cabasi (effort / u^2) agirligi
 2. mu_du: Eylem sarsintisi / jerk (du^2) agirligi
 3. learning_rate: PPO ogrenme orani
 20 sabit test tohumu uzerinde medyan + IQR (Interquartile Range) metrigiyle
 ve SQLite veritabani kaliciligi ile optimize eder.
+NOT: Bu hizli tarama araci (10k adim/deneme) uretim egitimini (train_rl.py)
+otomatik beslemez; train_rl.py sabit lambda_u=0.02, mu_du=0.08 kullanir.
 ================================================================================
 """
 
@@ -187,6 +189,8 @@ def run_optimization(n_trials=12):
     # Sonuclari JSON dosyasina kaydet
     out_path = current_dir / "best_params.json"
     result_data = {
+        "_comment": "Optuna screening result (10,000 timesteps per trial). Informational only; the production model uses fixed reward weights from train_rl.py.",
+        "version": "2.0",
         "best_trial_number": best.number,
         "best_score": float(best.value),
         "params": best.params,
