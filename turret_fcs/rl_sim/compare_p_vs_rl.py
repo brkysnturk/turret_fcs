@@ -15,19 +15,19 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Proje ana dizinini ekle (p_controller import icin)
+# Proje kokunu ekle (paket importlari icin)
 current_dir = Path(__file__).resolve().parent
-parent_dir = current_dir.parent
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
+project_root = current_dir.parents[1]
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 from stable_baselines3 import PPO
-from p_controller import PController
-from turret_env import TurretEnv
+from turret_fcs.p_controller import PController
+from turret_fcs.rl_sim.turret_env import TurretEnv
 
 
 def run_comparison():
-    model_path = current_dir / "models" / "turret_ppo_final.zip"
+    model_path = current_dir / "models" / "turret_ppo_v14.zip"
     if not model_path.exists():
         print(f"[HATA] Model bulunamadi: {model_path}")
         print("Lutfen once 'train_rl.py' ile modeli egitin.")
@@ -55,7 +55,7 @@ def run_comparison():
         # 1. P Kontrolcu Testi
         env_p = TurretEnv()
         obs_p, _ = env_p.reset(seed=seed)
-        p_ctrl = PController()  # Uretim SSOT parametreleri (kp_pan=0.10, kp_tilt=0.05, soft deadband)
+        p_ctrl = PController()  # Uretim P (Kp_pan=0.22, Kp_tilt=0.11)
 
         p_errors = []
         for _ in range(env_p.max_steps):

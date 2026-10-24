@@ -1,0 +1,15 @@
+# Test/CI ortamı için hafif bağımlılıklar (Linux sudo + wheel uyumlu).
+# Üretim kurulumu requirements.txt (tam pinli) kullanır.
+# stable-baselines3 2.4.x numpy<2 ister; bu yüzden CI ortamı numpy 1.26 kullanır.
+numpy>=1.26,<2.0
+scipy>=1.13,<1.15
+matplotlib>=3.9,<3.10
+opencv-python-headless>=4.10,<4.11
+ultralytics>=8.3,<8.4
+lap>=0.5.13
+stable-baselines3>=2.4,<2.5
+gymnasium>=1.0,<1.1
+pyyaml>=6.0
+optuna>=4.1,<4.2
+pyserial>=3.5
+pytest>=8.3,<8.4

@@ -7,7 +7,7 @@ eyleyici, Kalman kestirimi ve sensor parametrelerini Schema v2 formatinda tampon
 CSV olarak kaydeder. Ayni zamanda oturum basinda JSON metadata sidecar (.meta.json)
 ve kritik taktiksel olay gunlugunu (_events.csv) uretir.
 
-SCHEMA V2 KOLONLARI (37 KRITIK MÜHENDİSLİK PARAMETRESİ):
+SCHEMA V2 KOLONLARI (44 KRITIK MUHENDISLIK PARAMETRESI):
 - Urun ve Kare Kimligi: schema_version, frame_id, time_sec, dt, latency_ms, fps
 - Hedef Algilama ve Geometri: target_detected, target_conf, box_cx, box_cy
 - Hata ve Eyleyici Komutlari: angular_err_pan, angular_err_tilt, cmd_pan, cmd_tilt
@@ -17,6 +17,7 @@ SCHEMA V2 KOLONLARI (37 KRITIK MÜHENDİSLİK PARAMETRESİ):
 - FCS Durum Makinasi: fcs_state, control_mode, rl_weight
 - Kilit ve Balistik Kriterleri: is_locked, lock_counter, lock_thr, hit_prob
 - Donanim Geri Besleme ve Devriye: turret_pan, turret_tilt, servo_pan_fb, servo_tilt_fb, patrol_status
+- Dunya LOS: los_pan_deg, los_tilt_deg, los_pan_rate_deg_s, los_tilt_rate_deg_s
 ================================================================================
 """
 
@@ -28,10 +29,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-try:
-    from .config import CONFIG
-except (ImportError, ValueError):
-    from config import CONFIG
+from .config import CONFIG
 
 
 class TelemetryLogger:
@@ -106,6 +104,10 @@ class TelemetryLogger:
             "servo_pan_fb",      # Donanimsal servo geri besleme acisi Pan (derece)
             "servo_tilt_fb",     # Donanimsal servo geri besleme acisi Tilt (derece)
             "patrol_status",     # Otonom devriye durum metni
+            "los_pan_deg",       # Dunya gorus hatti Pan acisi (taret + kamera hatasi)
+            "los_tilt_deg",      # Dunya gorus hatti Tilt acisi
+            "los_pan_rate_deg_s",   # Dunya LOS Pan acisal hizi (derece/s)
+            "los_tilt_rate_deg_s",  # Dunya LOS Tilt acisal hizi (derece/s)
         ]
 
         self._init_csv()
@@ -144,7 +146,7 @@ class TelemetryLogger:
                 "camera": "Logitech C270 (1280x720 @ 30 FPS)",
                 "microcontroller": "STM32F401RE (UART 115200 8N1)",
                 "lidar": "Benewake TF-Luna I2C/UART",
-                "actuator": "Pan-Tilt SG90/MG90S Servomechanism",
+                "actuator": "Pan-Tilt MG996R servomechanism",
             },
             "system_config": {
                 "optics": {
@@ -225,6 +227,7 @@ class TelemetryLogger:
         servo_pan_fb=None,
         servo_tilt_fb=None,
         frame_id=None,
+        latency_ms=None,
     ):
         """Her kamera karesinde tek satir Telemetri v2 verisi ekler."""
         if not self.is_active:
@@ -241,7 +244,7 @@ class TelemetryLogger:
             current_frame_id = self.frame_id_counter
         self.frame_id_counter += 1
 
-        latency_ms = round(float(dt) * 1000.0, 1)
+        latency_val = round(float(latency_ms), 1) if latency_ms is not None else round(float(dt) * 1000.0, 1)
 
         # Hedef merkez koordinatlari
         box_cx, box_cy = 0, 0
@@ -250,9 +253,9 @@ class TelemetryLogger:
             box_cx = int((x1 + x2) // 2)
             box_cy = int((y1 + y2) // 2)
 
-        # FCS parametreleri
-        err_pan = round(getattr(fcs, "actual_pan", 0.0), 3) if fcs else 0.0
-        err_tilt = round(getattr(fcs, "actual_tilt", 0.0), 3) if fcs else 0.0
+        # FCS parametreleri: kontrolcu ici filtre degil, gercek kamera acisal hatasi
+        err_pan = round(float(getattr(fcs, "last_pan_err_deg", 0.0)), 3) if fcs else 0.0
+        err_tilt = round(float(getattr(fcs, "last_tilt_err_deg", 0.0)), 3) if fcs else 0.0
 
         # Kalman Filtresi Inovasyon ve Hiz Metrikleri
         kalman = getattr(fcs, "kalman", None) if fcs else None
@@ -263,7 +266,7 @@ class TelemetryLogger:
             vx_raw = float(getattr(kalman, "raw_vx", vx))
             vy_raw = float(getattr(kalman, "raw_vy", vy))
             innov_px = round(float(getattr(kalman, "last_residual", 0.0)), 2)
-            sigma_a = round(float(getattr(kalman, "current_sigma_a", kalman.sigma_a_min)), 1)
+            sigma_a = round(float(getattr(kalman, "current_sigma_a", kalman.sigma_a)), 1)
         else:
             vx, vy = 0.0, 0.0
             vx_raw, vy_raw = 0.0, 0.0
@@ -300,12 +303,22 @@ class TelemetryLogger:
         pan_fb = round(float(servo_pan_fb), 2) if servo_pan_fb is not None else -999.0
         tilt_fb = round(float(servo_tilt_fb), 2) if servo_tilt_fb is not None else -999.0
 
+        # Dunya gorus hatti (LOS) prototipi: taret acisi + kamera hatasi
+        los = getattr(fcs, "los_tracker", None) if fcs else None
+        if los is not None and los.pan is not None:
+            los_pan = round(float(los.pan), 3)
+            los_tilt = round(float(los.tilt), 3)
+            los_pan_rate = round(float(los.pan_rate), 3)
+            los_tilt_rate = round(float(los.tilt_rate), 3)
+        else:
+            los_pan = los_tilt = los_pan_rate = los_tilt_rate = 0.0
+
         row = [
             self.SCHEMA_VERSION,
             current_frame_id,
             elapsed_sec,
             round(dt, 4),
-            latency_ms,
+            latency_val,
             int(fps),
             1 if target_detected else 0,
             target_conf,
@@ -341,6 +354,10 @@ class TelemetryLogger:
             pan_fb,
             tilt_fb,
             p_status,
+            los_pan,
+            los_tilt,
+            los_pan_rate,
+            los_tilt_rate,
         ]
 
         self.buffer.append(row)

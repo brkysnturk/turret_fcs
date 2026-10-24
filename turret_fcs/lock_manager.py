@@ -25,10 +25,7 @@ import numpy as np
 from scipy.stats import ncx2
 
 
-try:
-    from .config import CONFIG
-except (ImportError, ValueError):
-    from config import CONFIG
+from .config import CONFIG
 
 
 class LockManager:

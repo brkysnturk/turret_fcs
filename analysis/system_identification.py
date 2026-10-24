@@ -1,10 +1,11 @@
 """
 ================================================================================
-MODUL: SISTEM TANIMA (SYSTEM IDENTIFICATION) VE S-DUZLEMI KARARLILIK ANALIZI
-Bu script, gercek donanimda (MG996R servolar + Logitech C270 kamera + STM32)
-olculen parametrelerle sistemin acik ve kapali cevrim transfer fonksiyonlarini,
-Pade gecikme yaklasimini, Bode frekans cevabini, S-duzlemi koklerin yer egrisini
-(Root Locus) ve guncel Hiz Uyarlamali Yumusak Olu Bolgeli P Kontrolcuyu analiz eder.
+MODUL: SENTETIK SISTEM TANIMA VE S-DUZLEMI KARARLILIK ANALIZI
+Bu script GERCEK telemetriye model fit etmez. Once nominal bir SOPDT modeli
+(wn=17.5 rad/s, zeta=0.72, theta=80 ms) + sentetik gurultu uretir, sonra
+FOPDT/SOPDT modellerini bu sentetik egriye uydurur. Amac, kontrolcu tasarimi
+icin varsayimsal bir model uzerinde Bode/root-locus/Pade analizi yapmaktir.
+Gercek actuator tau/backlash degerleri IMU/encoder ile olculmelidir.
 ================================================================================
 """
 
@@ -115,16 +116,19 @@ def load_real_telemetry_step(log_path):
 # ==============================================================================
 def run_system_identification():
     print("=" * 70)
-    print("   YTU TURRET FCS // SISTEM TANIMA VE S-DUZLEMI KARARLILIK ANALIZI   ")
+    print("   YTU TURRET FCS // SENTETIK SISTEM TANIMA VE KARARLILIK ANALIZI   ")
+    print("=" * 70)
+    print("[UYARI] Bu cikti SENTETIK nominal modele aittir; gercek telemetri olcumu degildir.")
+    print("[UYARI] Gercek tau/backlash icin IMU veya encoder ile step testi gerekir.")
     print("=" * 70)
 
     # -------------------------------------------------------------------------
-    # ADIM 1: GERCEK DONANIM FIZIKSEL PARAMETRELERI VE BASAMAK TEPKISI
+    # ADIM 1: SENTETIK NOMINAL MODEL VE BASAMAK TEPKISI
     # -------------------------------------------------------------------------
-    # Gercek donanimda dogrulanan fiziksel gecikme:
-    # theta = t_kamera(33ms) + t_yolo(32ms) + t_uart(15ms) = 80 ms (0.080 s)
+    # Bu degerler datasheet/olcum degil, kontrol tasarimi icin nominal varsayimdir:
+    # theta = t_kamera(33ms) + t_yolo(32ms) + t_uart(15ms) = 80 ms
     # Eyleyici dogal frekansi: wn = 17.5 rad/s (~2.78 Hz)
-    # Sonum orani: zeta = 0.72 (Kritige yakin mekanik sonumlu)
+    # Sonum orani: zeta = 0.72
     # Statik aci kazanci: K = 1.0
     t = np.linspace(0, 0.70, 350)
 
@@ -139,7 +143,7 @@ def run_system_identification():
     sensor_noise = np.random.normal(0, 0.018, size=len(t))
     measured_response = clean_step + sensor_noise
 
-    # Gercek telemetri logundan deneysel veri yukle
+    # Gercek telemetri yalnizca grafik karsilastirmasi icin yuklenir; fit'e GIRMEZ.
     log_file = EVIDENCE_DIR / "v1.3_benchmark.csv" if (EVIDENCE_DIR / "v1.3_benchmark.csv").exists() else LOGS_DIR / "telemetry_test_20261010_161823.csv"
     t_telemetry, y_telemetry = load_real_telemetry_step(log_file)
 
@@ -175,7 +179,7 @@ def run_system_identification():
     print(f"     G_1(s) = [ {K_fopdt:.2f} / ({tau_fopdt*1000:.1f}ms * s + 1) ] * e^(-{theta_fopdt*1000:.1f}ms * s)")
     print(f"     Model Uyum Skoru (R^2): %{r2_fopdt*100:.2f}")
 
-    print("\n[OK] 2. SOPDT (2. Derece Gecikmeli) Gercek Donanim Modeli:")
+    print("\n[OK] 2. SOPDT (2. Derece Gecikmeli) Sentetik Nominal Model:")
     print(f"     G_2(s) = [ {K_sopdt * wn_sopdt**2:.1f} / (s^2 + {2*zeta_sopdt*wn_sopdt:.2f}s + {wn_sopdt**2:.1f}) ] * e^(-{theta_sopdt*1000:.1f}ms * s)")
     print(f"     Model Uyum Skoru (R^2): %{r2_sopdt*100:.2f}")
     print(f"     Dogal Frekans (wn)    : {wn_sopdt:.2f} rad/s ({wn_sopdt/(2*np.pi):.2f} Hz)")

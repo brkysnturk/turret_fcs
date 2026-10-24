@@ -634,7 +634,7 @@ metrics_dict = {
             "gain_margin_gm_db": round(float(gm_val), 1)
         },
         "bode_identified_sopdt_model": {
-            "model_description": "Identified 2nd-order SOPDT actuator (wn = 17.4 rad/s, zeta = 0.72) + 80 ms delay",
+            "model_description": "Nominal 2nd-order SOPDT model (synthetic assumption; not measured): wn = 17.4 rad/s, zeta = 0.72, 80 ms delay",
             "crossover_freq_w_gc_rad_s": 2.98,
             "phase_margin_pm_deg": 62.2,
             "phase_crossover_w_pc_rad_s": 11.2,
