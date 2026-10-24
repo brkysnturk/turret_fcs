@@ -12,7 +12,6 @@ Hicbir fiziksel log dosyasina bagimli degildir; 100% benzetim tabanlidir.
 """
 
 import math
-import os
 import sys
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -31,7 +30,6 @@ if str(PROJECT_ROOT) not in sys.path:
 from stable_baselines3 import PPO
 from turret_fcs.p_controller import PController
 from turret_fcs.rl_sim.turret_env import TurretEnv
-from turret_fcs.config import CONFIG
 
 FIG_DIR = BASE_DIR / "figures"
 FIG_DIR.mkdir(parents=True, exist_ok=True)

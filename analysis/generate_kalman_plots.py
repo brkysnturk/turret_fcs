@@ -14,8 +14,6 @@ analitik olarak test eder ve akademik tez kalitesinde (300 DPI) cizer:
 ================================================================================
 """
 
-import math
-import os
 import sys
 from pathlib import Path
 import matplotlib.pyplot as plt

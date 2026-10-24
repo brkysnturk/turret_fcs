@@ -15,7 +15,6 @@ tanimlayarak FOPDT ve SOPDT transfer fonksiyonlarini cikartir:
 """
 
 import math
-import os
 import sys
 from pathlib import Path
 import warnings
