@@ -8,13 +8,11 @@ static uint8_t luna_index = 0;
 
 static volatile uint16_t distance_cm = 0;
 static volatile uint16_t signal_strength = 0;
-static volatile bool data_ready_flag = false;
 
 void Luna_Init(UART_HandleTypeDef *huart)
 {
     luna_huart = huart;
     luna_index = 0;
-    data_ready_flag = false;
     if (luna_huart != NULL)
     {
         HAL_UART_Receive_IT(luna_huart, &luna_rx_byte, 1);
@@ -56,7 +54,6 @@ void Luna_RxCallback(UART_HandleTypeDef *huart)
             {
                 distance_cm = luna_buffer[2] | (luna_buffer[3] << 8);
                 signal_strength = luna_buffer[4] | (luna_buffer[5] << 8);
-                data_ready_flag = true;
             }
         }
     }
@@ -78,16 +75,6 @@ void Luna_HandleError(void)
         __HAL_UART_CLEAR_PEFLAG(luna_huart);
         HAL_UART_Receive_IT(luna_huart, &luna_rx_byte, 1);
     }
-}
-
-bool Luna_IsDataReady(void)
-{
-    if (data_ready_flag)
-    {
-        data_ready_flag = false;
-        return true;
-    }
-    return false;
 }
 
 uint16_t Luna_GetDistance(void)

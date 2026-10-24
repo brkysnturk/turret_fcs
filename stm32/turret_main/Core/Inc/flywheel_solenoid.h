@@ -37,6 +37,7 @@ void Launcher_Init(void);
 void Launcher_Update(void);              // Non-blocking durum makinesi (while icinde cagirilir)
 
 void Launcher_Flywheel_Enable(bool enable); // Motorlari manuel ac/kapat
+bool Launcher_IsFlywheelActive(void);      // Volanlar su an enerjili mi?
 void Launcher_TriggerFire(void);         // Atis tahrigini baslat
 bool Launcher_IsFiring(void);            // Su an atis icra ediliyor mu?
 void Launcher_EmergencyStop(void);       // Volan ve solenoidi aninda durdurur (Fail-safe)

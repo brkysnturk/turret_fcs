@@ -7,8 +7,15 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.pyd
+*.egg-info/
+build/
+dist/
 .env
 .env*.local
+
+# Webots / CubeIDE local state
+stm32/cubeide_workspace/
+stm32/turret_main/.settings/
 
 # Compiled Binaries & Executables
 *.exe
@@ -52,7 +59,7 @@ webots/worlds/.*.png
 
 # Logs, Metrics & Telemetry (Representative evidence kept in docs/evidence/)
 logs/
-webots/analysis/*.csv
+webots/logs/
 *.tfevents.*
 *.log
 *.tmp
@@ -61,9 +68,8 @@ temp/
 scratch/
 *system_identification_analysis.png
 
-# Datasets and Legacy Code
+# Datasets
 datasets/
-legacy/
 
 # Large 3D CAD models
 *.stl
@@ -80,6 +86,8 @@ runs/**/last.pt
 
 # Whitelist production neural network weights and 3D assets
 !runs/detect/balloon_detector/weights/best.pt
-!turret_fcs/rl_sim/models/turret_ppo_final.zip
+!turret_fcs/rl_sim/models/turret_ppo_v14.zip
+!weights/
+!weights/yolov8n.pt
 !webots/worlds/red_ballonn/red ballon.obj
 !webots/worlds/tf_luna/TF-Luna 3D structure.obj

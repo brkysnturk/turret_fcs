@@ -46,6 +46,11 @@ void Launcher_Flywheel_Enable(bool enable)
     }
 }
 
+bool Launcher_IsFlywheelActive(void)
+{
+    return flywheel_active;
+}
+
 void Launcher_TriggerFire(void)
 {
     // Eger sistem bostaysa atis sekansini baslat

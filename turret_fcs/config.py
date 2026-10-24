@@ -46,20 +46,37 @@ class OpticsConfig:
 @dataclass(frozen=True)
 class ControlConfig:
     """P kontrolcu ve filtre parametreleri."""
-    kp_pan: float = 0.10        # 30 FPS bazinda kare basi kazanc (Kp_s = 3.0 1/s)
-    kp_tilt: float = 0.05       # 30 FPS bazinda kare basi kazanc (Kp_s = 1.5 1/s)
+    kp_pan: float = 0.22        # P: 30 FPS bazinda kare basi kazanc
+    kp_tilt: float = 0.11       # P: 30 FPS bazinda kare basi kazanc
     deadband_pan_deg: float = 0.85
     deadband_tilt_deg: float = 0.95
-    max_output_deg: float = 1.35
-    alpha_filter: float = 0.75
+    max_output_deg: float = 1.50
+    max_command_step_deg: float = 1.50  # Firmware Servo_ApplyCorrection ust siniri
+    alpha_filter: float = 0.85           # P giris EMA'sinda yeni deger agirligi
+    los_alpha: float = 0.70              # Dunya LOS konum duzeltmesi (log kalibrasyonu)
+    los_beta: float = 0.20               # Dunya LOS hiz duzeltmesi (log kalibrasyonu)
+    ego_tau_s: float = 0.030             # Ego icin komut adimi servo zaman sabiti
 
 
 @dataclass(frozen=True)
 class ActuatorConfig:
     """Eyleyici ve servo mekanik adim / kuantalama limitleri."""
-    max_step_pan_deg: float = 0.55     # Kare basi maksimum Pan adimi (+-0.55 deg/kare = 16.5 deg/s)
-    max_step_tilt_deg: float = 0.22    # Kare basi maksimum Tilt adimi (+-0.22 deg/kare = 6.6 deg/s)
+    max_step_pan_deg: float = 1.50     # RL kare basi maksimum Pan adimi (30 FPS'te 45 deg/s)
+    max_step_tilt_deg: float = 1.50    # RL kare basi maksimum Tilt adimi (30 FPS'te 45 deg/s)
     servo_deadband_deg: float = 0.10   # STM32 0.1 deg UART kuantalama ve servo mekanik olu bolgesi
+
+
+@dataclass(frozen=True)
+class KalmanConfig:
+    """Sabit hizli (CV) Kalman filtresi: tek Q/R cifti ve robust tekil-sicrama kapisi."""
+    r_var: float = 64.0                  # Olcum gurultusu varyansi (px^2), ~8 px standart sapma
+    sigma_a: float = 300.0               # Surec ivme gurultusu (px/s^2), ~12 deg/s^2
+    initial_velocity_var: float = 90000.0  # Ilk hiz kovaryansi (px/s)^2, hizli yakinsama icin
+    outlier_residual_px: float = 150.0   # Bu inovasyon ustunde olcum gurultusu buyutulur
+    outlier_r_scale: float = 100.0       # Tekil sicramada R carpani (kazanci bastirir)
+    reacquire_frames: int = 3            # Ust uste bu kadar sicramada takip yeniden baslar
+    velocity_deadband_low_px_s: float = 30.0   # Bu hizin altinda cikis hizi sifir
+    velocity_deadband_high_px_s: float = 60.0  # Bu hizdan itibaren cikis hizi tam gecerli
 
 
 @dataclass(frozen=True)
@@ -70,9 +87,32 @@ class BallisticsConfig:
     default_distance_m: float = 2.0
     # Atis sekansi zamanlamalari (saniye)
     spinup_time_s: float = 1.00     # Volan motorlarinin maksimum devre ve balistik slew acisina ulasma suresi
+    settle_time_s: float = 0.15     # Slew sonrasi servo oturma (sabit hold; lead/gravity canli)
     firing_pulse_s: float = 0.08    # Solenoid itici darbe suresi (80 ms - STM32 firmware ile uyumlu)
     recovery_time_s: float = 0.35   # Mekanik geri toplama suresi
     system_latency_s: float = 0.080 # 80 ms kamera-yolo-uart-solenoid toplam tasiyici gecikmesi
+
+
+@dataclass(frozen=True)
+class LidarConfig:
+    """TF-Luna menzil kapilama, sicrama reddi ve kararlilik filtreleri."""
+    min_distance_m: float = 0.20
+    max_distance_m: float = 8.00
+    gate_angle_deg: float = 3.0          # Bu aci icindeki LiDAR okumalari aday olabilir
+    jump_threshold_m: float = 0.50       # Son gecerli mesafeden 50 cm'den fazla sapma = supheli
+    stability_window: int = 3            # Ates icin gereken kararli okuma sayisi
+    stability_tolerance_m: float = 0.10  # Bu pencerede izin verilen mesafe dalgalanmasi
+    reacquire_frames: int = 3            # Gercek menzil degisimini kabul icin ust uste kare
+    geometry_tolerance_ratio: float = 0.75  # Kutu boyutundan mesafe ile LiDAR uyumsuzlugu
+
+
+@dataclass(frozen=True)
+class FlywheelConfig:
+    """Cift volan motoru: kilitliyken bosta donme ve ates boost parametreleri."""
+    target_speed_rad_s: float = 2460.9   # 23.500 RPM nominal atis devri
+    idle_speed_rad_s: float = 1600.0     # Kilitliyken bosta donme devri (~%65)
+    idle_spinup_time_s: float = 0.25     # Bostan tam devre + kisa slew suresi
+    cold_spinup_time_s: float = 1.00     # Bosta degilse emniyetli tam spin-up
 
 
 @dataclass(frozen=True)
@@ -102,7 +142,6 @@ class PathConfig:
     """Agirlik ve yapay zeka model dosya yollari."""
     yolo_model: str = "runs/detect/balloon_detector/weights/best.pt"
     fallback_yolo_model: str = "weights/yolov8n.pt"
-    rl_model: str = "turret_fcs/rl_sim/models/turret_ppo_final.zip"
 
 
 @dataclass(frozen=True)
@@ -110,7 +149,10 @@ class TurretConfig:
     optics: OpticsConfig = OpticsConfig()
     control: ControlConfig = ControlConfig()
     actuator: ActuatorConfig = ActuatorConfig()
+    kalman: KalmanConfig = KalmanConfig()
     ballistics: BallisticsConfig = BallisticsConfig()
+    flywheel: FlywheelConfig = FlywheelConfig()
+    lidar: LidarConfig = LidarConfig()
     mount: MountConfig = MountConfig()
     lock: LockConfig = LockConfig()
     paths: PathConfig = PathConfig()

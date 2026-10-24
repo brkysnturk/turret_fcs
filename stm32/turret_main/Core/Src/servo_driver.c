@@ -103,16 +103,10 @@ void Servo_ApplyCorrection(float d_pan, float d_tilt)
     if (d_tilt > MAX_STEP_TILT_DEG) d_tilt = MAX_STEP_TILT_DEG;
     if (d_tilt < -MAX_STEP_TILT_DEG) d_tilt = -MAX_STEP_TILT_DEG;
 
-#if PAN_DIR_INVERT
-    d_pan = -d_pan;
-#endif
-#if TILT_DIR_INVERT
-    d_tilt = -d_tilt;
-#endif
-    // Kamera taretle birlikte dondugunden hata acisini mevcut aciya ekler
+    // Kamera taretle birlikte dondugunden hata acisini mevcut aciya ekler.
+    // Yon tersleme PC katmaninda yapilir; burada tekrar terslenmez.
     Servo_SetPan(current_pan + d_pan);
-    Servo_SetTilt(current_tilt + d_tilt);
-}
+    Servo_SetTilt(current_tilt + d_tilt);}
 
 float Servo_GetPan(void)
 {

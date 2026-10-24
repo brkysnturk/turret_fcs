@@ -16,6 +16,14 @@
 #include "fcs_comm.h"
 #include "flywheel_solenoid.h"
 
+/*
+ * Fiziksel ates yolu guvenlik nedeniyle varsayilan olarak KAPALI.
+ * Laboratuvar/donanim testinde acmak icin 1 yapin.
+ */
+#ifndef ENABLE_PHYSICAL_FIRE
+#define ENABLE_PHYSICAL_FIRE 0
+#endif
+
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
@@ -46,6 +54,9 @@ int main(void)
   Launcher_Init(); // Pinleri guvenli PULLDOWN ve LOW (0V) durumuna kilitler
 
   uint32_t last_pc_cmd_time = HAL_GetTick();
+#if ENABLE_PHYSICAL_FIRE
+  static uint8_t prev_fcs_state = 0;
+#endif
 
   /* Infinite loop ------------------------------------------------------------*/
   uint32_t last_led_time = 0;
@@ -71,26 +82,57 @@ int main(void)
         Servo_SetPan(90.0f);
         Servo_SetTilt(90.0f);
         Launcher_EmergencyStop();
+#if ENABLE_PHYSICAL_FIRE
+        prev_fcs_state = 0;  // E-stop sonrasi yanlis ates kenari olusmasin
+#endif
       }
       else
       {
         Servo_ApplyCorrection(d_pan, d_tilt);
-      }
 
-      // Firlatici baglandiginda acilabilir (Yukselen kenar ile tek darbe korumasi - cift atisi onler):
-      // static uint8_t prev_fcs_state = 0;
-      // if (state == 2 && prev_fcs_state != 2)
-      // {
-      //   Launcher_TriggerFire();
-      // }
-      // prev_fcs_state = state;
+        /*
+         * Flywheel pre-spin (bosta donme):
+         * LOCKED (1) veya FIRING (2) durumunda volanlari enerjilendir.
+         * PC, ates oncesi slew/settle boyunca state=1 gonderir; FIRING kenarinda
+         * volanlar zaten hazir oldugu icin solenoid gecikmesi 500 ms'ye cikmaz.
+         * TRACKING (0) veya ESTOP (3) durumunda volanlari kapat.
+         */
+        if (state == 1 || state == 2)
+        {
+          if (!Launcher_IsFlywheelActive())
+          {
+            Launcher_Flywheel_Enable(true);
+          }
+        }
+        else
+        {
+          if (!Launcher_IsFiring() && Launcher_IsFlywheelActive())
+          {
+            Launcher_Flywheel_Enable(false);
+          }
+        }
+
+#if ENABLE_PHYSICAL_FIRE
+        // PC yalnizca gercek FIRING fazinda state=2 gonderir; yukselen kenar tek darbe.
+        if (state == 2 && prev_fcs_state != 2)
+        {
+          Launcher_TriggerFire();
+        }
+#endif
+      }
+#if ENABLE_PHYSICAL_FIRE
+      prev_fcs_state = (state == 3) ? 0 : state;
+#endif
     }
 
-    // 3. 300 ms Heartbeat Zaman Asimi: if/else disinda KOSULSUZ kontrol edilir
-    // (PC 100 Hz hizinda komut gonderse bile zaman asimi guvenlik bekcisi her turda calisir)
+    // 3. 300 ms Heartbeat Zaman Asimi: PC kaybolursa launcher'i fail-safe durdur.
+    // Servolar son komut pozisyonunda kalir; PC geri gelince komut akisi devam eder.
     if (HAL_GetTick() - last_pc_cmd_time > 300)
     {
       Launcher_EmergencyStop();
+#if ENABLE_PHYSICAL_FIRE
+      prev_fcs_state = 0;  // Yeniden baglanmada yanlis ates kenari olusmasin
+#endif
     }
 
     // 4. Sistem Kalp Atisi LED Gostergesi (500 ms periyot - ISR yukunu onler)
@@ -100,8 +142,8 @@ int main(void)
       HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
     }
 
-    // 5. Firlatici durum makinesi (Firlatici donanimi eklendiginde acilabilir)
-    // Launcher_Update();
+    // 5. Firlatici durum makinesi (non-blocking)
+    Launcher_Update();
 
     HAL_Delay(10); // 100 Hz kontrol dongusu
   }

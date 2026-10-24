@@ -9,7 +9,6 @@ void Luna_Init(UART_HandleTypeDef *huart);
 void Luna_RxCallback(UART_HandleTypeDef *huart);
 void Luna_HandleError(void);
 
-bool Luna_IsDataReady(void);
 uint16_t Luna_GetDistance(void);
 uint16_t Luna_GetStrength(void);
 

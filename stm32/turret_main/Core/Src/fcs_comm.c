@@ -106,16 +106,6 @@ void FCS_Comm_SendTelemetry(uint16_t distance_cm, uint16_t signal_strength, floa
     HAL_UART_Transmit(fcs_huart, tx_pkt, 10, 10);
 }
 
-bool FCS_Comm_IsNewCommand(void)
-{
-    if (new_cmd_flag)
-    {
-        new_cmd_flag = false;
-        return true;
-    }
-    return false;
-}
-
 bool FCS_Comm_GetCommand(float *pan, float *tilt, uint8_t *state)
 {
     if (!new_cmd_flag)
@@ -131,20 +121,5 @@ bool FCS_Comm_GetCommand(float *pan, float *tilt, uint8_t *state)
     __enable_irq();
 
     return true;
-}
-
-float FCS_Comm_GetPan(void)
-{
-    return cmd_pan;
-}
-
-float FCS_Comm_GetTilt(void)
-{
-    return cmd_tilt;
-}
-
-uint8_t FCS_Comm_GetState(void)
-{
-    return cmd_state;
 }
 
