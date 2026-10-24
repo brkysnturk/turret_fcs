@@ -248,6 +248,12 @@
 - [webots_main.py](file:///c:/YTU/bitirme_projesi/turret_fcs/webots/controllers/webots_main/webots_main.py): Webots dijital ikiz ana döngüsü; üretim FCS/HUD modüllerini kullanır, kademeli SPINUP/SETTLE/FIRING sekansı içerir. P FF kapalıdır; lead/HUD canlıdır.
 - [webots_tuning.py](file:///c:/YTU/bitirme_projesi/turret_fcs/webots/controllers/webots_main/webots_tuning.py): Webots-only Kp/max_output override, profil tavanı ve telemetri metadata'sı; varsayılan P kazançları `CONFIG.control.kp_pan/kp_tilt` ile aynıdır.
 - [system_identification.py](file:///c:/YTU/bitirme_projesi/turret_fcs/analysis/system_identification.py): Sentetik nominal SOPDT/FOPDT analizi; gerçek telemetriye fit yapmaz, ölçülmüş tau/backlash üretmez.
+- [weights.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/weights.py): GitHub Releases varlıklarından (Release Assets) model ağırlıklarını (`best.pt`, `yolov8n.pt`) otomatik indiren yardımcı modül.
+- [engagement.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/engagement.py): Ayrıştırılmış 5 aşamalı atış ve hedef angajman durum makinesi (`SPINUP`, `SETTLE`, `FIRING`, `RECOVER`, `EVAL`).
+- [presenter.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/presenter.py): Ayrıştırılmış taktiksel HUD çizim ve sunum katmanı.
+- [keymap.py](file:///c:/YTU/bitirme_projesi/turret_fcs/turret_fcs/keymap.py): Operatör klavye kontrolleri ve mod geçişleri işleyicisi.
+- [firmware.md](file:///c:/YTU/bitirme_projesi/turret_fcs/docs/firmware.md): CubeIDE derleme, ST-Link flaşlama, pinout ve bekçi köpeği kılavuzu.
+- [reproducibility.md](file:///c:/YTU/bitirme_projesi/turret_fcs/docs/reproducibility.md): Test, RL eğitim ve tekrar üretilebilirlik kılavuzu.
 
 ---
 

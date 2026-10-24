@@ -22,6 +22,11 @@ v1.4 consolidates every post-v1.3 change: the repo-wide audit, P 0.22/0.11, the 
 - **LiDAR range gating hardening:** firing-time range freeze, 50 cm jump rejection, 3-frame/10 cm stability gate, 3-frame reacquire, and optional geometry check for jump candidates.
 - **P:** single EMA, Kp pan/tilt 0.22/0.11, acceleration limits 400/267 deg/s^2, soft deadband 0.85/0.95 deg.
 - **Webots tuning harness:** `webots/tuning_params.json`, runtime Kp/max-output overrides and tuning metadata columns.
+- **GitHub Releases Asset automated weights manager:** added `turret_fcs/weights.py` to automatically fetch `best.pt` and `yolov8n.pt` from GitHub Releases assets on demand, eliminating 12.8 MB of binary weights from git tracking.
+- **Setuptools package-data:** defined package data in `pyproject.toml` for `rl_sim/models/*.npz` and `*.zip` so isolated pip installs ship with offline RL policies.
+- **Decoupled engagement state machine and presenter:** extracted firing protocol and HUD rendering from monolithic loops in `main.py` and `webots_main.py` into `EngagementManager` (`turret_fcs/engagement.py`), `HUDPresenter` (`turret_fcs/presenter.py`), and `process_key_event` (`turret_fcs/keymap.py`), covered by `tests/test_engagement_presenter.py`.
+- **Comprehensive hardware & reproducibility guides:** added `docs/firmware.md` (CubeIDE build, ST-Link flash, pinout, IWDG / Heartbeat watchdog guide), `docs/reproducibility.md` (RL retraining and simulation benchmarks), and `analysis/README.md` (cataloging 20 analysis tools).
+- **GitHub Linguist & line endings configuration:** added `.gitattributes` to mark STM32 HAL drivers as `linguist-vendored`, normalize LF for 3D simulation assets, and handle binary model assets.
 
 ### Fixed
 - **Target selection dropout hysteresis and ID-switch gate:** `is_tracking` became false after the first missing frame, so the relaxed 0.16 tracking confidence was never used during the 5-frame dropout tolerance. It now stays true while `lost_counter <= max_lost_frames`, and a ByteTrack ID that jumps farther than 250 px is rejected in favour of a spatially consistent candidate.
