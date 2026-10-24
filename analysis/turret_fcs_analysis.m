@@ -3,12 +3,11 @@
 %  BITIRME PROJESI: OTONOM TARET ATIS KONTROL SISTEMI (TURRET FCS)
 %  OPTIMIZE EDILMIS KONTROLCU VE SISTEM DINAMIK ANALIZ MOTORU
 % =========================================================================
-%  Bu script gercek donanimda dogrulanan son sistem parametrelerini analiz eder:
-%    - Kp_pan = 0.055 (Ev: 0.055 | Okul: 0.10), Kp_tilt = 0.030 (Ev: 0.030 | Okul: 0.06)
-%    - Ki = 0.00, Kd = 0.00 (Saf Kritik Sonumlu, Gurultusuz Kontrol)
+%  Bu script taret atis kontrol sisteminin dinamik parametrelerini analiz eder:
+%    - Kp_pan = 0.22 (Kv = 6.60 1/s), Kp_tilt = 0.11 (Kv = 3.30 1/s)
 %    - Soft Deadband: 0.85 deg (Pan) | 0.95 deg (Tilt)
-%    - Slew Rate Limiti: MAX_OUTPUT_DEG = 1.35 deg/frame (40.5 deg/s) | Okul: 2.75
-%    - Donanim Gecikmesi: theta = 80 ms (Kamera + YOLOv8 + USB UART)
+%    - Slew Rate Limiti: MAX_OUTPUT_DEG = 1.50 deg/frame (45.0 deg/s)
+%    - Donanim Gecikmesi: theta = 80 ms, Eyleyici Lag: tau = 45 ms
 %    - Eksiksiz ASCII etiketler, profesyonel lejantlar ve 300 DPI PNG kaydi
 % =========================================================================
 
@@ -51,8 +50,8 @@ step_target = 20.0;           % 20 derece ani hedef sapmasi
 delay_sec   = 0.080;          % 80 ms toplam gecikme
 delay_steps = round(delay_sec / dt_sim);
 
-% Guncel Donanim Parametreleri (v1.3 Yumusak Olu Bolgeli Saf P Kontrolcu)
-kp = 0.055; ki = 0.00; kd = 0.00; deadband = 0.85; max_slew = 1.35;
+% Guncel Parametreler (Yumusak Olu Bolgeli P Kontrolcu)
+kp = 0.22; ki = 0.00; kd = 0.00; deadband = 0.85; max_slew = 1.50;
 
 y_pos  = zeros(1, N_pts);
 u_vel  = zeros(1, N_pts);
