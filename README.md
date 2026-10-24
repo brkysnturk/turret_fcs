@@ -183,7 +183,6 @@ Bu bölüm, her modülün **ne olduğunu ve sistem içinde hangi işi yaptığı
 | **Algılama** | `target_selector.py` | YOLO kutuları arasından güvenilir, kararlı hedefi seçer | Hedef kutusu |
 | **Algılama** | `weights.py` | YOLO ağırlıklarını indirir ve SHA256 ile doğrular | `best.pt`, `yolov8n.pt` |
 | **Kestirim** | `kalman_filter.py` | Hedef konumu/hızını kestirir, ego hareketini çıkarır | `[x, y, vx, vy]` |
-| **Kestirim** | `los_tracker.py` | Dünya görüş hattı için alpha-beta referansı üretir | Tanılama amaçlı LOS |
 | **Kilit** | `lock_manager.py` | Dinamik kilit eşiği, histerezis ve vuruş olasılığı | `is_locked`, `hit_probability` |
 | **Kontrol** | `p_controller.py` | Tip-1 P ile hassas, düşük titreşimli takip | Pan/tilt adımı |
 | **Kontrol** | `rl_controller.py` | PPO politikasıyla çevik takip | Pan/tilt adımı |
@@ -259,12 +258,6 @@ YOLO kutularını güven, alan, en-boy oranı ve nisangah mesafesine göre filtr
 Durum vektörü `[x, y, vx, vy]`, ölçüm `[x, y]` şeklindedir. Sabit hızlı model, tek süreç gürültüsü `sigma_a = 300 px/s^2` ve tek ölçüm gürültüsü `r_var = 64 px^2` ile çalışır. Kovaryans güncellemesi Joseph formundadır. Taretin son motor komutundan üretilen ego kayması kestirim adımına eklenir; böylece hız durumu dünya referanslı kalır. Tek karelik 150 px üstü sıçramada ölçüm kovaryansı 100 kat büyütülür; aynı sapma 3 kare sürerse takip konumdan, sıfır hızla yeniden başlatılır. Çıkışta 30-60 px/s yumuşak hız ölü bölgesi vardır.
 
 **Ne sağlar:** YOLO kutu gürültüsünü ve taret dönüşünün yarattığı sahte hızı bastırır; lead ve HUD için kararlı hız üretir.
-
-#### `los_tracker.py` — Dünya LOS referansı
-
-Taret açısı ile kamera açısal hatasını toplayarak dünya görüş hattı açısını izler. Alpha-beta yapısındadır ve kontrol hattına bağlı değildir; telemetri, gerçek log ve Webots karşılaştırmalarında referans üretmek için kullanılır.
-
-**Ne sağlar:** Kalman kestiriminin bağımsız bir yer gerçeğiyle karşılaştırılmasını sağlar.
 
 #### `lock_manager.py` — Kilit ve vuruş olasılığı
 
@@ -347,8 +340,6 @@ Gerçek plant kısıtlarını modeller: 1.20° dişli boşluğu, 0.10° servo ö
 | `export_rl_policy.py` | SB3 `.zip` modelini bağımsız `.npz` NumPy MLP'ye aktarır |
 | `rl_diagnose.py` | Üretim RL yolu ile ham politikayı aynı tohumlarda karşılaştırır |
 | `p_profile_sweep.py` | 6 hedef profili × 8 P kazancı Webots taraması |
-| `kalman_validation.py` | Telemetri loglarında dünya LOS hızı ile Kalman hızını karşılaştırır |
-| `calibrate_camera_fov.py` | C270 optik FOV ve odak uzaklığı kalibrasyonu |
 
 ### 6.7 Webots dijital ikizi
 
@@ -746,7 +737,6 @@ turret_fcs/
 │   ├── camera_thread.py              # Kamera thread'i
 │   ├── target_selector.py            # Hedef seçimi
 │   ├── kalman_filter.py              # CV Kalman
-│   ├── los_tracker.py                # Dünya LOS referansı
 │   ├── lock_manager.py               # Kilit + vuruş olasılığı
 │   ├── p_controller.py               # Tip-1 P
 │   ├── rl_controller.py              # PPO çıkarımı
